@@ -1,0 +1,15 @@
+# Artefactos Roblox / Rojo (regenerables)
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+build/
+sourcemap.json
+
+# graphify (regenerable con /graphify .)
+graphify-out/
+
+# OS / editores
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -18,3 +18,23 @@ Notas:
 - Los archivos son **.glb** (GLTF binario), no .obj como decía el plan §1/§2 — el spike S2 verificará si el 3D Importer los acepta directamente o hay que convertir. Si la doc oficial de Roblox contradice al plan, gana la doc.
 - Total ~108 MB; el mayor (90 MB) vive en Git LFS (decisión D6).
 - CC-BY exige atribución: créditos en `assets-source/CREDITS.md` y, más adelante, pantalla de créditos dentro del juego (fase 6).
+
+### Pre-chequeo técnico S2 (offline, 26-10-2026)
+
+Los 9 archivos son GLB binarios válidos (glTF 2.0). Resultado por modelo (meshes · tris totales · tris del mayor mesh · texturas):
+
+| Archivo | Meshes | Tris | Tris máx. | Texturas | Veredicto |
+| --- | --- | --- | --- | --- | --- |
+| backpack_low-poly.glb | 53 | 3.840 | 436 | 3 (2,2 MB) | ✓ importable |
+| free_low_poly_forest.glb | **1.249** | **1.064.000** | 1.946 | 0 | ✗ tal cual NO — trocear/decimar en Blender o usar como referencia |
+| free_pack_-_rocks_stylized.glb | 11 | 3.076 | 1.438 | 1 (7,8 MB) | ✓ importable (sublicencia Sereda pendiente) |
+| free_pack_-_tree.glb | 8 | 7.253 | 1.365 | 1 (4,0 MB) | ✓ importable |
+| low-poly_toy_pack_teddy_bear__rubber_duck.glb | 2 | 2.332 | 1.532 | 6 (5,2 MB) | ✓ importable |
+| low_poly_character_rigged.glb | 1 | 1.648 | 1.648 | 1 (0,2 MB) | ✓ importable (1 skin) |
+| low_poly_forest_pack_.free_3d_models.glb | 2 | 2.322 | 2.320 | 0 | ✓ importable |
+| lowpoly_office_chair.glb | 2 | 5.040 | 3.040 | 0 | ✓ importable |
+| stylized_mushrooms_-_low_poly.glb | 3 | 1.328 | 608 | 9 (0,7 MB) | ✓ importable |
+
+Todo mesh individual está muy por debajo del límite práctico del 3D Importer (10k tris/mesh). El único bloqueante es el bosque de 90 MB (1,06 M tris en total). El límite exacto del importador se confirmará al importar de verdad: la doc accesible no lo detalla.
+
+Incidente de proceso resuelto: tras `git lfs migrate`, el working tree quedó con punteros LFS sin *smudge* (los .glb eran texto `version https://git-lfs...`); restaurado con `git lfs checkout` (17/17 objetos locales).

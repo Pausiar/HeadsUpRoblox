@@ -16,8 +16,20 @@ Config.Etapa0 = {
 		Danio = 35,
 		RadioImpacto = 8,
 	},
+	Troncos = {
+		IntervaloMin = 4,
+		IntervaloMax = 7,
+		AvisoSeg = 2.0,
+		Velocidad = 24, -- studs/s cruzando el sendero
+		Danio = 30,
+		Largo = 10,
+		Diametro = 2.4,
+	},
 	Caido = {
 		SegundosParaReanimar = 30,
+	},
+	Match = {
+		EnfriamientoReintentar = 3, -- s entre peticiones de reinicio por jugador
 	},
 }
 

@@ -8,10 +8,14 @@ carpetaRemotes.Parent = ReplicatedStorage
 local Server = script.Parent
 local StageService = require(Server.StageService)
 local PlayerStateService = require(Server.PlayerStateService)
+local MatchService = require(Server.MatchService)
+local TroncoService = require(Server.TroncoService)
 local HazardService = require(Server.HazardService)
 
 StageService.Construir()
 PlayerStateService.Iniciar()
+MatchService.Iniciar()
+TroncoService.Iniciar()
 HazardService.Iniciar()
 
-print("[Slice] servidor listo: etapa construida, estados y peligros activos")
+print("[Slice] servidor listo: etapa, estados, match, troncos y rocas activos")

@@ -51,7 +51,8 @@ function HazardService.SoltarRoca(pos)
 			end
 			local char = otra and otra.Parent
 			local player = char and Players:GetPlayerFromCharacter(char)
-			if player then
+			-- Un caído ya está fuera de combate: no recibe más daño de rocas (plan §4.4)
+			if player and not playerState.EstaCaido(player) then
 				roca:SetAttribute("Impactado", true)
 				local raiz = char:FindFirstChild("HumanoidRootPart")
 				if raiz and (raiz.Position - roca.Position).Magnitude <= cfg.RadioImpacto then
@@ -93,7 +94,7 @@ function HazardService.Iniciar()
 				local char = player.Character
 				local raiz = char and char:FindFirstChild("HumanoidRootPart")
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
-				if raiz and hum and hum.Health > 0 then
+				if raiz and hum and hum.Health > 0 and not playerState.EstaCaido(player) then
 					table.insert(objetivos, raiz.Position)
 				end
 			end

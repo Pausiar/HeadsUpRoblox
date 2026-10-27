@@ -65,6 +65,11 @@ function PlayerStateService.Reanimar(player, reanimador)
 	print("[Estado] reanimado:", player.Name, "por", reanimador and reanimador.Name or "?")
 end
 
+function PlayerStateService.EstaCaido(player)
+	local st = estados[player]
+	return st ~= nil and st.caido
+end
+
 function PlayerStateService.Iniciar()
 	hud = Remotes.Crear(Remotes.Nombres.HudEstado)
 

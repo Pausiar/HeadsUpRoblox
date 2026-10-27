@@ -35,6 +35,16 @@ Config.Etapa0 = {
 		Reanimar = 50, -- plan §4.5: premiar ayudar más que la velocidad
 		Checkpoint = 10,
 	},
+	Personalizacion = {
+		-- Rangos verificados por el spike S5 (spikes/s5-r15-escalado/README.md)
+		AlturaMin = 0.9,
+		AlturaMax = 1.05,
+		AnchoMin = 0.7,
+		AnchoMax = 1.3,
+		CabezaMin = 0.85,
+		CabezaMax = 1.25,
+		Enfriamiento = 1, -- s entre aplicaciones
+	},
 }
 
 return Config

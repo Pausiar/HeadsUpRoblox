@@ -10,6 +10,8 @@ Remotes.Nombres = {
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }
 	Ranking = "Ranking", -- server -> client: array de { nombre, puntos, distancia } ordenado por puntos
+	Personalizacion = "Personalizacion", -- client -> server: { altura, ancho, cabeza } validado en servidor
+	Empezar = "Empezar", -- client -> server: JUGAR; el servidor pone EnJuego (los atributos de cliente no replican)
 }
 
 function Remotes.Crear(nombre)

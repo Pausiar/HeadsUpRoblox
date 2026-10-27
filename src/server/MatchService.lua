@@ -79,8 +79,19 @@ function MatchService.Iniciar()
 
 	local finPartida = Remotes.Crear(Remotes.Nombres.FinPartida)
 	local reintentar = Remotes.Crear(Remotes.Nombres.Reintentar)
+	local empezar = Remotes.Crear(Remotes.Nombres.Empezar)
+	local permitirEmpezar = RateLimiter.nuevo(1)
 	local permitirReintentar = RateLimiter.nuevo(etapa.Match.EnfriamientoReintentar)
 	local puntosService = require(script.Parent.PuntosService)
+
+	-- JUGAR: el servidor pone EnJuego (los atributos que fija el cliente no replican)
+	empezar.OnServerEvent:Connect(function(player)
+		if not permitirEmpezar(player) then
+			return
+		end
+		player:SetAttribute("EnJuego", true)
+		print("[Match] empieza:", player.Name)
+	end)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAdded:Connect(function(char)

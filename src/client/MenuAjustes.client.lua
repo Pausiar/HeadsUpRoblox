@@ -25,6 +25,13 @@ gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- Safe area móvil (P1 de la revisión apple-design): respetar la notch
+local inset = game:GetService("GuiService"):GetGuiInset()
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, inset.Y)
+pad.PaddingLeft = UDim.new(0, inset.X)
+pad.Parent = gui
+
 local panel = Instance.new("Frame")
 panel.Name = "Panel"
 panel.Size = UDim2.fromOffset(460, 420)

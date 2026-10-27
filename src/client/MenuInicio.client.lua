@@ -115,12 +115,25 @@ local function avisoFase(boton, textoAviso)
 	end
 end
 
+local remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+
 botonJugar.Activated:Connect(function()
+	-- El servidor pone EnJuego (los atributos de cliente no replican); local solo para la UI
+	remotes.Esperar(remotes.Nombres.Empezar):FireServer()
 	player:SetAttribute("EnJuego", true)
 	gui:Destroy()
 end)
 
-botonPersonalizar.Activated:Connect(avisoFase(botonPersonalizar, "PERSONALIZAR · fase 4"))
+local avisoFasePersonalizar = avisoFase(botonPersonalizar, "PERSONALIZAR · fase 4")
+botonPersonalizar.Activated:Connect(function()
+	local personalizacion = player.PlayerGui:FindFirstChild("Personalizacion")
+	if personalizacion then
+		personalizacion.Enabled = true
+		gui.Enabled = false
+		return
+	end
+	avisoFasePersonalizar()
+end)
 
 local parpadearAjustes = avisoFase(botonAjustes, "AJUSTES · fase siguiente")
 botonAjustes.Activated:Connect(function()

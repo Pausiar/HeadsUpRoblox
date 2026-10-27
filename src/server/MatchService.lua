@@ -9,6 +9,7 @@ local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 
 local MatchService = {}
 local playerState
+local dataService -- asignado en Iniciar(); lo usa el fin de partida
 
 local checkpoints = {} -- [player] = { indice = n, x = x }
 local distancia = {} -- [player] = X máxima alcanzada
@@ -42,6 +43,13 @@ local function estaCaido(player)
 		return false
 	end
 	return hum.PlatformStand or hum.Health <= 0
+end
+
+-- Récord personal persistente (plan §3.3/§4.5): nunca baja un récord ya logrado
+local function aplicarRecord(player, record)
+	if type(record) == "number" then
+		recordSesion[player] = math.max(recordSesion[player] or 0, record)
+	end
 end
 
 function MatchService.ObtenerDistancia(player)
@@ -169,6 +177,8 @@ function MatchService.Iniciar()
 							local recordAnterior = recordSesion[player] or 0
 							local nuevoRecord = dist > recordAnterior
 							recordSesion[player] = math.max(recordAnterior, dist)
+							-- Persistir el récord para la próxima sesión (plan §3.3/§4.5)
+							dataService.Guardar(player, "record", recordSesion[player])
 							finPartida:FireClient(player, {
 								distancia = dist,
 								tiempo = math.floor(os.clock() - inicio),
@@ -184,6 +194,21 @@ function MatchService.Iniciar()
 			end
 		end
 	end)
+
+	-- Récord personal persistente vía DataService (plan §3.3/§4.5)
+	dataService = require(script.Parent.DataService)
+	dataService.AlCargar.Event:Connect(function(player, datos)
+		if type(datos) == "table" then
+			aplicarRecord(player, datos.record)
+		end
+	end)
+	-- Carrera: los datos pueden haber cargado antes de conectar AlCargar
+	for _, player in Players:GetPlayers() do
+		local datos = dataService.Obtener(player)
+		if type(datos) == "table" then
+			aplicarRecord(player, datos.record)
+		end
+	end
 
 	print("[Match] checkpoints activos:", indice)
 end

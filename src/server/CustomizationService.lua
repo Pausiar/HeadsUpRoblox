@@ -58,6 +58,27 @@ local function aplicar(player, personaje, esc)
 		.. ": altura=" .. esc.altura .. " ancho=" .. esc.ancho .. " cabeza=" .. esc.cabeza)
 end
 
+-- Restaura escalas persistidas por DataService (plan §3.3). Revalida con
+-- clampCampo porque la fuente puede estar corrupta aunque el servidor
+-- clampéara al guardar. Si el personaje ya existe, aplica en vivo.
+local function cargarEscalas(player, datos)
+	local esc = type(datos) == "table" and datos.escalas
+	if type(esc) ~= "table" then
+		return
+	end
+	local altura = clampCampo(esc.altura, Personalizacion.AlturaMin, Personalizacion.AlturaMax)
+	local ancho = clampCampo(esc.ancho, Personalizacion.AnchoMin, Personalizacion.AnchoMax)
+	local cabeza = clampCampo(esc.cabeza, Personalizacion.CabezaMin, Personalizacion.CabezaMax)
+	if not (altura and ancho and cabeza) then
+		return
+	end
+	escalas[player] = { altura = altura, ancho = ancho, cabeza = cabeza }
+	local char = player.Character
+	if char then
+		aplicar(player, char, escalas[player])
+	end
+end
+
 local function conectarJugador(player)
 	player.CharacterAdded:Connect(function(char)
 		-- Espera a que el Humanoid y el rig terminen de cargarse tras el spawn.
@@ -70,6 +91,8 @@ local function conectarJugador(player)
 end
 
 function CustomizationService.Iniciar()
+	-- Se requiere aquí: Main llama DataService.Iniciar() antes que este.
+	local DataService = require(script.Parent.DataService)
 	remotoPersonalizacion = Remotes.Crear(Remotes.Nombres.Personalizacion) -- el servidor crea, el cliente espera
 	permitir = RateLimiter.nuevo(Personalizacion.Enfriamiento)
 
@@ -87,6 +110,7 @@ function CustomizationService.Iniciar()
 			return
 		end
 		escalas[player] = { altura = altura, ancho = ancho, cabeza = cabeza }
+		DataService.Guardar(player, "escalas", escalas[player]) -- persistencia (plan §3.3)
 		local char = player.Character
 		if char then
 			aplicar(player, char, escalas[player])
@@ -99,6 +123,12 @@ function CustomizationService.Iniciar()
 	Players.PlayerRemoving:Connect(function(player)
 		escalas[player] = nil
 	end)
+
+	DataService.AlCargar.Event:Connect(cargarEscalas)
+	-- AlCargar pudo dispararse antes de conectar el listener (jugadores ya cargados).
+	for _, player in ipairs(Players:GetPlayers()) do
+		cargarEscalas(player, DataService.Obtener(player))
+	end
 end
 
 -- Escalas guardadas del jugador (o nil si nunca personalizó). Copia para

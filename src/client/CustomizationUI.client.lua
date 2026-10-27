@@ -90,8 +90,34 @@ local function etiquetaFila(y, texto)
 	return t
 end
 
--- shortcut: los valores iniciales son el default 1.0 del juego; la lectura real del servidor/DataStore llega en la fase 2
+-- Los valores iniciales son el default 1.0; si el jugador tiene escalas guardadas, el
+-- servidor las publica por TusDatos al terminar de cargar el DataStore y se aplican aquí.
 local estado = { altura = 1, ancho = 1, cabeza = 1 }
+
+-- Escalas guardadas (TusDatos: server->client, payload = tabla guardada, puede venir {}).
+-- Orden anti-carrera: se conecta ANTES de crear los sliders; si el remote llega primero
+-- queda en `pendiente` y se vuelca justo tras crearlos; si llega después, se aplica al momento.
+local pendiente = nil
+local aplicarEscalasGuardadas = nil -- se define tras crear los sliders (necesita sus refrescar)
+Remotes.Esperar("TusDatos").OnClientEvent:Connect(function(datos)
+	local escalas = typeof(datos) == "table" and datos.escalas
+	if typeof(escalas) ~= "table" then
+		return
+	end
+	local a, n, c = escalas.altura, escalas.ancho, escalas.cabeza
+	if typeof(a) ~= "number" or typeof(n) ~= "number" or typeof(c) ~= "number" then
+		return
+	end
+	-- Clamp por si acaso: el servidor ya valida, pero no confiamos en la red (plan §3.3).
+	pendiente = {
+		altura = math.clamp(a, personalizacion.AlturaMin, personalizacion.AlturaMax),
+		ancho = math.clamp(n, personalizacion.AnchoMin, personalizacion.AnchoMax),
+		cabeza = math.clamp(c, personalizacion.CabezaMin, personalizacion.CabezaMax),
+	}
+	if aplicarEscalasGuardadas then
+		aplicarEscalasGuardadas()
+	end
+end)
 
 -- Anti-spam del remote: los sliders envían solo al SOLTAR (máx. 1 envío por arrastre);
 -- los botones comparten además un enfriamiento de 0,3 s y el valor pendiente se reenvía
@@ -203,6 +229,22 @@ end
 local refrescarAltura = crearSlider(76, "Altura", "altura", personalizacion.AlturaMin, personalizacion.AlturaMax)
 local refrescarAncho = crearSlider(134, "Ancho", "ancho", personalizacion.AnchoMin, personalizacion.AnchoMax)
 local refrescarCabeza = crearSlider(192, "Cabeza", "cabeza", personalizacion.CabezaMin, personalizacion.CabezaMax)
+
+-- Con los sliders ya creados, define cómo aplicar las escalas recibidas y vuelca
+-- las pendientes si TusDatos llegó antes de crearlos (solo refresca la UI: no reenvía).
+aplicarEscalasGuardadas = function()
+	if not pendiente then
+		return
+	end
+	estado.altura = pendiente.altura
+	estado.ancho = pendiente.ancho
+	estado.cabeza = pendiente.cabeza
+	pendiente = nil
+	refrescarAltura()
+	refrescarAncho()
+	refrescarCabeza()
+end
+aplicarEscalasGuardadas()
 
 local aleatorio = Instance.new("TextButton")
 aleatorio.Size = UDim2.fromOffset(240, 44)

@@ -6,6 +6,7 @@ carpetaRemotes.Name = "Remotes"
 carpetaRemotes.Parent = ReplicatedStorage
 
 local Server = script.Parent
+local DataService = require(Server.DataService)
 local StageService = require(Server.StageService)
 local PlayerStateService = require(Server.PlayerStateService)
 local MatchService = require(Server.MatchService)
@@ -15,6 +16,7 @@ local TroncoService = require(Server.TroncoService)
 local HazardService = require(Server.HazardService)
 local CustomizationService = require(Server.CustomizationService)
 
+DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 StageService.Construir()
 PlayerStateService.Iniciar()
 MatchService.Iniciar()

@@ -9,6 +9,7 @@ Remotes.Nombres = {
 	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord }
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }
+	Ranking = "Ranking", -- server -> client: array de { nombre, puntos, distancia } ordenado por puntos
 }
 
 function Remotes.Crear(nombre)

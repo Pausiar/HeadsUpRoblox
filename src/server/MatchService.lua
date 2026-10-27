@@ -44,6 +44,10 @@ local function estaCaido(player)
 	return hum.PlatformStand or hum.Health <= 0
 end
 
+function MatchService.ObtenerDistancia(player)
+	return distancia[player] or 0
+end
+
 function MatchService.Iniciar()
 	playerState = require(script.Parent.PlayerStateService)
 

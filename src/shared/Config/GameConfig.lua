@@ -31,6 +31,10 @@ Config.Etapa0 = {
 	Match = {
 		EnfriamientoReintentar = 3, -- s entre peticiones de reinicio por jugador
 	},
+	Puntos = {
+		Reanimar = 50, -- plan §4.5: premiar ayudar más que la velocidad
+		Checkpoint = 10,
+	},
 }
 
 return Config

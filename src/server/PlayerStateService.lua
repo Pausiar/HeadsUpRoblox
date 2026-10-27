@@ -9,6 +9,10 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local PlayerStateService = {}
 local estados = {} -- [player] = { caido = bool, deadline = number }
 
+-- Señal interna para otros servicios del servidor (plan §4.5: reanimar da puntos)
+local reanimado = Instance.new("BindableEvent")
+PlayerStateService.Reanimado = reanimado -- (reanimador, jugador)
+
 local hud
 
 local function quitarPrompt(char)
@@ -62,6 +66,7 @@ function PlayerStateService.Reanimar(player, reanimador)
 	hum.WalkSpeed = 16
 	hum.Health = math.max(hum.Health, 60)
 	quitarPrompt(char)
+	reanimado:Fire(reanimador, player)
 	print("[Estado] reanimado:", player.Name, "por", reanimador and reanimador.Name or "?")
 end
 

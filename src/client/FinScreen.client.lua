@@ -11,6 +11,7 @@ local MADERA = Color3.fromRGB(62, 42, 24) -- panel oscuro #3E2A18
 local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8 texto
 local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria
 local ROJO = Color3.fromRGB(224, 69, 58) -- #E0453A peligro/título
+local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C insignia récord (contraste 8.8:1 sobre madera)
 local VELO = Color3.fromRGB(12, 8, 5) -- fondo oscuro semitransparente
 local BLANCO = Color3.fromRGB(255, 255, 255)
 
@@ -44,7 +45,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 340)
+panel.Size = UDim2.fromOffset(420, 420) -- 5 líneas + insignia + botón (antes 340)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -77,14 +78,28 @@ local function etiqueta(y, tamano)
 	return t
 end
 
-local textoDistancia = etiqueta(80, 28)
-local textoTiempo = etiqueta(114, 28)
-local textoCheckpoint = etiqueta(148, 28)
+-- Insignia de récord (una idea por pantalla): texto amarillo sobre el panel, sin pill extra.
+local insignia = Instance.new("TextLabel")
+insignia.Size = UDim2.new(1, -40, 0, 32)
+insignia.Position = UDim2.new(0, 20, 0, 74)
+insignia.BackgroundTransparency = 1
+insignia.Font = Enum.Font.GothamBlack
+insignia.Text = "¡NUEVO RÉCORD!"
+insignia.TextSize = 26
+insignia.TextColor3 = AMARILLO
+insignia.Visible = false
+insignia.Parent = panel
+
+local textoDistancia = etiqueta(116, 28)
+local textoTiempo = etiqueta(150, 28)
+local textoCheckpoint = etiqueta(184, 28)
+local textoRecord = etiqueta(218, 28)
+local textoPuntos = etiqueta(252, 28)
 
 local boton = Instance.new("TextButton")
 boton.Name = "BotonReintentar"
 boton.AnchorPoint = Vector2.new(0.5, 0)
-boton.Position = UDim2.new(0.5, 0, 0, 240)
+boton.Position = UDim2.new(0.5, 0, 0, 316)
 boton.Size = UDim2.fromOffset(300, 56) -- objetivo de toque grande (≥44 px)
 boton.BackgroundColor3 = VERDE
 boton.BorderSizePixel = 0
@@ -104,12 +119,18 @@ local function mostrar(datos)
 	local distancia = math.max(0, math.floor(tonumber(datos and datos.distancia) or 0))
 	local tiempo = math.max(0, math.floor(tonumber(datos and datos.tiempo) or 0))
 	local checkpoint = math.floor(tonumber(datos and datos.checkpoint) or 0)
+	local puntos = math.max(0, math.floor(tonumber(datos and datos.puntos) or 0))
+	local record = math.max(0, math.floor(tonumber(datos and datos.record) or 0))
+	local nuevoRecord = datos ~= nil and datos.nuevoRecord == true
 
 	textoDistancia.Text = ("Distancia: %d m"):format(distancia)
 	textoTiempo.Text = ("Tiempo: %02d:%02d"):format(tiempo / 60, tiempo % 60)
 	textoCheckpoint.Text = if checkpoint > 0
 		then ("Checkpoint: %d"):format(checkpoint)
 		else "Checkpoint: sin checkpoint"
+	textoRecord.Text = ("Récord: %d m"):format(record)
+	textoPuntos.Text = ("Puntos: %d"):format(puntos)
+	insignia.Visible = nuevoRecord
 
 	-- Entrada sutil: fundido del velo + panel sube unos píxeles (nunca cambia de tamaño)
 	velo.BackgroundTransparency = 1

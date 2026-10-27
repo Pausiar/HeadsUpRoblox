@@ -12,8 +12,13 @@ local playerState
 
 local checkpoints = {} -- [player] = { indice = n, x = x }
 local distancia = {} -- [player] = X máxima alcanzada
+local recordSesion = {} -- [player] = mejor distancia de la sesión
 local inicio = nil -- os.clock() del primer CharacterAdded; Reintentar lo resetea
 local partidaTerminada = false
+
+-- Señal interna para otros servicios del servidor (plan §4.5: checkpoint da puntos)
+local checkpointAlcanzado = Instance.new("BindableEvent")
+MatchService.CheckpointAlcanzado = checkpointAlcanzado -- (player, indice)
 
 local function crearZona(x, indice, padre)
 	local zona = Instance.new("Part")
@@ -62,6 +67,7 @@ function MatchService.Iniciar()
 			local actual = checkpoints[player]
 			if not actual or info.indice > actual.indice then
 				checkpoints[player] = info
+				checkpointAlcanzado:Fire(player, info.indice)
 				print("[Match] checkpoint", info.indice, "por", player.Name)
 			end
 		end)
@@ -70,6 +76,7 @@ function MatchService.Iniciar()
 	local finPartida = Remotes.Crear(Remotes.Nombres.FinPartida)
 	local reintentar = Remotes.Crear(Remotes.Nombres.Reintentar)
 	local permitirReintentar = RateLimiter.nuevo(etapa.Match.EnfriamientoReintentar)
+	local puntosService = require(script.Parent.PuntosService)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAdded:Connect(function(char)
@@ -137,10 +144,17 @@ function MatchService.Iniciar()
 						partidaTerminada = true
 						for _, player in jugadores do
 							local cp = checkpoints[player]
+							local dist = math.round(distancia[player] or 0)
+							local recordAnterior = recordSesion[player] or 0
+							local nuevoRecord = dist > recordAnterior
+							recordSesion[player] = math.max(recordAnterior, dist)
 							finPartida:FireClient(player, {
-								distancia = math.round(distancia[player] or 0),
+								distancia = dist,
 								tiempo = math.floor(os.clock() - inicio),
 								checkpoint = cp and cp.indice or 0,
+								puntos = puntosService.GetPuntos(player),
+								record = math.max(recordSesion[player], dist),
+								nuevoRecord = nuevoRecord,
 							})
 						end
 						print("[Match] fin de partida")

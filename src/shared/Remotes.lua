@@ -6,8 +6,9 @@ local Remotes = {}
 
 Remotes.Nombres = {
 	HudEstado = "HudEstado", -- server -> client: { estado, restante }
-	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint }
+	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord }
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
+	Puntos = "Puntos", -- server -> client: { puntos, motivo }
 }
 
 function Remotes.Crear(nombre)

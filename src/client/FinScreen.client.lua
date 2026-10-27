@@ -2,6 +2,7 @@
 -- Paleta y estilo: docs/design/design-dna.md. Patrón de GUI reutilizado de Hud.client.lua.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -10,6 +11,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local MADERA = Color3.fromRGB(62, 42, 24) -- panel oscuro #3E2A18
 local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8 texto
 local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria
+local VERDE_APAGADO = Color3.fromRGB(62, 107, 60) -- #3E6B3C acción primaria en enfriamiento
 local ROJO = Color3.fromRGB(224, 69, 58) -- #E0453A peligro/título
 local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C insignia récord (contraste 8.8:1 sobre madera)
 local VELO = Color3.fromRGB(12, 8, 5) -- fondo oscuro semitransparente
@@ -33,6 +35,12 @@ gui.DisplayOrder = 100
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- F4 (revisión apple-design): safe area móvil — el velo no cubre la notch.
+local insetSuperior = GuiService:GetGuiInset() -- primer Vector2 = inset superior
+local rellenoGui = Instance.new("UIPadding")
+rellenoGui.PaddingTop = UDim.new(0, insetSuperior.Y)
+rellenoGui.Parent = gui
+
 local velo = Instance.new("Frame")
 velo.Name = "Velo"
 velo.Size = UDim2.fromScale(1, 1)
@@ -53,6 +61,24 @@ panel.Parent = velo
 local esquina = Instance.new("UICorner")
 esquina.CornerRadius = UDim.new(0, 16)
 esquina.Parent = panel
+
+-- F1 (revisión apple-design, P1 móvil): panel escalable. El UISizeConstraint acota
+-- el tamaño y el UIScale encoge el conjunto (panel + hijos) en pantallas estrechas.
+local restriccionPanel = Instance.new("UISizeConstraint")
+restriccionPanel.MaxSize = Vector2.new(420, 420)
+restriccionPanel.MinSize = Vector2.new(340, 340)
+restriccionPanel.Parent = panel
+
+local escalaPanel = Instance.new("UIScale")
+escalaPanel.Parent = panel
+
+-- Player no tiene ViewportSize (doc Roblox gana): la GUI es la fuente del viewport
+-- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo).
+local function ajustarEscala()
+	escalaPanel.Scale = math.clamp(gui.AbsoluteSize.X / 500, 0.75, 1)
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
+ajustarEscala()
 
 local titulo = Instance.new("TextLabel")
 titulo.Size = UDim2.new(1, -20, 0, 48)
@@ -127,7 +153,7 @@ local function mostrar(datos)
 	textoTiempo.Text = ("Tiempo: %02d:%02d"):format(tiempo / 60, tiempo % 60)
 	textoCheckpoint.Text = if checkpoint > 0
 		then ("Checkpoint: %d"):format(checkpoint)
-		else "Checkpoint: sin checkpoint"
+		else "Checkpoint: —"
 	textoRecord.Text = ("Récord: %d m"):format(record)
 	textoPuntos.Text = ("Puntos: %d"):format(puntos)
 	insignia.Visible = nuevoRecord
@@ -147,11 +173,15 @@ boton.Activated:Connect(function()
 	enEnfriamiento = true
 	boton.Active = false
 	boton.AutoButtonColor = false
+	boton.Text = "REANUDANDO…" -- F2: feedback visible durante el enfriamiento
+	boton.BackgroundColor3 = VERDE_APAGADO
 	reintentar:FireServer()
 	task.delay(ENFRIAMIENTO, function()
 		enEnfriamiento = false
 		boton.Active = true
 		boton.AutoButtonColor = true
+		boton.Text = "REINTENTAR"
+		boton.BackgroundColor3 = VERDE
 	end)
 end)
 

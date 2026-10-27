@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -25,6 +26,13 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "HudPuntos"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Safe area: inset superior-izquierdo para no salirse bajo la notch en móviles (P1 apple-design).
+local inset = GuiService:GetGuiInset()
+local safeArea = Instance.new("UIPadding")
+safeArea.PaddingTop = UDim.new(0, inset.Y)
+safeArea.PaddingLeft = UDim.new(0, inset.X)
+safeArea.Parent = gui
 
 local panel = Instance.new("Frame")
 panel.Name = "PanelPuntos"

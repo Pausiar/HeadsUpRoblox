@@ -58,7 +58,8 @@ local function lanzarTronco(x)
 					local char = player.Character
 					local raiz = char and char:FindFirstChild("HumanoidRootPart")
 					local hum = char and char:FindFirstChildOfClass("Humanoid")
-					if raiz and hum and hum.Health > 0 and not golpeados[player] and not playerState.EstaCaido(player) then
+					if raiz and hum and hum.Health > 0 and not golpeados[player]
+						and not playerState.EstaCaido(player) and player:GetAttribute("EnJuego") then
 						local delta = raiz.Position - tronco.Position
 						if math.abs(delta.X) <= cfg.Troncos.Largo / 2 and delta.Magnitude < radioGolpe then
 							golpeados[player] = true
@@ -88,7 +89,8 @@ function TroncoService.Iniciar()
 				local char = player.Character
 				local raiz = char and char:FindFirstChild("HumanoidRootPart")
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
-				if raiz and hum and hum.Health > 0 and not playerState.EstaCaido(player) then
+				if raiz and hum and hum.Health > 0 and not playerState.EstaCaido(player)
+					and player:GetAttribute("EnJuego") then
 					table.insert(objetivos, raiz.Position.X)
 				end
 			end

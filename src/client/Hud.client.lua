@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -11,6 +12,13 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "HudSlice"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Safe area (notch): top va en el Vector2 superior-izquierdo, derecha en el inferior-derecho
+local insetSup, insetInf = GuiService:GetGuiInset()
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, insetSup.Y)
+padding.PaddingRight = UDim.new(0, insetInf.X)
+padding.Parent = gui
 
 local panel = Instance.new("Frame")
 panel.Name = "PanelEstado"
@@ -46,15 +54,17 @@ tiempo.Text = "Tiempo: 00:00"
 estado.Text = "Sano"
 
 local inicio = os.clock()
-local restanteCaido = nil
+local deadlineLocal = nil
 
 Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
-	restanteCaido = datos.restante
 	if datos.estado == "CAÍDO" then
-		estado.Text = ("CAÍDO · %ds"):format(restanteCaido or 0)
-		estado.TextColor3 = Color3.fromRGB(224, 69, 58)
+		deadlineLocal = os.clock() + (datos.restante or 0)
+		estado.TextSize = 20
+		estado.TextColor3 = Color3.fromRGB(255, 111, 97) -- #FF6F61, contraste ≥ 4.5:1 (revisión apple-design)
 	else
+		deadlineLocal = nil
 		estado.Text = "Sano"
+		estado.TextSize = 18
 		estado.TextColor3 = Color3.fromRGB(139, 195, 74)
 	end
 end)
@@ -67,6 +77,9 @@ RunService.Heartbeat:Connect(function()
 	end
 	local seg = math.floor(os.clock() - inicio)
 	tiempo.Text = ("Tiempo: %02d:%02d"):format(seg / 60, seg % 60)
+	if deadlineLocal then
+		estado.Text = ("CAÍDO · %ds"):format(math.max(0, math.ceil(deadlineLocal - os.clock())))
+	end
 end)
 
 print("[Hud] activo")

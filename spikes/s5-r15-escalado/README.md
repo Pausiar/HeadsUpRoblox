@@ -21,28 +21,28 @@ Casos (valores del plan §6 — alturas 0.9/1.0/1.05, anchos 0.7/1.0/1.3, cabeza
 
 ## Resultados
 
-**Ejecutado el ____** en el servidor de Studio (1 jugador, playtest MCP):
+**Ejecutado el 2026-10-27** en el servidor de Studio (1 jugador, playtest MCP):
 
 | caso         | altura real (studs) | error | veredicto |
 | ------------ | ------------------- | ----- | --------- |
-| normal       |                     |       |           |
-| minimo       |                     |       |           |
-| maximo       |                     |       |           |
-| alto_delgado |                     |       |           |
-| bajo_ancho   |                     |       |           |
+| normal       | 5.46                | no    | CUMPLE    |
+| minimo       | 4.85                | no    | CUMPLE    |
+| maximo       | 5.96                | no    | CUMPLE    |
+| alto_delgado | 5.67                | no    | CUMPLE    |
+| bajo_ancho   | 5.03                | no    | CUMPLE    |
 
-Escalas que existen en `HumanoidDescription` (según probes): ____
+Escalas que existen en `HumanoidDescription` (según probes): **HeightScale, WidthScale, DepthScale, HeadScale, ProportionScale, BodyTypeScale** (los nombres Body* alternativos NO existen).
 
-Longitud independiente de brazos/piernas (esperado: NO existe): ____ → ¿pasa a versión 2? ____
+Longitud independiente de brazos/piernas (esperado: NO existe): **NO existe** — las 8 candidatas probadas (ArmLengthScale, LegLengthScale, TorsoLengthScale, ArmScale, LegScale, TorsoScale, HandSizeScale, FootSizeScale) no existen → **pasa a versión 2** (plan §6).
 
-Clamp observado (set 10 / 0.01 → leído): ____
+Clamp observado (set 10 / 0.01 → leído): **HeightScale NO satura por API** (set 10 → lee 10.00; set 0.01 → lee 0.01). El rango 0,9–1,05 es decisión de diseño: habrá que validar/clampéar en `CustomizationService` antes de aplicar.
 
 Veredicto sugerido por caso: `CUMPLE` si el rig se crea sin error y la altura escala de forma monótona con la escala configurada; `REVISAR` si hay error o la altura no cambia.
 
 ## Conclusión (rellenar tras el playtest)
 
-- Límites prácticos observados (altura real mínima/máxima y rangos de Config propuestos para `CustomizationService`): ____
-- Decisión brazos/piernas independientes: ____
+- Límites prácticos observados: altura real **4,85–5,96 studs** con HeightScale 0,90–1,05 (0/5 fallos). Rangos de Config propuestos para `CustomizationService`: altura 0,9–1,05, ancho 0,7–1,3, cabeza 0,85–1,25, **validados en cliente+servidor** (la API no clampa).
+- Decisión brazos/piernas independientes: **v1 con altura/ancho/cabeza; brazos y piernas independientes pasan a la versión 2** (no existe escala estándar en HumanoidDescription).
 
 ## Configuración
 

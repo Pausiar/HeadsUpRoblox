@@ -135,7 +135,13 @@ function MatchService.Iniciar()
 					end
 				end
 
-				local jugadores = Players:GetPlayers()
+				-- Solo cuentan los jugadores que han pulsado JUGAR (lobby, plan §4.1)
+				local jugadores = {}
+				for _, player in Players:GetPlayers() do
+					if player:GetAttribute("EnJuego") then
+						table.insert(jugadores, player)
+					end
+				end
 				if #jugadores > 0 and inicio then
 					local todosCaidos = true
 					for _, player in jugadores do

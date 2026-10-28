@@ -29,6 +29,11 @@ local recargando = {} -- [player] = true mientras LoadCharacter está en curso
 local viajes = {} -- [player] = token del último teletransporte pendiente
 local rutaActual -- ruta del escenario construido (nil si no hay terreno)
 local totalCheckpoints = 0 -- checkpoints lógicos de la ruta actual (solo Historia)
+local cerrados = {} -- [player] = true al alcanzar la meta; no se vuelve a cerrar ni a cobrar
+local ultimoRescate = {} -- [player] = os.clock() del último rescate anti-vacío
+
+local DISTANCIA_RESCATE = 90 -- studs fuera del corredor: el mundo por teselas aún no tiene suelo
+local ENFRIAMIENTO_RESCATE = 2 -- s entre rescates del mismo jugador
 
 -- Señal interna para otros servicios del servidor (plan §4.5: checkpoint da puntos)
 local checkpointAlcanzado = Instance.new("BindableEvent")
@@ -196,8 +201,11 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	inicio = nil
 	table.clear(checkpoints)
 	table.clear(distancia)
+	table.clear(cerrados)
+	table.clear(ultimoRescate)
 	for _, player in ipairs(Players:GetPlayers()) do
 		player:SetAttribute("Distancia", 0)
+		player:SetAttribute("Terminado", false)
 	end
 	participantesPartida = roster
 	modoActual = modoPartida
@@ -288,6 +296,8 @@ function MatchService.Iniciar()
 		distancia[player] = nil
 		recargando[player] = nil
 		viajes[player] = nil
+		cerrados[player] = nil
+		ultimoRescate[player] = nil
 		for i, p in ipairs(participantesPartida) do
 			if p == player then
 				table.remove(participantesPartida, i)
@@ -324,8 +334,20 @@ function MatchService.Iniciar()
 				for _, player in Players:GetPlayers() do
 					local char = player.Character
 					local raiz = char and char:FindFirstChild("HumanoidRootPart")
-					if raiz and rutaActual and player:GetAttribute("EnJuego") then
+					if raiz and rutaActual and player:GetAttribute("EnJuego") and not cerrados[player] then
 						local distanciaRuta = rutaActual:CercanoXZ(raiz.Position.X, raiz.Position.Z)
+						-- Mundo por teselas: sin suelo bajo los pies, volver a la ruta antes de
+						-- descartar el tick por estar fuera del corredor (gate de progreso).
+						local ahora = os.clock()
+						if (distanciaRuta > DISTANCIA_RESCATE or raiz.Position.Y < -10)
+							and not recargando[player]
+							and ahora - (ultimoRescate[player] or 0) >= ENFRIAMIENTO_RESCATE then
+							ultimoRescate[player] = ahora
+							local punto = rutaActual:PuntoEnDistancia(distancia[player] or 0)
+							telegrafiar(player, punto + Vector3.new(0, 4, 0))
+							print("[Match] rescate de", player.Name, "en", math.floor(distancia[player] or 0))
+							continue
+						end
 						-- Fuera del corredor no hay progreso: caerse al monte no regala checkpoints
 						if distanciaRuta > Config.Etapa0.RadioProgreso then
 							continue
@@ -349,6 +371,36 @@ function MatchService.Iniciar()
 								print("[Match] checkpoint", siguiente, "por", player.Name)
 								siguiente += 1
 							end
+
+							-- Meta: cierra la carrera sin sacar al jugador de EnJuego (HUD/estamina).
+							if inicio
+								and progreso >= rutaActual.Longitud - Config.Etapa0.Meta.Distancia
+								and not estaCaido(player) then
+								cerrados[player] = true
+								player:SetAttribute("Terminado", true)
+								distancia[player] = rutaActual.Longitud
+								player:SetAttribute("Distancia", math.floor(rutaActual.Longitud))
+								local largoTramo = math.floor(rutaActual.Longitud)
+								local recordAnterior = recordSesion[player] or 0
+								local nuevoRecord = largoTramo > recordAnterior
+								recordSesion[player] = math.max(recordAnterior, largoTramo)
+								if dataService then
+									dataService.Guardar(player, "record", recordSesion[player])
+								end
+								local stats = {
+									distancia = largoTramo,
+									tiempo = math.floor(os.clock() - inicio),
+									checkpoint = totalCheckpoints,
+									puntos = puntosService and puntosService.GetPuntos(player) or 0,
+									record = math.max(recordSesion[player], largoTramo),
+									nuevoRecord = nuevoRecord,
+									victoria = true,
+								}
+								finPartida:FireClient(player, stats)
+								alTerminar:Fire(player, stats)
+								sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
+								print("[Match] meta alcanzada por", player.Name)
+							end
 						end
 					end
 				end
@@ -367,39 +419,43 @@ function MatchService.Iniciar()
 					alTerminarPartida:Fire({})
 					print("[Match] partida abandonada: sin participantes")
 				elseif #jugadores > 0 and inicio then
-					local todosCaidos = true
-					for _, player in jugadores do
+					local todosCerrados = true
+					for _, player in ipairs(jugadores) do
 						-- Un personaje recargándose no cuenta como caído todavía
-						if not recargando[player] and not estaCaido(player) then
-							todosCaidos = false
+						if not recargando[player] and not estaCaido(player) and not cerrados[player] then
+							todosCerrados = false
 							break
 						end
 					end
-					if todosCaidos then
+					if todosCerrados then
 						partidaTerminada = true
-						for _, player in jugadores do
-							local cp = checkpoints[player]
-							local dist = math.round(distancia[player] or 0)
-							local recordAnterior = recordSesion[player] or 0
-							local nuevoRecord = dist > recordAnterior
-							recordSesion[player] = math.max(recordAnterior, dist)
-							-- Persistir el récord para la próxima sesión (plan §3.3/§4.5)
-							if dataService then
-								dataService.Guardar(player, "record", recordSesion[player])
+						for _, player in ipairs(jugadores) do
+							-- Los que ya llegaron a la meta recibieron su FinPartida al cerrar:
+							-- no se les repite pantalla, récord, Piñas ni sonido.
+							if not cerrados[player] then
+								local cp = checkpoints[player]
+								local dist = math.round(distancia[player] or 0)
+								local recordAnterior = recordSesion[player] or 0
+								local nuevoRecord = dist > recordAnterior
+								recordSesion[player] = math.max(recordAnterior, dist)
+								-- Persistir el récord para la próxima sesión (plan §3.3/§4.5)
+								if dataService then
+									dataService.Guardar(player, "record", recordSesion[player])
+								end
+								local stats = {
+									distancia = dist,
+									tiempo = math.floor(os.clock() - inicio),
+									checkpoint = cp and cp.indice or 0,
+									puntos = puntosService and puntosService.GetPuntos(player) or 0,
+									record = math.max(recordSesion[player], dist),
+									nuevoRecord = nuevoRecord,
+								}
+								finPartida:FireClient(player, stats)
+								alTerminar:Fire(player, stats)
+								-- Solo los que cierran sin meta: los ganadores ya oyeron el suyo.
+								sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
 							end
-							local stats = {
-								distancia = dist,
-								tiempo = math.floor(os.clock() - inicio),
-								checkpoint = cp and cp.indice or 0,
-								puntos = puntosService and puntosService.GetPuntos(player) or 0,
-								record = math.max(recordSesion[player], dist),
-								nuevoRecord = nuevoRecord,
-							}
-							finPartida:FireClient(player, stats)
-							alTerminar:Fire(player, stats)
 						end
-						-- Una sola vez por partida, fuera del bucle de jugadores.
-						sonido:FireAllClients({ id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
 						-- Aviso único al lobby (los FinPartida por jugador siguen igual)
 						local roster = {}
 						for _, player in ipairs(participantesPartida) do

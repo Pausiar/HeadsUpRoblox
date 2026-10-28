@@ -3,11 +3,15 @@
 -- ROBUX lista MonetizacionConfig y solo avisa al servidor (la entrega se revalida allí).
 -- PaseEstado pinta los pases ACTIVO, el stock de reanimaciones, Piñas x2 y Modo Puro.
 -- Contrato con MenuInicio: su botón TIENDA habilita esta gui; VOLVER la oculta y
--- re-muestra MenuInicio si EnJuego ~= true. Paleta: docs/design/design-dna.md.
+-- re-muestra MenuInicio si EnJuego ~= true. Fase 9: la misma gui la abre el
+-- ProximityPrompt "TiendaInicio" del puesto del campamento (en lobby y en partida),
+-- y PIÑAS añade la bebida energética y las mejoras por niveles.
+-- Paleta: docs/design/design-dna.md.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
@@ -173,6 +177,19 @@ paginaPinas.Size = UDim2.fromOffset(468, 338)
 paginaPinas.BackgroundTransparency = 1
 paginaPinas.Parent = panel
 
+-- La página PIÑAS ya no cabe a la vista (11 tarjetas): mismas posiciones manuales
+-- dentro de un ScrollingFrame, como la página ROBUX.
+local scrollPinas = Instance.new("ScrollingFrame")
+scrollPinas.Name = "CatalogoPinas"
+scrollPinas.Size = UDim2.fromOffset(468, 338)
+scrollPinas.BackgroundTransparency = 1
+scrollPinas.BorderSizePixel = 0
+scrollPinas.ScrollBarThickness = 5
+scrollPinas.ScrollBarImageColor3 = CREMA
+scrollPinas.ScrollingDirection = Enum.ScrollingDirection.Y
+scrollPinas.CanvasSize = UDim2.fromOffset(0, 0)
+scrollPinas.Parent = paginaPinas
+
 local paginaRobux = Instance.new("Frame")
 paginaRobux.Name = "PaginaRobux"
 paginaRobux.Position = UDim2.fromOffset(16, 100)
@@ -204,7 +221,7 @@ local function seleccionar(cual)
 end
 
 -- ===== PESTAÑA PIÑAS =====
--- 8 tarjetas de 230x80 en 2 columnas x 4 filas (230 + 8 + 230 = 468).
+-- Tarjetas de 230x80 en 2 columnas (230 + 8 + 230 = 468), con scroll vertical.
 local ANCHO_TARJETA, ALTO_TARJETA = 230, 80
 local PASO_X, PASO_Y = 238, 85
 
@@ -216,6 +233,62 @@ local function marcarComprado(registro)
 	registro.boton.Text = L("equipar")
 end
 
+-- Nivel de una mejora a partir de los atributos de TiendaService: no hay atributo
+-- de nivel, pero MonedasMult = 1 + 0,25·nivel y Cansancio = 1 - 0,15·nivel.
+-- El +0,5 absorbe el error de coma flotante antes de truncar.
+local function nivelMejora(item)
+	local nivel
+	if item.mejora == "monedas" then
+		local mult = tonumber(player:GetAttribute("MonedasMult")) or 1
+		nivel = math.floor((mult - 1) / 0.25 + 0.5)
+	else
+		local cansancio = tonumber(player:GetAttribute("Cansancio")) or 1
+		nivel = math.floor((1 - cansancio) / 0.15 + 0.5)
+	end
+	return math.clamp(nivel, 0, item.maximo)
+end
+
+-- Estado de bebida/mejora: stock o nivel, precio del siguiente nivel y si COMPRAR
+-- está disponible (saldo suficiente y no estar al máximo). Los cosméticos no pasan
+-- por aquí: conservan su flujo EQUIPAR.
+local function refrescarTarjeta(registro)
+	local item = registro.item
+	if item.tipo == "bebida" then
+		local stock = tonumber(player:GetAttribute("Bebidas")) or 0
+		local alMaximo = stock >= item.maximo
+		registro.descripcion.Text = L(item.descripcionClave)
+		registro.estado.Text = L("bebidas") .. ": " .. stock .. "/" .. item.maximo
+		registro.precio.Text = alMaximo and L("maximo"):upper() or ("%d %s"):format(item.precio, TiendaConfig.Moneda)
+		registro.habilitado = not alMaximo and pinasActuales >= item.precio
+	elseif item.tipo == "mejora" then
+		local nivel = nivelMejora(item)
+		local siguiente = item.precios[nivel + 1]
+		registro.descripcion.Text = L(item.descripcionClave)
+		registro.estado.Text = L("nivel") .. " " .. nivel .. "/" .. item.maximo
+		if nivel >= item.maximo or not siguiente then
+			registro.precio.Text = L("maximo"):upper()
+			registro.habilitado = false
+		else
+			registro.precio.Text = ("%d %s"):format(siguiente, TiendaConfig.Moneda)
+			registro.habilitado = pinasActuales >= siguiente
+		end
+	else
+		registro.boton.Text = registro.comprado and L("equipar") or L("comprar")
+		return
+	end
+	registro.boton.Text = L("comprar")
+	registro.boton.BackgroundColor3 = registro.habilitado and VERDE or MADERA_OSCURA
+	registro.boton.TextTransparency = registro.habilitado and 0 or 0.35
+	registro.boton.AutoButtonColor = registro.habilitado
+	registro.boton.Selectable = registro.habilitado
+end
+
+local function refrescarTarjetas()
+	for _, registro in ipairs(registrosPinas) do
+		refrescarTarjeta(registro)
+	end
+end
+
 local function crearTarjetaPinas(item, columna, fila)
 	local tarjeta = Instance.new("Frame")
 	tarjeta.Name = "Tarjeta_" .. item.id
@@ -223,8 +296,10 @@ local function crearTarjetaPinas(item, columna, fila)
 	tarjeta.Position = UDim2.fromOffset((columna - 1) * PASO_X, (fila - 1) * PASO_Y)
 	tarjeta.BackgroundColor3 = MARRON_TARJETA
 	tarjeta.BorderSizePixel = 0
-	tarjeta.Parent = paginaPinas
+	tarjeta.Parent = scrollPinas
 	redondear(tarjeta, 10)
+
+	local esConsumo = item.tipo == "bebida" or item.tipo == "mejora"
 
 	local nombre = Instance.new("TextLabel")
 	nombre.Size = UDim2.new(1, item.tipo == "camiseta" and -56 or -20, 0, 22)
@@ -251,11 +326,10 @@ local function crearTarjetaPinas(item, columna, fila)
 
 	local precio = Instance.new("TextLabel")
 	precio.Size = UDim2.fromOffset(108, 18)
-	precio.Position = UDim2.fromOffset(10, 45) -- centrado con el botón (29..73)
+	precio.Position = UDim2.fromOffset(10, esConsumo and 55 or 45) -- centrado con el botón (29..73)
 	precio.BackgroundTransparency = 1
 	precio.Font = Enum.Font.GothamBold
-	precio.TextSize = 16
-	precio.Text = ("%d %s"):format(item.precio, TiendaConfig.Moneda)
+	precio.TextSize = esConsumo and 14 or 16
 	precio.TextColor3 = AMARILLO
 	precio.TextXAlignment = Enum.TextXAlignment.Left
 	precio.Parent = tarjeta
@@ -271,17 +345,60 @@ local function crearTarjetaPinas(item, columna, fila)
 	boton.Parent = tarjeta
 	redondear(boton, 8)
 
-	local registro = { item = item, boton = boton, comprado = false }
+	local registro = { item = item, boton = boton, comprado = false, precio = precio }
 	table.insert(registrosPinas, registro)
 	boton.Activated:Connect(function()
+		if registro.habilitado == false then
+			return
+		end
 		registroPendiente = registro
-		remoteComprar:FireServer(item.id)
+		remoteComprar:FireServer({ id = item.id })
 	end)
+
+	if esConsumo then
+		-- Nombre, descripción breve, estado (stock/nivel) y precio en la columna
+		-- izquierda; el botón sigue a la derecha con su objetivo táctil de 44 px.
+		nombre.TextSize = 16
+		local descripcion = Instance.new("TextLabel")
+		descripcion.Size = UDim2.new(1, -20, 0, 14)
+		descripcion.Position = UDim2.fromOffset(10, 23)
+		descripcion.BackgroundTransparency = 1
+		descripcion.Font = Enum.Font.Gotham
+		descripcion.TextSize = 12
+		descripcion.TextColor3 = CREMA
+		descripcion.TextTransparency = 0.15
+		descripcion.TextXAlignment = Enum.TextXAlignment.Left
+		descripcion.TextTruncate = Enum.TextTruncate.AtEnd
+		descripcion.Parent = tarjeta
+		registro.descripcion = descripcion
+
+		local estado = Instance.new("TextLabel")
+		estado.Size = UDim2.fromOffset(100, 16)
+		estado.Position = UDim2.fromOffset(10, 38)
+		estado.BackgroundTransparency = 1
+		estado.Font = Enum.Font.GothamBold
+		estado.TextSize = 13
+		estado.TextColor3 = CREMA
+		estado.TextXAlignment = Enum.TextXAlignment.Left
+		estado.Parent = tarjeta
+		registro.estado = estado
+
+		refrescarTarjeta(registro)
+	else
+		precio.Text = ("%d %s"):format(item.precio, TiendaConfig.Moneda)
+	end
 end
 
 for i, item in ipairs(TiendaConfig.Catalogo) do
 	crearTarjetaPinas(item, (i - 1) % 2 + 1, math.floor((i - 1) / 2) + 1)
 end
+local filasPinas = math.ceil(#TiendaConfig.Catalogo / 2)
+scrollPinas.CanvasSize = UDim2.fromOffset(0, filasPinas * PASO_Y - (PASO_Y - ALTO_TARJETA))
+-- Los atributos del servidor pueden llegar después de crear las tarjetas (carga
+-- del DataStore) y cambian al beber/comprar: el panel se repinta con ellos.
+player:GetAttributeChangedSignal("Bebidas"):Connect(refrescarTarjetas)
+player:GetAttributeChangedSignal("MonedasMult"):Connect(refrescarTarjetas)
+player:GetAttributeChangedSignal("Cansancio"):Connect(refrescarTarjetas)
 
 -- ===== PESTAÑA ROBUX =====
 -- Barra fija: stock de reanimaciones, tiempo restante de Piñas x2 y toggle de Modo Puro.
@@ -510,11 +627,28 @@ redondear(volver, 12)
 
 volver.Activated:Connect(function()
 	gui.Enabled = false
-	if player:GetAttribute("EnJuego") ~= true then
+	local lobby = player.PlayerGui:FindFirstChild("LobbyUI")
+	local enSala = lobby and lobby:IsA("ScreenGui") and lobby.Enabled
+	if not enSala and player:GetAttribute("EnJuego") ~= true then
 		local inicio = player.PlayerGui:FindFirstChild("MenuInicio")
 		if inicio then
 			inicio.Enabled = true
 		end
+	end
+end)
+
+-- Apertura desde el mundo: StageService coloca un ProximityPrompt "TiendaInicio"
+-- en el puesto del campamento. Es la misma gui que abre el menú; si MenuInicio
+-- estaba delante se aparta y VOLVER lo re-muestra (salvo con la sala LobbyUI
+-- abierta, que sigue debajo y no se toca para no desincronizar su fase).
+ProximityPromptService.PromptTriggered:Connect(function(prompt, jugador)
+	if jugador ~= player or prompt.Name ~= "TiendaInicio" then
+		return
+	end
+	gui.Enabled = true
+	local inicio = player.PlayerGui:FindFirstChild("MenuInicio")
+	if inicio then
+		inicio.Enabled = false
 	end
 end)
 
@@ -525,6 +659,7 @@ remotePinas.OnClientEvent:Connect(function(datos)
 	end
 	saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas or 0)
 	pinasActuales = datos.pinas or 0
+	refrescarTarjetas() -- el saldo decide qué COMPRAR sigue habilitado
 end)
 
 remoteResultado.OnClientEvent:Connect(function(datos)
@@ -532,15 +667,25 @@ remoteResultado.OnClientEvent:Connect(function(datos)
 		return
 	end
 	if datos.ok == true then
-		-- Compra (o re-uso «Equipado») aceptada: tarjeta a EQUIPAR y saldo del payload.
+		-- Compra (o re-uso «Equipado») aceptada: cosmético a EQUIPAR y saldo del
+		-- payload. Bebidas y mejoras se repintan desde los atributos del servidor.
 		if registroPendiente then
-			marcarComprado(registroPendiente)
+			local item = registroPendiente.item
+			if item.tipo ~= "bebida" and item.tipo ~= "mejora" then
+				marcarComprado(registroPendiente)
+			end
 			registroPendiente = nil
 		end
 		if type(datos.pinas) == "number" then
 			pinasActuales = datos.pinas
 			saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas)
 		end
+		if type(datos.mensaje) == "string" and datos.mensaje ~= "" then
+			mostrarAviso(datos.mensaje, AMARILLO)
+		end
+		-- Los atributos replican por su propio canal: repintar al final del frame
+		-- evita enseñar el stock/nivel anterior unos milisegundos.
+		task.defer(refrescarTarjetas)
 	else
 		local texto = datos.mensaje
 		if type(texto) ~= "string" or texto == "" then
@@ -548,6 +693,7 @@ remoteResultado.OnClientEvent:Connect(function(datos)
 		end
 		mostrarAviso(texto)
 		registroPendiente = nil
+		refrescarTarjetas()
 	end
 end)
 
@@ -608,9 +754,7 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 	pestanaRobux.Text = L("robux")
 	volver.Text = L("volver"):upper()
 	saldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
-	for _, registro in ipairs(registrosPinas) do
-		registro.boton.Text = registro.comprado and L("equipar") or L("comprar")
-	end
+	refrescarTarjetas()
 	for _, registro in pairs(registrosRobux) do
 		actualizarBotonRobux(registro)
 	end

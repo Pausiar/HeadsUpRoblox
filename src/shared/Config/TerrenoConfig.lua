@@ -1,48 +1,60 @@
--- TerrenoConfig: datos del mundo voxel, sendero y bosque (fase 8). Sin lógica.
+-- TerrenoConfig: datos del mundo voxel, sendero y bosque (fase 9). Sin lógica.
+-- El mundo es una cordillera de ~6000 studs de ruta que se genera por teselas.
 local TerrenoConfig = {}
 
 TerrenoConfig.Mundo = {
 	Semilla = 20261028,
-	MinX = -120,
-	MaxX = 500,
-	MinZ = -280,
-	MaxZ = 280,
-	BaseY = -8,
-	TechoY = 96,
+	MinX = -500,
+	MaxX = 5600,
+	MinZ = -2800,
+	MaxZ = 2800,
+	BaseY = -12,
+	TechoY = 110,
 	Celda = 4,
-	Centro = Vector2.new(300, 0),
-	RadioMontana = 330,
-	AlturaMontana = 58,
-	-- Segundo pico de fondo: fuera del alcance de las rutas (los jugadores no lo escalan)
-	CentroSecundario = Vector2.new(540, 200),
-	RadioSecundario = 160,
-	AlturaSecundaria = 100,
-	NieveDesde = 60,
-	RocaDesde = 42,
+	-- Cordillera: picos que el camino rodea o cruza (fase 9: mundo largo)
+	Picos = {
+		{ X = 300, Z = 0, Radio = 360, Altura = 56 },
+		{ X = 1500, Z = -700, Radio = 520, Altura = 78 },
+		{ X = 2600, Z = 900, Radio = 480, Altura = 66 },
+		{ X = 3700, Z = -800, Radio = 560, Altura = 88 },
+		{ X = 4700, Z = 300, Radio = 500, Altura = 60 },
+		{ X = 5400, Z = 1400, Radio = 420, Altura = 52 },
+	},
+	NieveDesde = 66,
+	RocaDesde = 44,
+	-- Teselas (streaming): lado en studs, banda lateral de mundo visible, ventana
+	-- de carga por delante del líder y de descarga por detrás del rezagado.
+	Tile = 160,
+	RadioVision = 240,
+	CargarAdelante = 480,
+	DescargarAtras = 520,
+	TilesIniciales = 340, -- ruta inicial construida al arrancar (spawn y tienda)
+	TilesPorTick = 1, -- teselas construidas por tick del bucle de streaming
+	TickStreaming = 0.12, -- s entre ticks
 }
 
 TerrenoConfig.Camino = {
 	Ancho = 7,
 	Corredor = 18,
 	Paso = 4,
-	SeparacionCinta = 6,
+	SeparacionCinta = 10,
 	Grosor = 1.2,
 	Color = Color3.fromRGB(139, 110, 78),
 }
 
 TerrenoConfig.Bosque = {
-	Arboles = 460,
-	Arbustos = 320,
-	Rocas = 150,
+	ArbolesPorTile = 90,
+	ArbustosPorTile = 24,
+	RocasPorTile = 10,
 	SeparacionMinima = 5.5,
-	DistanciaMinimaCamino = 10,
+	DistanciaMinimaCamino = 9,
 	PendienteMaxima = 0.9,
-	AlturaMaximaArbol = 46,
-	AlturaMinima = 11,
-	AlturaMaxima = 28,
-	MargenMapa = 12,
-	IntentosPorArbol = 12,
-	ProporcionConifera = 0.65,
+	AlturaMaximaArbol = 54,
+	AlturaMinima = 12,
+	AlturaMaxima = 30,
+	MargenTile = 4,
+	IntentosPorArbol = 10,
+	ProporcionConifera = 0.85,
 	AlturaMinimaArbusto = 0.8,
 	AlturaMaximaArbusto = 1.7,
 	Colores = {
@@ -57,7 +69,7 @@ TerrenoConfig.Bosque = {
 TerrenoConfig.Rocas = {
 	TamanoMin = 2,
 	TamanoMax = 5.5,
-	MargenMapa = 12,
+	MargenTile = 4,
 }
 
 TerrenoConfig.Rapida = {
@@ -66,7 +78,7 @@ TerrenoConfig.Rapida = {
 	PasoMin = 45,
 	PasoMax = 80,
 	SeparacionRuta = 45,
-	MargenMapa = 90,
+	MargenMapa = 120,
 	IntentosWaypoint = 40,
 	IntentosInicio = 240,
 	RadioInicioMin = 120,
@@ -76,24 +88,27 @@ TerrenoConfig.Rapida = {
 	WaypointsMax = 10,
 }
 
-TerrenoConfig.Claros = {
-	Inicio = { X = 0, Z = 0, Radio = 24, RadioBosque = 24, Y = 2, Transicion = 8 },
-	Madriguera = { X = -60, Z = -60, Radio = 14, RadioBosque = 20, Y = 0, Transicion = 6 },
+-- Historia: camino guiado de ~6000 studs que serpentea por la cordillera.
+TerrenoConfig.Historia = {
+	LongitudObjetivo = 6000,
+	PasoMin = 110,
+	PasoMax = 190,
+	GiroMax = 65, -- grados por tramo
+	ProbabilidadRecodo = 0.16, -- recodos cerrados que rompen la recta
+	RecodoMin = 80,
+	RecodoMax = 145,
+	SeparacionMinima = 120, -- studs entre tramos no consecutivos (sin cruces)
+	MargenMapa = 160,
+	IntentosWaypoint = 40,
+	InicioX = 0,
+	InicioZ = 0,
 }
 
-TerrenoConfig.Historia = {
-	Waypoints = {
-		Vector3.new(0, 0, 0),
-		Vector3.new(30, 0, 10),
-		Vector3.new(65, 0, -12),
-		Vector3.new(100, 0, 22),
-		Vector3.new(135, 0, -8),
-		Vector3.new(175, 0, 18),
-		Vector3.new(215, 0, -18),
-		Vector3.new(255, 0, 10),
-		Vector3.new(295, 0, -12),
-		Vector3.new(340, 0, 0),
-	},
+TerrenoConfig.Claros = {
+	-- Plazas planas a la altura de la ruta: inicio (tienda) y meta (victoria).
+	Inicio = { Radio = 32, RadioBosque = 36, Transicion = 16 },
+	Meta = { Radio = 40, RadioBosque = 46, Transicion = 18 },
+	Madriguera = { X = -60, Z = -60, Radio = 14, RadioBosque = 20, Transicion = 6 },
 }
 
 TerrenoConfig.Ambiente = {
@@ -103,8 +118,8 @@ TerrenoConfig.Ambiente = {
 	AmbienteExterior = Color3.fromRGB(142, 152, 138),
 	Exposicion = 0.1,
 	Atmosfera = {
-		Densidad = 0.32,
-		Bruma = 3,
+		Densidad = 0.35,
+		Bruma = 4,
 		Color = Color3.fromRGB(188, 202, 204),
 		Decaimiento = Color3.fromRGB(96, 108, 110),
 		Deslumbramiento = 0.15,

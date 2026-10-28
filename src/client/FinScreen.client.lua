@@ -1,4 +1,5 @@
--- Pantalla «¡HAS CAÍDO!» (plan §8): aparece al recibir FinPartida y ofrece REINTENTAR.
+-- Pantalla de fin de carrera (plan §8): «¡HAS CAÍDO!» o «¡HAS LLEGADO A LA META!».
+-- Variante de victoria: título verde, stats iguales, REINTENTAR + SEGUIR (oculta la GUI).
 -- Paleta y estilo: docs/design/design-dna.md. Patrón de GUI reutilizado de Hud.client.lua.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -15,7 +16,7 @@ local L = Localization.L
 -- Mini-tokens del ADN (docs/design/design-dna.md)
 local MADERA = Color3.fromRGB(62, 42, 24) -- panel oscuro #3E2A18
 local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8 texto
-local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria
+local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria y victoria
 local VERDE_APAGADO = Color3.fromRGB(62, 107, 60) -- #3E6B3C acción primaria en enfriamiento
 local ROJO = Color3.fromRGB(224, 69, 58) -- #E0453A peligro/título
 local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C insignia récord (contraste 8.8:1 sobre madera)
@@ -58,7 +59,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 420) -- 5 líneas + insignia + botón (antes 340)
+panel.Size = UDim2.fromOffset(420, 420) -- derrota: 5 líneas + insignia + botón
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -78,9 +79,10 @@ local escalaPanel = Instance.new("UIScale")
 escalaPanel.Parent = panel
 
 -- Player no tiene ViewportSize (doc Roblox gana): la GUI es la fuente del viewport
--- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo).
+-- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo). La altura también manda:
+-- la victoria apila dos botones y el panel crece hasta 480 px.
 local function ajustarEscala()
-	escalaPanel.Scale = math.clamp(gui.AbsoluteSize.X / 500, 0.75, 1)
+	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / 500), 0.75, 1)
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()
@@ -126,6 +128,7 @@ local textoTiempo = etiqueta(150, 28)
 local textoCheckpoint = etiqueta(184, 28)
 local textoRecord = etiqueta(218, 28)
 local textoPuntos = etiqueta(252, 28)
+local etiquetas = { textoDistancia, textoTiempo, textoCheckpoint, textoRecord, textoPuntos }
 
 local boton = Instance.new("TextButton")
 boton.Name = "BotonReintentar"
@@ -143,6 +146,64 @@ boton.Parent = panel
 local esquinaBoton = Instance.new("UICorner")
 esquinaBoton.CornerRadius = UDim.new(0, 12)
 esquinaBoton.Parent = boton
+
+-- Acción secundaria de la victoria: solo retira el velo; la carrera ya terminó.
+local botonSeguir = Instance.new("TextButton")
+botonSeguir.Name = "BotonSeguir"
+botonSeguir.AnchorPoint = Vector2.new(0.5, 0)
+botonSeguir.Size = UDim2.fromOffset(300, 56)
+botonSeguir.BackgroundColor3 = CREMA
+botonSeguir.BorderSizePixel = 0
+botonSeguir.Font = Enum.Font.GothamBold
+botonSeguir.Text = L("seguir")
+botonSeguir.TextSize = 26
+botonSeguir.TextColor3 = MADERA
+botonSeguir.Visible = false
+botonSeguir.Parent = panel
+
+local esquinaSeguir = Instance.new("UICorner")
+esquinaSeguir.CornerRadius = UDim.new(0, 12)
+esquinaSeguir.Parent = botonSeguir
+
+-- Dos alturas fijas: derrota 420 (un botón) y victoria 480 (dos botones con 12 px de aire).
+local FILAS_DERROTA = { 116, 150, 184, 218, 252 }
+local FILAS_VICTORIA = { 164, 198, 232, 266, 300 }
+
+local function aplicarVariante(victoria)
+	if victoria then
+		panel.Size = UDim2.fromOffset(420, 480)
+		restriccionPanel.MaxSize = Vector2.new(420, 480)
+		restriccionPanel.MinSize = Vector2.new(340, 480)
+		titulo.Position = UDim2.new(0, 10, 0, 8)
+		titulo.Size = UDim2.new(1, -20, 0, 116) -- holgura para dos líneas de 40 px
+		titulo.TextWrapped = true
+		titulo.Text = L("has_llegado")
+		titulo.TextColor3 = VERDE
+		insignia.Position = UDim2.new(0, 20, 0, 128)
+		for i, t in ipairs(etiquetas) do
+			t.Position = UDim2.new(0, 20, 0, FILAS_VICTORIA[i])
+		end
+		boton.Position = UDim2.new(0.5, 0, 0, 336)
+		botonSeguir.Position = UDim2.new(0.5, 0, 0, 404)
+		botonSeguir.Text = L("seguir")
+		botonSeguir.Visible = true
+	else
+		panel.Size = UDim2.fromOffset(420, 420)
+		restriccionPanel.MaxSize = Vector2.new(420, 420)
+		restriccionPanel.MinSize = Vector2.new(340, 340)
+		titulo.Position = UDim2.new(0, 10, 0, 18)
+		titulo.Size = UDim2.new(1, -20, 0, 48)
+		titulo.TextWrapped = false
+		titulo.Text = L("has_caido")
+		titulo.TextColor3 = ROJO
+		insignia.Position = UDim2.new(0, 20, 0, 74)
+		for i, t in ipairs(etiquetas) do
+			t.Position = UDim2.new(0, 20, 0, FILAS_DERROTA[i])
+		end
+		boton.Position = UDim2.new(0.5, 0, 0, 316)
+		botonSeguir.Visible = false
+	end
+end
 
 local enEnfriamiento = false
 local ultimosDatos = nil
@@ -165,6 +226,8 @@ local function pintarDatos(datos)
 end
 
 local function mostrar(datos)
+	local victoria = datos ~= nil and datos.victoria == true
+	aplicarVariante(victoria)
 	ultimosDatos = datos
 	pintarDatos(datos)
 
@@ -195,6 +258,11 @@ boton.Activated:Connect(function()
 	end)
 end)
 
+-- SEGUIR no toca el servidor: la carrera ya está cerrada y el jugador se queda en la meta.
+botonSeguir.Activated:Connect(function()
+	gui.Enabled = false
+end)
+
 finPartida.OnClientEvent:Connect(mostrar)
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)
@@ -202,8 +270,10 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 		return
 	end
 	Localization.Establecer(valor)
-	titulo.Text = L("has_caido")
+	local victoria = ultimosDatos ~= nil and ultimosDatos.victoria == true
+	titulo.Text = victoria and L("has_llegado") or L("has_caido")
 	insignia.Text = L("nuevo_record")
+	botonSeguir.Text = L("seguir")
 	boton.Text = enEnfriamiento and L("reanudando") or L("reintentar")
 	pintarDatos(ultimosDatos)
 end)
@@ -213,4 +283,13 @@ player.CharacterAdded:Connect(function()
 	gui.Enabled = false
 end)
 
+-- La vuelta al lobby (o un reintento) pone EnJuego=false sin recargar al ganador:
+-- sin esto el velo se quedaría encima del lobby.
+player:GetAttributeChangedSignal("EnJuego"):Connect(function()
+	if player:GetAttribute("EnJuego") ~= true then
+		gui.Enabled = false
+	end
+end)
+
+aplicarVariante(false)
 print("[FinScreen] activo")

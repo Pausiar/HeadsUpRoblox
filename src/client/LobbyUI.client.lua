@@ -66,8 +66,9 @@ redondear(panel, 16)
 
 -- El panel nominal es 560x540; en pantallas estrechas se escala el conjunto para no recortar.
 -- Texto base dimensionado para que a 0,68 (móvil apaisado) siga por encima de 11 px.
--- shortcut: en pantallas muy bajas los botones quedan algo por debajo de 44 px; el
--- reflujo táctil completo (panel compacto) entra en la fase 6.
+-- shortcut: a 0,68 los botones (44 px base) quedan por debajo de 40 px físicos; el reflujo
+-- táctil completo (panel compacto) no cabe sin rediseñar: validar en móvil apaisado real
+-- antes del soft launch y, si el toque falla, rehacer el panel en versión compacta.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()

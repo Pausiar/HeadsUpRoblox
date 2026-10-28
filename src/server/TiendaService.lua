@@ -1,9 +1,11 @@
--- TiendaService: tienda de cosméticos por Piñas (plan §7). Servidor autoritativo:
--- valida el payload contra TiendaConfig, cobra con PinasService, marca la compra
--- en DataService ("comprados") y aplica el item (sombrero → AccesoriosService,
--- camiseta → CustomizationService). Los Robux/ProcessReceipt llegan al publicar
--- el place; hoy solo la moneda blanda. PolicyService se consulta por cumplimiento
--- (§7.4): el catálogo no tiene compras aleatorias de pago.
+-- TiendaService: tienda del campamento por Piñas (plan §7). Servidor autoritativo:
+-- valida el payload contra TiendaConfig, cobra con PinasService y persiste en
+-- DataService (cosméticos en "comprados", stock en "bebidas" y niveles en "mejoras").
+-- Los cosméticos se aplican al momento (sombrero → AccesoriosService, camiseta →
+-- CustomizationService); bebidas y mejoras solo publican atributos del Player que
+-- leen la UI y Estamina. Los Robux/ProcessReceipt viven en MonetizacionService:
+-- aquí no se compra nada con dinero real. PolicyService se consulta por
+-- cumplimiento (§7.4): el catálogo no tiene compras aleatorias de pago.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PolicyService = game:GetService("PolicyService")
@@ -17,13 +19,22 @@ local TiendaService = {}
 
 local remotoComprar
 local remotoResultado
+local remotoBeber
+local remotoBebidaResultado
 local permitirCompra -- RateLimiter.nuevo(1) por jugador
+local permitirBeber -- RateLimiter.nuevo(1) por jugador
 local dataService -- se asignan en Iniciar: Main llama DataService.Iniciar() antes
 local pinasService
 local accesorios
 local personalizacion
 local telemetriaService
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
+local cargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
+
+-- Topes del catálogo, para sanear lo persistido (un DataStore manipulado no puede
+-- dar más stock ni niveles que los máximos de TiendaConfig).
+local TOPE_BEBIDAS = 5
+local TOPE_MEJORAS = 3
 
 -- Fuente única de compras: DataService.Obtener(player).comprados (lista de ids).
 -- Sin caché aparte (plan §3.3: todo por datos). Inicializa la lista si es nil.
@@ -33,6 +44,39 @@ local function listaComprados(player)
 		datos.comprados = {} -- compras inicialmente vacías
 	end
 	return datos.comprados
+end
+
+-- Lectura pura del progreso de consumo: no escribe en la caché (publicar corre
+-- antes de que DataService termine de cargar y escribir ahí bloquearía el merge).
+local function estadoConsumo(datos)
+	local bebidas = math.clamp(math.floor(tonumber(datos.bebidas) or 0), 0, TOPE_BEBIDAS)
+	local mejoras = type(datos.mejoras) == "table" and datos.mejoras or {}
+	local monedas = math.clamp(math.floor(tonumber(mejoras.monedas) or 0), 0, TOPE_MEJORAS)
+	local aguante = math.clamp(math.floor(tonumber(mejoras.aguante) or 0), 0, TOPE_MEJORAS)
+	return bebidas, monedas, aguante
+end
+
+-- Normaliza la caché viva antes de una compra/consumo (patrón de listaComprados):
+-- a partir de aquí "bebidas" y "mejoras" existen siempre y en rango.
+local function datosJugador(player)
+	local datos = dataService.Obtener(player)
+	local bebidas, monedas, aguante = estadoConsumo(datos)
+	if type(datos.mejoras) ~= "table" then
+		datos.mejoras = {}
+	end
+	datos.bebidas = bebidas
+	datos.mejoras.monedas = monedas
+	datos.mejoras.aguante = aguante
+	return datos
+end
+
+-- Atributos que leen la TiendaUI y Estamina: stock de bebidas, factor de cansancio
+-- (1 = normal, 0,55 con las Botas ligeras al máximo) y multiplicador de Piñas.
+local function publicar(player)
+	local bebidas, monedas, aguante = estadoConsumo(dataService.Obtener(player))
+	player:SetAttribute("Bebidas", bebidas)
+	player:SetAttribute("Cansancio", math.clamp(1 - 0.15 * aguante, 0.4, 1))
+	player:SetAttribute("MonedasMult", 1 + 0.25 * monedas)
 end
 
 -- Lectura pura para terceros (UI, spawns): no inicializa nada.
@@ -46,6 +90,20 @@ function TiendaService.YaComprado(player, id)
 		return false
 	end
 	return table.find(comprados, id) ~= nil
+end
+
+-- Multiplicadores de la tienda para PinasService (sin caché propia: el atributo
+-- lo publica este servicio y sobrevive a respawns).
+function TiendaService.MultiplicadorMonedas(player)
+	local valor = tonumber(player:GetAttribute("MonedasMult"))
+	if valor and valor >= 1 then
+		return valor
+	end
+	return 1
+end
+
+function TiendaService.GetBebidas(player)
+	return tonumber(player:GetAttribute("Bebidas")) or 0
 end
 
 -- Aplica el item ya validado. pcall porque aplicar no debe tumbar la respuesta
@@ -88,8 +146,18 @@ function TiendaService.ConcederItem(player, id)
 	return true
 end
 
--- Flujo de compra (plan §7): rate limit → validar → ¿ya comprado? re-equipar
--- gratis → cobrar → guardar → aplicar → responder.
+-- Telemetría y log de cualquier compra aceptada (mismo embudo para las tres ramas).
+local function registrarCompra(player, item, precio)
+	if telemetriaService then
+		telemetriaService.Evento(player, TelemetriaConfig.Eventos.Compra)
+		telemetriaService.Economia(player, false, precio, pinasService.GetPinas(player),
+			TelemetriaConfig.Economia.SumideroTienda, item.id)
+	end
+	print("[Tienda] " .. player.Name .. " compró " .. item.nombre .. " (" .. precio .. " Piñas)")
+end
+
+-- Flujo de compra (plan §7): rate limit → validar → consumible/mejora → cosmético
+-- (¿ya comprado? re-equipar gratis → cobrar → guardar → aplicar) → responder.
 local function procesarCompra(player, payload)
 	if not permitirCompra(player) then
 		return
@@ -101,6 +169,63 @@ local function procesarCompra(player, payload)
 	local item = TiendaConfig.PorId(payload.id)
 	if not item then
 		remotoResultado:FireClient(player, { ok = false, mensaje = "Item desconocido", pinas = pinasService.GetPinas(player) })
+		return
+	end
+	-- Sin datos cargados, escribir stock/niveles pisaría lo persistido: se espera.
+	-- (Mismo motivo por el que MonetizacionService deja los recibos para luego.)
+	if not cargados[player] then
+		remotoResultado:FireClient(player, { ok = false, mensaje = "Cargando…", pinas = pinasService.GetPinas(player) })
+		return
+	end
+
+	-- Consumible: stock acotado por item.maximo; no entra en "comprados".
+	if item.tipo == "bebida" then
+		local datos = datosJugador(player)
+		if datos.bebidas >= item.maximo then
+			remotoResultado:FireClient(player, { ok = false, mensaje = "Máximo", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+			return
+		end
+		if not pinasService.Gastar(player, item.precio) then
+			remotoResultado:FireClient(player, { ok = false, mensaje = "Piñas insuficientes", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+			return
+		end
+		datos.bebidas += 1
+		dataService.Guardar(player, "bebidas", datos.bebidas)
+		publicar(player)
+		remotoResultado:FireClient(player, { ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+		registrarCompra(player, item, item.precio)
+		return
+	end
+
+	-- Mejora: el nivel actual manda; el precio es el del siguiente nivel.
+	if item.tipo == "mejora" then
+		local datos = datosJugador(player)
+		local nivel = datos.mejoras[item.mejora] or 0
+		if nivel >= item.maximo then
+			remotoResultado:FireClient(player, {
+				ok = false, mensaje = "Máximo", pinas = pinasService.GetPinas(player),
+				mejoras = { monedas = datos.mejoras.monedas, aguante = datos.mejoras.aguante },
+			})
+			return
+		end
+		local precio = item.precios[nivel + 1]
+		if type(precio) ~= "number" then
+			warn("[Tienda] catálogo inválido en " .. item.id .. ": falta precios[" .. (nivel + 1) .. "]")
+			remotoResultado:FireClient(player, { ok = false, mensaje = "Item no disponible", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		if not pinasService.Gastar(player, precio) then
+			remotoResultado:FireClient(player, { ok = false, mensaje = "Piñas insuficientes", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		datos.mejoras[item.mejora] = nivel + 1
+		dataService.Guardar(player, "mejoras", datos.mejoras)
+		publicar(player)
+		remotoResultado:FireClient(player, {
+			ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player),
+			mejoras = { monedas = datos.mejoras.monedas, aguante = datos.mejoras.aguante },
+		})
+		registrarCompra(player, item, precio)
 		return
 	end
 
@@ -121,12 +246,7 @@ local function procesarCompra(player, payload)
 	dataService.Guardar(player, "comprados", comprados) -- marca sucio para autoguardado
 	aplicarItem(player, item)
 	remotoResultado:FireClient(player, { ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player) })
-	if telemetriaService then
-		telemetriaService.Evento(player, TelemetriaConfig.Eventos.Compra)
-		telemetriaService.Economia(player, false, item.precio, pinasService.GetPinas(player),
-			TelemetriaConfig.Economia.SumideroTienda, item.id)
-	end
-	print("[Tienda] " .. player.Name .. " compró " .. item.nombre .. " (" .. item.precio .. " Piñas)")
+	registrarCompra(player, item, item.precio)
 end
 
 function TiendaService.Iniciar()
@@ -142,6 +262,40 @@ function TiendaService.Iniciar()
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)
 	remotoResultado = Remotes.Crear(Remotes.Nombres.CompraResult)
 	remotoComprar.OnServerEvent:Connect(procesarCompra)
+
+	-- Beber: el servidor solo descuenta stock; la estamina la repone el cliente
+	-- (es cliente-autoritativa, ver la nota de Estamina.client.lua).
+	permitirBeber = RateLimiter.nuevo(1)
+	remotoBeber = Remotes.Crear(Remotes.Nombres.BeberBebida)
+	remotoBebidaResultado = Remotes.Crear(Remotes.Nombres.BebidaResult)
+	remotoBeber.OnServerEvent:Connect(function(player)
+		if not permitirBeber(player) then
+			return
+		end
+		if not cargados[player] then
+			return -- aún cargando: no tocar el stock persistido
+		end
+		local datos = datosJugador(player)
+		if datos.bebidas <= 0 then
+			remotoBebidaResultado:FireClient(player, { ok = false, mensaje = "Sin bebidas", bebidas = 0 })
+			return
+		end
+		datos.bebidas -= 1
+		dataService.Guardar(player, "bebidas", datos.bebidas)
+		publicar(player)
+		remotoBebidaResultado:FireClient(player, { ok = true, bebidas = datos.bebidas })
+		print("[Tienda] " .. player.Name .. " bebió una bebida (" .. datos.bebidas .. " restantes)")
+	end)
+
+	-- Atributos para el cliente en cuanto haya datos; si la carga llega después,
+	-- AlCargar republica el valor real (publicar no escribe en la caché).
+	dataService.AlCargar.Event:Connect(function(player)
+		cargados[player] = true
+		publicar(player)
+	end)
+	for _, player in ipairs(Players:GetPlayers()) do
+		publicar(player)
+	end
 
 	-- Cumplimiento §7.4: se consulta la política y se registra si el jugador
 	-- tiene restringidas las compras aleatorias de pago. El catálogo no tiene
@@ -163,6 +317,7 @@ function TiendaService.Iniciar()
 
 	Players.PlayerRemoving:Connect(function(player)
 		restringidosAleatorios[player] = nil
+		cargados[player] = nil
 	end)
 
 	print("[Tienda] lista: " .. #TiendaConfig.Catalogo .. " items")

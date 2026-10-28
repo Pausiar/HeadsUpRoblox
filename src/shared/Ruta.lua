@@ -3,6 +3,10 @@
 local Ruta = {}
 
 local EPS = 1e-6
+-- Índice espacial: cubos de 64 studs con los índices de puntos de ruta que caen dentro.
+-- Las consultas de distancia de interés viven por debajo de 64 studs (corredor 18,
+-- progreso 25, árboles 9), así que el vecindario 3x3 siempre las cubre.
+local BUCKET = 64
 
 local function catmull(p0, p1, p2, p3, t)
 	local t2 = t * t
@@ -264,11 +268,30 @@ local function obtenerRuta(waypoints, paso, opciones)
 		acumuladas[i] = longitud
 	end
 
+	local indice = {}
+	for i = 1, #puntos do
+		local p = puntos[i]
+		local bx = math.floor(p.X / BUCKET)
+		local bz = math.floor(p.Z / BUCKET)
+		local columna = indice[bx]
+		if not columna then
+			columna = {}
+			indice[bx] = columna
+		end
+		local lista = columna[bz]
+		if not lista then
+			lista = {}
+			columna[bz] = lista
+		end
+		lista[#lista + 1] = i
+	end
+
 	local ruta = {
 		Puntos = puntos,
 		Tangentes = tangentes,
 		Acumuladas = acumuladas,
 		Longitud = longitud,
+		Indice = indice,
 	}
 	return ruta
 end
@@ -314,13 +337,46 @@ function Ruta.crear(waypoints, paso, opciones)
 			return 0, 1, self.Puntos[1], self.Tangentes[1]
 		end
 		local segmentos = n - 1
-		local inicio = math.clamp(math.floor(tonumber(pista) or 1), 1, segmentos)
 		local mejorI, mejorT, mejorD2 = 1, 0, math.huge
-		for k = 0, segmentos - 1 do
-			local i = ((inicio - 1 + k) % segmentos) + 1
-			local t, d2 = proyectarSegmento(self.Puntos[i], self.Puntos[i + 1], x, z)
-			if d2 < mejorD2 then
-				mejorI, mejorT, mejorD2 = i, t, d2
+		local indice = self.Indice
+		if indice then
+			local bx = math.floor(x / BUCKET)
+			local bz = math.floor(z / BUCKET)
+			for dx = -1, 1 do
+				local columna = indice[bx + dx]
+				if columna then
+					for dz = -1, 1 do
+						local lista = columna[bz + dz]
+						if lista then
+							for _, i in ipairs(lista) do
+								-- El segmento que sale del punto y el que entra: cubren los
+								-- segmentos que cruzan el borde del cubo.
+								for k = i - 1, i do
+									if k >= 1 and k <= segmentos then
+										local t, d2 = proyectarSegmento(self.Puntos[k], self.Puntos[k + 1], x, z)
+										if d2 < mejorD2 then
+											mejorI, mejorT, mejorD2 = k, t, d2
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+			if mejorD2 == math.huge then
+				-- Lejos del sendero (más de un cubo de distancia): el llamador compara
+				-- umbrales y descarta; devolver el inicio evita puntos nil.
+				return math.huge, 1, self.Puntos[1], self.Tangentes[1]
+			end
+		else
+			local inicio = math.clamp(math.floor(tonumber(pista) or 1), 1, segmentos)
+			for k = 0, segmentos - 1 do
+				local i = ((inicio - 1 + k) % segmentos) + 1
+				local t, d2 = proyectarSegmento(self.Puntos[i], self.Puntos[i + 1], x, z)
+				if d2 < mejorD2 then
+					mejorI, mejorT, mejorD2 = i, t, d2
+				end
 			end
 		end
 		local a, b = self.Puntos[mejorI], self.Puntos[mejorI + 1]

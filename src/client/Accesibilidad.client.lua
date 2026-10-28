@@ -2,7 +2,7 @@
 -- La escala se aplica sobre el TextSize base guardado UNA vez por etiqueta, así cambiar
 -- el ajuste varias veces nunca acumula. Las etiquetas con TextScaled=true se ignoran.
 -- shortcut: escala TextSize sin reflujo de alturas fijas; a 140 % algunos rótulos de
--- 18–22 px pueden recortarse (revisión de reflujo en la fase 7).
+-- 18–22 px pueden recortarse. Validar a 140 % en móvil real antes del soft launch.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

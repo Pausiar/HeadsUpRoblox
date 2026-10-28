@@ -1,8 +1,8 @@
 -- Botones táctiles compartidos por Estamina, Linterna y CameraController.
 -- Una sola fila abajo-centro (56x56, fuera del thumbstick y del salto por defecto).
 -- Solo se requiere desde clientes con TouchEnabled; el estilo sigue el ADN visual.
--- shortcut: en pantallas muy estrechas la fila puede rozar la zona del thumbstick,
--- validar en dispositivo antes de cerrar la fase 6.
+-- shortcut: en pantallas muy estrechas la fila puede rozar la zona del thumbstick;
+-- validar en móvil real (pantalla de 320 px) antes del soft launch.
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

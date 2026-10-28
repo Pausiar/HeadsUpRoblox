@@ -3,27 +3,35 @@ local Config = {}
 
 Config.Etapa0 = {
 	Nombre = "Sendero de prueba",
-	CheckpointCada = 80,
-	ProteccionInicio = 30, -- studs de ruta sin rocas ni troncos: el spawn siempre es seguro
+	CheckpointCada = 260, -- ruta de ~6000 studs: un poste cada ~15 s de marcha
+	ProteccionInicio = 45, -- studs de ruta sin peligros: spawn y tienda siempre seguros
 	RadioProgreso = 25, -- fuera de este radio del sendero no se gana distancia ni checkpoints
-	Rocas = {
-		IntervaloMin = 2.5,
-		IntervaloMax = 5,
-		AlturaCaida = 45,
-		TamanoMin = 3,
-		TamanoMax = 5.5,
-		AvisoSeg = 1.8, -- plan §4.3: aviso de 1,5 a 2,5 s
-		Danio = 35,
-		RadioImpacto = 8,
-	},
-	Troncos = {
-		IntervaloMin = 4,
-		IntervaloMax = 7,
-		AvisoSeg = 2.0,
-		Velocidad = 24, -- studs/s cruzando el sendero
+	-- Fase 9: peligros diegéticos. No hay aviso sonoro ni marca en el suelo:
+	-- el árbol que cae es el aviso (se ve venir) y las piedras salen de su copa.
+	ArbolesQueCaen = {
+		-- La ruta dura ~5 min: un evento cada 3,5–6,5 s derribaba al jugador solo
+		-- antes de llegar al primer tramo. 8–13 s deja respirar sin quitar peligro.
+		IntervaloMin = 8,
+		IntervaloMax = 13,
+		RadioBusqueda = 32, -- solo se tumban árboles cercanos al objetivo
+		RadioDanio = 6,
 		Danio = 30,
-		Largo = 10,
-		Diametro = 2.4,
+		DuracionCaida = 0.9, -- s que tarda el pino en tumbarse
+		Reaparicion = 7, -- s tumbado antes de enderezarse
+		Probabilidad = 0.55, -- el resto de las veces llueven piedras
+	},
+	Piedras = {
+		RadioBusqueda = 40,
+		RadioDanio = 2.2,
+		Danio = 12,
+		CantidadMin = 3,
+		CantidadMax = 5,
+		RetardoMin = 0.1,
+		RetardoMax = 0.55,
+	},
+	Meta = {
+		Distancia = 10, -- studs del final que cuentan como meta
+		BonusPinas = 100,
 	},
 	Caido = {
 		SegundosParaReanimar = 30,
@@ -62,6 +70,8 @@ Config.Etapa0 = {
 		IntervaloMin = 25,
 		IntervaloMax = 60,
 		MaxMensajesPorPartida = 6,
+		-- Debt fase 9: umbral que hacía falta en Config (antes constante del servicio)
+		UmbralSenuelo = 60, -- studs: si nadie está más cerca, el grupo está lejos (§5.3)
 	},
 }
 

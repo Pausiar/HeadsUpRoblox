@@ -16,6 +16,7 @@ local MAX_REINTENTOS = 3 -- intentos extra de escritura (backoff 1-2-4 s)
 -- shortcut: una consulta lee hasta MaxAmigos claves (50) por jugador; si varios jugadores
 -- refrescan a la vez se agota el cupo por minuto y la lista sale parcial (sin error).
 -- La caché de marcas por userId amortigua el caso normal: el grupo suele compartir amigos.
+-- Revisar si un servidor pasa de ~8 jugadores o si el ranking tarda >60 s en refrescar.
 local ESPERA_LECTURA = 0.05 -- s entre GetAsync de amigos (presupuesto de DataStore)
 local MSG_SIN_API = "Ranking no disponible en Studio"
 local MSG_ERROR = "No se pudo cargar el ranking; inténtalo más tarde"

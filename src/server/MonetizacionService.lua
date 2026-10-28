@@ -325,7 +325,8 @@ local function cambiarModoPuro(player, valor)
 	if not permitirModoPuro(player) or type(valor) ~= "boolean" then
 		return
 	end
-	-- shortcut: el Modo Puro aún no separa récords; el ranking Puro (plan §7.3) llega después.
+	-- shortcut: el Modo Puro aún no separa récords; revisar cuando exista el ranking
+	-- de Modo Puro (plan §7.3) o al publicar la primera temporada.
 	dataService.Guardar(player, "modoPuro", valor)
 	publicar(player)
 	print("[Monetizacion] Modo Puro " .. (valor and "on" or "off") .. " para " .. player.Name)

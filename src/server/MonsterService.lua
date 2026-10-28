@@ -188,21 +188,24 @@ local function clonarComo(jugador)
 	if hum then
 		hum.WalkSpeed = cfg.VelocidadDoble
 	end
-	-- Ojos rojos (§5.3): dos esferas Neon soldadas a la cabeza, se ven en la oscuridad.
+	-- Ojos rojos (§5.3): dos esferas Neon soldadas a la cara, a la altura de los ojos.
+	-- Neon pero con transparencia y tono apagado: se leen en la oscuridad sin deslumbrar.
 	local cabeza = nuevo:FindFirstChild("Head")
 	if cabeza then
 		for _, ladoX in { -0.15, 0.15 } do
 			local ojo = Instance.new("Part")
 			ojo.Name = "OjoDoble"
 			ojo.Shape = Enum.PartType.Ball
-			ojo.Size = Vector3.new(0.15, 0.15, 0.15)
-			ojo.Color = Color3.fromRGB(255, 25, 25)
+			ojo.Size = Vector3.new(0.13, 0.13, 0.13)
+			ojo.Color = Color3.fromRGB(190, 20, 20)
 			ojo.Material = Enum.Material.Neon
+			ojo.Transparency = 0.2
 			ojo.CanCollide = false
 			ojo.CanQuery = false
 			ojo.CanTouch = false
 			ojo.Massless = true
-			ojo.CFrame = cabeza.CFrame * CFrame.new(ladoX, 0.1, -cabeza.Size.Z / 2)
+			-- +0,02 en Z: apoyados en la cara, no dentro del casco.
+			ojo.CFrame = cabeza.CFrame * CFrame.new(ladoX, cabeza.Size.Y * 0.28, -cabeza.Size.Z / 2 + 0.02)
 			local soldadura = Instance.new("WeldConstraint")
 			soldadura.Part0 = cabeza
 			soldadura.Part1 = ojo

@@ -17,10 +17,6 @@ local rng = Random.new()
 local cfg = Config.Etapa0.ChatFalso
 local NICK_DOBLE = "ElDoble"
 
--- shortcut: el umbral de señuelo no está en GameConfig.ChatFalso; moverlo allí
--- en cuanto se edite ese archivo.
-local UMBRAL_SENUELO = 60 -- studs: nadie a menos de esto del clon -> grupo lejos
-
 -- Cadence de "escritura" (solo cosmético en servidor): 0,05 s por carácter,
 -- máximo 3 s. Se aplica como retardo antes de FireClient.
 local CADENCE_POR_CARACTER = 0.05
@@ -181,7 +177,7 @@ local function hablar(playerState)
 			distMin = d
 		end
 	end
-	local grupoLejos = distMin > UMBRAL_SENUELO
+	local grupoLejos = distMin > cfg.UmbralSenuelo -- studs: nadie más cerca -> grupo lejos (§5.3)
 
 	-- 60% frase real de la víctima / 40% banco curado (errata solo en el banco).
 	local texto

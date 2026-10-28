@@ -6,16 +6,18 @@ local Remotes = {}
 
 Remotes.Nombres = {
 	HudEstado = "HudEstado", -- server -> client: { estado, restante }
-	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord }
+	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord, victoria? }
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }
 	Ranking = "Ranking", -- server -> client: array de { nombre, puntos, distancia } ordenado por puntos
 	Personalizacion = "Personalizacion", -- client -> server: { altura, ancho, cabeza } validado en servidor
 	TusDatos = "TusDatos", -- server -> client: tabla guardada del jugador tras cargarla del DataStore
 	ChatFalso = "ChatFalso", -- server -> client: { nick, texto } de El Doble (filtrado por receptor)
-	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al cerrar una partida
+	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al caminar y al cerrar una partida
 	Comprar = "Comprar", -- client -> server: { id } del catálogo (TiendaConfig)
 	CompraResult = "CompraResult", -- server -> client: { ok, mensaje, pinas }
+	BeberBebida = "BeberBebida", -- client -> server: gastar una bebida comprada (limitado)
+	BebidaResult = "BebidaResult", -- server -> client: { ok, bebidas, mensaje }
 
 	-- Fase 2: lobby formal y ranking de amigos
 	LobbyEstado = "LobbyEstado", -- server -> client: { fase, jugadores, modo, min, max, cuenta, host, puedeEmpezar, mensaje? }

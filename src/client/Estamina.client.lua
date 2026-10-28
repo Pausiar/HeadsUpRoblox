@@ -13,11 +13,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
 
 local player = Players.LocalPlayer
+local remotoBeber = Remotes.Esperar(Remotes.Nombres.BeberBebida)
+local remotoBebidaResultado = Remotes.Esperar(Remotes.Nombres.BebidaResult)
 
 -- Constantes del slice (locales a propósito: GameConfig se toca cuando el balance se mida en playtest)
 local ESTAMINA_MAX = 100
@@ -26,6 +29,8 @@ local REGENERACION = 15 -- estamina por segundo en reposo
 local VELOCIDAD_BASE = 16
 local VELOCIDAD_SPRINT = 24
 local UMBRAL_MINIMO = 10 -- tras vaciarse, no se vuelve a esprintar hasta recuperar esto
+local BEBIDA_ESTAMINA = ESTAMINA_MAX / 4 -- 1/4 de la barra por bebida (25 puntos)
+local CANSANCIO_MINIMO = 0.4 -- suelo del multiplicador de las Botas ligeras
 
 local COLOR_FONDO = Color3.fromRGB(62, 42, 24) -- #3E2A18 marrón oscuro
 local COLOR_BARRA = Color3.fromRGB(139, 195, 74) -- #8BC34A verde lima (ADN: barras de estado)
@@ -85,6 +90,69 @@ texto.TextColor3 = COLOR_TEXTO
 texto.Text = L("sprint_shift")
 texto.Parent = fondo
 
+-- Bebidas de la tienda: rótulo con el stock y el atajo Q, justo sobre la barra.
+-- Solo se ve en partida; tras beber muestra el aviso 1,5 s en el mismo espacio.
+-- En táctil no hay atajo de teclado: el botón «Beber» de Acciones lo sustituye.
+local ATAJO_BEBER = UserInputService.TouchEnabled and "" or " · Q"
+local rotuloBebidas = Instance.new("TextLabel")
+rotuloBebidas.Name = "AvisoBebidas"
+rotuloBebidas.AnchorPoint = Vector2.new(0, 1)
+rotuloBebidas.Position = UDim2.new(0, 14, 1, -38) -- 6 px sobre la barra (que acaba en -32)
+rotuloBebidas.Size = UDim2.fromOffset(160, 24)
+rotuloBebidas.BackgroundColor3 = COLOR_FONDO -- madera oscura: legible sobre el terreno
+rotuloBebidas.BackgroundTransparency = 0.15
+rotuloBebidas.BorderSizePixel = 0
+rotuloBebidas.Font = Enum.Font.GothamBold
+rotuloBebidas.TextSize = 18
+rotuloBebidas.TextXAlignment = Enum.TextXAlignment.Center
+rotuloBebidas.TextColor3 = COLOR_TEXTO
+rotuloBebidas.Text = ""
+rotuloBebidas.Visible = false
+rotuloBebidas.Parent = gui
+
+local esquinaBebidas = Instance.new("UICorner")
+esquinaBebidas.CornerRadius = UDim.new(0, 8)
+esquinaBebidas.Parent = rotuloBebidas
+
+local avisoBebidas = nil -- tarea del aviso temporal; si existe, manda sobre el stock
+
+local function pintarBebidas()
+	if avisoBebidas then
+		return -- no pisar «¡Bebida tomada!» mientras se muestra
+	end
+	rotuloBebidas.Visible = player:GetAttribute("EnJuego") == true
+	rotuloBebidas.Text = L("bebidas") .. ": " .. (tonumber(player:GetAttribute("Bebidas")) or 0) .. ATAJO_BEBER
+end
+
+local function avisarBebidas(texto)
+	rotuloBebidas.Visible = player:GetAttribute("EnJuego") == true
+	rotuloBebidas.Text = texto
+	if avisoBebidas then
+		task.cancel(avisoBebidas)
+	end
+	avisoBebidas = task.delay(1.5, function()
+		avisoBebidas = nil
+		pintarBebidas()
+	end)
+end
+
+-- El servidor descuenta el stock; aquí solo se repone la barra (autoridad cliente,
+-- ver la nota de arriba) y se confirma con el aviso.
+remotoBebidaResultado.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	if datos.ok == true then
+		estamina = math.min(ESTAMINA_MAX, estamina + BEBIDA_ESTAMINA)
+		avisarBebidas(L("bebida_tomada"))
+	else
+		avisarBebidas(L("sin_bebidas"))
+	end
+end)
+
+player:GetAttributeChangedSignal("Bebidas"):Connect(pintarBebidas)
+pintarBebidas()
+
 -- reducirEfectos (Settings): aquí no hay animaciones que desactivar — el tamaño de la barra es
 -- funcional (se escribe cada Heartbeat), así que la opción no necesita gancho en este slice.
 
@@ -97,6 +165,7 @@ player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 			humanoid.WalkSpeed = VELOCIDAD_BASE
 		end
 	end
+	pintarBebidas()
 end)
 
 local function iniciarSprint()
@@ -113,6 +182,13 @@ end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end -- un TextBox u otro sistema se quedó la tecla
+	if input.KeyCode == Enum.KeyCode.Q then
+		-- Solo en partida: fuera de ella beber gastaría stock sin reponer nada útil.
+		if player:GetAttribute("EnJuego") == true then
+			remotoBeber:FireServer() -- el servidor valida stock y limita a 1/s
+		end
+		return
+	end
 	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
 	iniciarSprint()
 end)
@@ -128,8 +204,11 @@ if UserInputService.TouchEnabled then
 	texto.Visible = false
 	local Acciones = require(script.Parent:WaitForChild("Acciones"))
 	local boton = Acciones.CrearBoton("sprint", 1)
+	local botonBeber = Acciones.CrearBoton("beber", 2)
 	local function actualizarVisibilidad()
-		boton.Visible = player:GetAttribute("EnJuego") == true
+		local enJuego = player:GetAttribute("EnJuego") == true
+		boton.Visible = enJuego
+		botonBeber.Visible = enJuego
 	end
 	player:GetAttributeChangedSignal("EnJuego"):Connect(actualizarVisibilidad)
 	actualizarVisibilidad()
@@ -142,6 +221,9 @@ if UserInputService.TouchEnabled then
 		if entrada.UserInputType == Enum.UserInputType.Touch then
 			detenerSprint()
 		end
+	end)
+	botonBeber.Activated:Connect(function()
+		remotoBeber:FireServer()
 	end)
 end
 
@@ -173,7 +255,10 @@ RunService.Heartbeat:Connect(function(dt)
 		and estamina > 0
 	then
 		humanoid.WalkSpeed = VELOCIDAD_SPRINT
-		estamina -= DRENAJE * dt
+		-- Botas ligeras: Cansancio baja 0,15 por nivel (0,55 al máximo). El suelo
+		-- de 0,4 deja margen para futuros niveles sin regalar sprint infinito.
+		local cansancio = math.clamp(tonumber(player:GetAttribute("Cansancio")) or 1, CANSANCIO_MINIMO, 1)
+		estamina -= DRENAJE * cansancio * dt
 		if estamina <= 0 then
 			estamina = 0
 			bloqueadoPorVacio = true -- sprint forzado fuera hasta recuperar UMBRAL_MINIMO
@@ -198,6 +283,7 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 	end
 	Localization.Establecer(valor)
 	texto.Text = L("sprint_shift")
+	pintarBebidas()
 end)
 
 print("[Estamina] activo")

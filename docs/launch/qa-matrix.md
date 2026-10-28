@@ -1,0 +1,248 @@
+# Matriz de QA · Heads Up! Mountain Mayhem
+
+Versión 1.0 · 28-10-2026 · Fase 7 (lanzamiento y vivo)
+
+Alcance: verificación funcional, multiplataforma, accesibilidad, persistencia y seguridad antes del soft launch. Esta matriz describe **casos y evidencia**, no resultados: los resultados se anotan en `docs/skill-log.md` y en el registro de la fase. El comportamiento esperado se apoya en el código y los Config del repo; cuando el plan y el código no coinciden, se indica como **brecha**.
+
+Fuente de verdad del diseño: `docs/PLAN.md`. Fuente de verdad del comportamiento actual: `src/` y `build/HeadsUp.rbxlx` generado con Rojo.
+
+## 1. Convenciones
+
+### 1.1 Prioridad
+
+| Prioridad | Significado | Efecto en publicación |
+| --- | --- | --- |
+| P0 | Rompe el bucle, el dinero, los datos, la seguridad o una pantalla principal | Bloquea la publicación |
+| P1 | Afecta a una plataforma, modo, accesibilidad o promesa comercial importante | Se corrige antes del soft launch o se aprueba una excepción escrita |
+| P2 | Pulido, caso límite o deuda conocida sin impacto directo en la primera sesión | Puede publicarse con seguimiento |
+
+### 1.2 Evidencia
+
+| Código | Método | Herramienta |
+| --- | --- | --- |
+| C | Consola del servidor y del cliente, sin errores rojos y con los mensajes esperados | MCP `start_stop_play`, `get_console_output` |
+| S | Captura visual del estado esperado | MCP `screen_capture` |
+| I | Instancia, atributo o propiedad comprobada en el DataModel | Explorador de Studio, `execute_luau` con un Script real de prueba |
+| R | Respuesta de un remote o payload observado | Consola del cliente/servidor o UI |
+| D | Dato persistido o panel de Creator Dashboard | Rejoin en servidor publicado, Analytics/Data Stores del Creator Dashboard |
+| M | Prueba manual en dispositivo real o con varias cuentas | Dispositivo iOS/Android, PC, mando, cuentas de prueba |
+
+No se usa `execute_luau` para leer estado vivo del juego: el MCP puede crear instancias de `require` distintas (lección anotada en `docs/skill-log.md`). Para pruebas de remotes se usa un `LocalScript` temporal en Studio, se retira antes del build y nunca se publica.
+
+### 1.3 Entornos
+
+| Entorno | Qué permite | Qué no permite |
+| --- | --- | --- |
+| E1 · Studio, 1 jugador | Probar el arranque, el lobby en solitario, la UI y los sistemas locales | DataStore real, amigos reales, compras reales, analítica publicada |
+| E2 · Studio, 2 jugadores | Reanimación cooperativa, rapto/rescate, chat falso, cámara y HUD con dos clientes | 4–8 jugadores, red real, dispositivos reales |
+| E3 · Place publicado de prueba | DataStore, OrderedDataStore, PolicyService, compras, Analytics, filtro real | Sustituye a la prueba en dispositivo real para rendimiento y safe area |
+| E4 · Dispositivos reales | Táctil, notch, rendimiento, mando, legibilidad | Compras reales sin cuenta de prueba y saldo |
+| E5 · Creator Dashboard | Retención, embudo, economía, monetización, eventos | Datos instantáneos: las gráficas suelen tardar hasta 24 h |
+
+En Studio, el mínimo de lobby es 1 solo si `LobbyConfig.PermitirSoloEnStudio = true`; en un place publicado el mínimo es 2 (`src/shared/Config/LobbyConfig.lua`). Un caso de 1 jugador en E3 debe fallar el inicio, no iniciar una partida de uno.
+
+### 1.4 Línea base de consola
+
+Al arrancar el build se espera, como mínimo:
+
+- `[Slice] servidor listo: lobby, match, puntos, ranking, troncos, rocas, personalización, ropa, sombreros, Piñas, tienda, El Doble y Robux`.
+- `[Datos] servicio listo`; en Studio sin API, `[Datos] servicio listo (modo memoria)` y un solo aviso de API.
+- `[Telemetria] activa: embudo PrimeraPartida con 4 pasos` cuando `TelemetriaConfig.Activo = true`.
+- `[Tienda] lista: 8 items`; `[Monetizacion] activo: 5 pases, 3 productos, Activo=false` mientras no se publiquen IDs.
+- `[Doble] servicio iniciado (aparece tras 45 s de partida)` y `[ChatFalso] activo`.
+- `[Ropa] activo`, `[Accesorios] ...`, `[AmigosRanking] ...` según disponibilidad de API.
+
+Cualquier error rojo es P0. Los avisos ya conocidos de Studio sin API, el asset 203785492 y `ChatMimicView` esperando `TextChannels` están documentados en `docs/skill-log.md`; un aviso nuevo se investiga como P1 antes de publicar.
+
+## 2. Matriz por plataforma, entrada, aforo y modo
+
+| ID | Entorno / entrada | Aforo y modo | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- | --- |
+| QA-01 | E1 · PC teclado/ratón | 1 · Historia | Abrir menú → JUGAR → lobby → LISTO → esperar cuenta atrás → entrar | En Studio el lobby permite 1; `EnJuego=true`; la partida arranca; el HUD aparece; no hay errores | C: `[Lobby] partida iniciada: historia con 1 jugadores`, `[Match] inicio modo historia con 1 jugadores`; I: `Player:GetAttribute("EnJuego")`; S: HUD | P1 |
+| QA-02 | E2 · PC teclado/ratón | 2 · Historia | Dos clientes → host elige Historia → ambos LISTO → cuenta atrás de 5 s → jugar | Roster de 2; mismo modo; teletransporte al inicio; HUD y cámara en ambos; sin desincronización visible | C: `[Lobby] partida iniciada: historia con 2 jugadores`; S: dos capturas; I: atributos `EnJuego` en ambos | P0 |
+| QA-03 | E2/E3 · PC | 4 · Historia | Cuatro clientes → lobby 4/4 → jugar hasta el primer checkpoint → derribar a uno y reanimarlo → terminar | Los 4 entran; checkpoints individuales; reanimación cooperativa; resultados por jugador; REINTENTAR conserva roster y modo | C: `[Match] checkpoint 1 por ...`, `[Estado] reanimado ... por ...`, `[Match] fin de partida`; S: FinScreen; I: `Humanoid.PlatformStand` | P0 |
+| QA-04 | E3 · PC | 8 · Historia | Ocho cuentas en un servidor con aforo 8 → lobby 8/8 → jugar 10–15 min con peligros → terminar o caer todos | Ocho participantes, un solo El Doble activo (el código usa un clon; el plan permite dos con 6–8), sin errores, sin caídas de red y con rendimiento aceptable | C: `[Lobby] partida iniciada: historia con 8 jugadores`, `[Doble] ...`; S: HUD con 8; M: rendimiento y red; I: roster del lobby | P1 |
+| QA-05 | E2/E3 · PC | 2 · Ronda rápida | Host cambia a Ronda rápida → LISTO → jugar 5–8 min → caer todos → REINTENTAR | Camino modular con semilla; sin checkpoints; fin por caída de todos; reintento con nueva semilla; sin errores | C: `[RondaRapida] camino con semilla ...`, `[Match] inicio modo rapida ...`; I: `workspace.RondaRapida`, ausencia de `workspace.Match.ZonaCheckpoint*`; S: FinScreen con «Checkpoint: —» | P1 |
+| QA-06 | E3 · PC | 4 · Ronda rápida | Cuatro jugadores → dos rondas seguidas → comparar caminos y dificultad | La semilla cambia el camino; la dificultad sube en la segunda mitad; no hay bloqueos intransitables; el fin de ronda devuelve al lobby | C: semillas distintas; S: capturas de ambos caminos; M: recorrido completo | P2 |
+| QA-07 | E4 · Móvil táctil | 2 · Historia | Un móvil y un PC en el mismo servidor → thumbstick/salto → botones SPRINT, LINTERNA, CÁMARA → tienda con scroll → safe area | Controles táctiles de 56×56 visibles solo con `EnJuego`; sprint se mantiene al tocar; linterna alterna; cámara alterna; la tienda se desplaza; ningún panel queda bajo el notch | M: captura en dispositivo real; S: `ControlesTactiles.Fila`; I: `ScreenGui` y `GuiService:GetGuiInset` | P0 |
+| QA-08 | E4 · Cruce PC + móvil | 2 · Historia | PC y móvil juntos → reanimar, chat falso, ranking y tienda | Los dos ven el mismo estado; la reanimación funciona desde ambos; el texto filtrado llega a ambos; no hay errores por plataforma | C: ambos clientes; S: capturas sincronizadas; M: latencia percibida | P1 |
+| QA-09 | E4 · Mando | 2 · Historia | Si se soporta mando: mover, cámara, interactuar, navegar menús y tienda | Los controles por defecto de Roblox funcionan; la navegación de GUI no queda atrapada; no hay acciones duplicadas | M: mando real; S: menús; C: errores de input | P2 |
+| QA-10 | E3 · PC | 8 + 1 · Historia | Servidor con 8/8 → intentar entrar con una novena cuenta; si el aforo del place permite 9, observar el lobby | Roblox rechaza o redirige al servidor lleno; si entra como noveno, queda espectador y nunca ocupa un hueco >8 | C: roster de 8, `EnJuego=false` para el noveno; S: LobbyUI; M: mensaje de servidor lleno | P1 |
+| QA-11 | E3 · PC | 1 · Historia | Un solo jugador intenta iniciar en un place publicado | El lobby no inicia; muestra que faltan jugadores; no se crea una partida de 1 | C: `[Lobby] ...` sin inicio; S: LobbyUI; I: `LobbyConfig.MinJugadores = 2` | P1 |
+| QA-12 | E2/E3 · PC | 2–4 · Historia | El host sale del lobby; un no-host intenta COMENZAR y CAMBIAR MODO; otro jugador ocupa el hueco | El host migra al siguiente participante; las acciones de no-host se ignoran; el hueco se rellena si hay espectador; la cuenta atrás se recalcula | C: `[Lobby] ...`, sin cambio de modo; S: LobbyUI con nuevo HOST; I: roster | P1 |
+
+## 3. Cámara, movimiento e interacción
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| QA-13 | Cámara 3.ª/1.ª | Entrar en partida → observar tercera persona → pulsar V → mover y mirar → volver a V | Tercera persona por defecto; V alterna a `LockFirstPerson`; se ven los brazos del viewmodel; el aviso «V: cámara» es correcto; en móvil el botón CÁMARA hace lo mismo | C: `[CameraController] activo`; I: `Player.CameraMode`; S: vista 1.ª con brazos; M: móvil | P1 |
+| QA-14 | Sprint | Mantener Shift (o botón SPRINT) → agotar la barra → soltar → esperar recarga; probar fuera de `EnJuego` | La velocidad sube mientras hay estamina; la barra baja y se recarga; al salir de la partida se detiene; en móvil el botón mantiene el sprint mientras se toca | C: sin errores; I: `Humanoid.WalkSpeed` y `PlayerGui.EstaminaGui.BarraEstamina.Relleno.Size`; S: barra | P1 |
+| QA-15 | Linterna y pase | Pulsar F (o botón LINTERNA) → comprobar `Head.Linterna` → con pase Linterna Pro comparar cono → activar Modo Puro → salir de la partida | La luz se enciende/apaga; el cono base es 35° y el Pro 40,25° con color propio; en Modo Puro vuelve a 35°; al salir de `EnJuego` se apaga; en móvil funciona el botón | C: `[Monetizacion] ...`, `[Linterna] ...`; I: `Head.Linterna` (`Angle`, `Color`); S: haz visible; M: móvil | P1 |
+| QA-16 | Derribo y reanimación cooperativa | Recibir roca o tronco → quedar caído → otro jugador se acerca y mantiene E 1,5 s | `PlatformStand=true`, `WalkSpeed=0`, HUD «CAÍDO» con cuenta atrás de 30 s; aparece `ProximityPrompt` «Reanimar»; al completar, el caído revive con salud ≥60, el reanimador recibe +50 puntos y ambos oyen/suben el subtítulo | C: `[Estado] caído: ... (roca)`, `[Puntos] +50 ... (reanimar)`, `[Estado] reanimado: ... por ...`; I: `Humanoid.PlatformStand`, `HumanoidRootPart.Reanimar`; S: HUD y subtítulo | P0 |
+| QA-17 | Caída sin rescate y fin | Caer y no ser reanimado en 30 s; repetir hasta que caiga todo el grupo | A los 30 s el jugador queda eliminado (salud 0); cuando cae el último, se abre FinScreen una sola vez; no se puede seguir jugando dentro de la ronda | C: `[Match] fin de partida`; I: `Humanoid.Health = 0`; S: `PlayerGui.FinPantalla` | P0 |
+| QA-18 | Inmunidad del caído | Con un jugador caído, lanzar rocas y troncos sobre él durante la cuenta atrás | Los peligros no dañan ni matan al caído; su cuenta atrás no se reinicia por impactos; el caído no puede usar acciones de movimiento | C: sin `[Estado] caído` duplicado ni muerte por impacto; I: `PlatformStand=true`; S: HUD estable | P1 |
+| QA-19 | Reanimación personal | Caer → abrir el panel de reanimación personal → usar stock; repetir sin stock y con 100 Piñas; probar en Modo Puro; probar de pie | El panel solo aparece con «CAÍDO»; consume 1 stock o 100 Piñas; cura y cierra el panel; límite 1 por partida; en Modo Puro rechaza; de pie rechaza; nunca cobra si rechaza | C: `[Monetizacion] reanimación personal usada por ... (stock)` o `(100 Piñas)`, rechazos; I: `PaseEstado.reanimaciones`; S: panel y aviso | P1 |
+| QA-20 | Rescate de El Doble | Ser raptado → otro jugador mantiene «Liberar» 1 s dentro de la ventana de 12 s | El rescate usa la misma reanimación que la cooperativa: la víctima revive, el liberador recibe +50 y se emite el evento `Reanimacion` (no `ReanimacionPersonal`) | C: `[Doble] ... liberada por ...`, `[Puntos] +50`, `[Estado] reanimado ... por ...`; I: `ProximityPrompt.Liberar` destruido tras el rescate | P1 |
+
+## 4. El Doble, checkpoints, fin de partida y récord
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| QA-21 | Aparición y fases | En partida activa, esperar 45 s; observar al clon; esperar observación, infiltración y acecho | Tras 45 s de `EnJuego` aparece un clon con la skin de la víctima, ojos Neon rojos y sin prompts heredados; la víctima no se repite dos veces seguidas; solo hay un clon activo; las fases se suceden en orden | C: `[Doble] fase 1: observando a ...`, `fase 2`, `fase 3`; I: `workspace.ElDoble`; S: clon y ojos | P1 |
+| QA-22 | Chat falso | Un jugador escribe frases; acercarse al clon; esperar mensajes; comprobar burbuja y chat; probar con dos receptores y con el ajuste Modo cómico si existe | Se repiten frases reales filtradas y frases del banco; máximo 6 por partida; el retardo simula escritura; la burbuja aparece sobre el clon; cada receptor recibe texto filtrado; si el filtro falla no se envía; el aviso previo de imitador es visible | C: `[ChatFalso] ElDoble -> ...`, `[ChatFalso] filtro falló...`; I: `TextChannels.RBXGeneral`, `workspace.ElDoble`; S: burbuja y aviso | P0 |
+| QA-23 | Rapto y ventana de rescate | Dejar que El Doble llegue a fase 4 → observar revelación y alarma → intentar rescatar dentro de 12 s; repetir dejando expirar | La víctima cae y es arrastrada a la madriguera; aparece `Highlight` rojo y `Liberar`; si la rescatan revive; si expira, el rapto cuenta y la víctima sigue caída con su cuenta atrás normal; máximo 2 raptos por partida; nunca mata directamente | C: `[Doble] rapto de ...`, `[Doble] ... liberada por ...`, `[Doble] retirada (raptos n/2)`; I: `Highlight.Revelado`, `ProximityPrompt.Liberar`; S: escena | P1 |
+| QA-24 | Víctima se desconecta | Durante observación, acecho o rapto, cerrar el cliente de la víctima | El clon se limpia, la fase aborta sin errores y el resto sigue jugando; no queda prompt ni clon huérfano | C: sin errores; I: `workspace.ElDoble` ausente; S: escena limpia | P1 |
+| QA-25 | Modo y bioma de El Doble | Repetir QA-21 en Historia y en Ronda rápida; comparar con PLAN §5.1 | **Brecha:** el código no distingue modo ni bioma; el Doble aparece en ambos tras 45 s. Se registra la desviación y se decide si es aceptable para la v1 | C: `[Doble] ...` en ambos modos; I: `MonsterService` no consulta modo; M: observación | P2 |
+| QA-26 | Checkpoints en Historia | Avanzar hasta x≈80 y x≈160 en Historia; morir después del primero; comprobar reaparición | Las zonas `ZonaCheckpoint1/2` activan una sola vez por jugador; +10 puntos; el HUD/aviso lo muestra; al reaparecer se vuelve al último checkpoint, no al inicio | C: `[Match] checkpoint 1 por ...`, `[Puntos] +10 ... (checkpoint)`; I: `workspace.Match.ZonaCheckpoint*`, posición del `HumanoidRootPart`; S: poste y HUD | P1 |
+| QA-27 | Sin checkpoints en Ronda rápida | Jugar Ronda rápida y cruzar las mismas coordenadas | No se activa ningún checkpoint; no hay +10; FinScreen muestra «Checkpoint: —»; el camino no depende de `workspace.Etapa0` | C: sin `[Match] checkpoint`; I: sin `ZonaCheckpoint`; S: FinScreen | P1 |
+| QA-28 | Fin de partida y estadísticas | Caer todo el grupo en Historia y en Ronda rápida | FinScreen una sola vez por jugador con distancia, tiempo, checkpoint, puntos, récord y «¡NUEVO RÉCORD!» si corresponde; no se puede reintentar antes del enfriamiento de 3 s; el servidor es la fuente de las stats | C: `[Match] fin de partida`; R: payload `FinPartida`; S: `FinPantalla`; I: `PlayerGui.FinPantalla.PanelFin` | P0 |
+| QA-29 | REINTENTAR | Pulsar REINTENTAR inmediatamente y de nuevo dentro de 3 s; comprobar roster y modo | El primer reintento reinicia la misma partida con el roster y modo actuales; el segundo se ignora por rate limit; no se duplica el FinScreen; la semilla de Ronda rápida cambia | C: `[Match] partida reiniciada por ...` una vez; sin errores; S: pantalla de reanudación | P1 |
+| QA-30 | Récord persistente | Obtener un récord → salir → volver a entrar en un servidor publicado → jugar por debajo del récord → superarlo | El récord nunca baja; se carga del DataStore; el FinScreen muestra el récord anterior; al superarlo aparece «¡NUEVO RÉCORD!» y se guarda; el ranking de amigos usa la mejor distancia | C: `[Datos] carga OK para ...`, `[Datos] guardado OK para ...`; D: rejoin; S: FinScreen; I: `record` en la caché de DataService | P0 |
+| QA-31 | Abandono total | En partida, cerrar todos los clientes; volver a entrar | El servidor detecta que no quedan participantes y cierra la ronda; el lobby vuelve a «esperando» en un máximo de 12 s; no queda `EnJuego=true` ni FinScreen colgada | C: `[Match] partida abandonada: sin participantes`, `[Lobby] vuelta al lobby...`; S: LobbyUI | P1 |
+| QA-32 | Abandono individual | Un jugador sale a mitad de partida; el resto sigue; el jugador vuelve a entrar | El resto continúa sin errores; los datos del que sale se guardan; al volver entra como espectador o al lobby, no a mitad de ronda; el roster se rellena si hay hueco | C: `[Datos] guardado OK ...`; I: `EnJuego=false` al volver; S: LobbyUI | P1 |
+
+## 5. Piñas, tienda, pases, Modo Puro y ranking
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| QA-33 | Ganancia de Piñas | Terminar una partida con distancia conocida; comprobar fórmula y HUD; repetir con récord y con Piñas x2 | Se ganan `floor(distancia/10)` Piñas y +25 si hay récord nuevo; el multiplicador x2 duplica el total; el HUD y la tienda muestran el saldo; se persiste | C: `[Pinas] +N a ...: total N`; I: `PlayerGui.HudPinas`; D: rejoin; economía en Analytics | P0 |
+| QA-34 | Compra con Piñas | Abrir tienda → comprar un sombrero y una camiseta → repetir el mismo item → intentar sin saldo → recargar | El servidor cobra una sola vez; el item se aplica y se guarda; volver a pulsar el mismo item re-equipa gratis; sin saldo rechaza sin cobrar; el rate limit de 1 s evita dobles clics | C: `[Tienda] ... compró ...`, `[Tienda] ...`; R: `CompraResult`; I: `comprados`, torso/Head; S: tienda | P0 |
+| QA-35 | Estado de compra tras rejoin | Comprar un cosmético → salir → volver → abrir tienda | **Brecha conocida:** la tienda no recibe la lista de `comprados`; el item puede mostrar COMPRAR hasta pulsarlo, aunque el servidor re-equipa gratis. Se acepta solo si se corrige o se documenta antes del soft launch | C: `[Tienda] ...`; I: `comprados`; S: tarjeta tras rejoin | P1 |
+| QA-36 | Personalización | Cambiar altura, ancho y cabeza; guardar; salir y volver; cambiar color/patrón/pegatina en 3 ranuras; probar 9 con pase; mirar desde otro cliente | Los valores se validan y se clampean en servidor; se ven igual en todos los clientes; se guardan y se reaplican al reaparecer; las ranuras extra solo se aceptan con el pase | C: `[Personalizacion] aplicado a ...`, `[Ropa] diseño guardado ...`; I: `Humanoid` scales, `SurfaceGui` del torso; S: vista previa y mundo | P1 |
+| QA-37 | Nombres del catálogo en EN | Cambiar a EN y abrir tienda y personalización | **Brecha conocida:** los nombres de `TiendaConfig`, `MonetizacionConfig` y `RopaConfig` están en español y se muestran tal cual; no hay claves de localización para ellos. Si el criterio de «texto sin localizar» es bloqueante, esto lo es | S: tienda/ropa en EN; I: `item.nombre`; C: sin errores | P1 |
+| QA-38 | Pases y productos en Studio | Con `MonetizacionConfig.Activo=false` pulsar un pase/producto; usar los seams `_ProbarConceder` y `_ProbarRecibo`; repetir el mismo `purchaseId` | Sin `Activo` no se abre ningún prompt y se muestra «Disponible al publicar»; los seams solo existen en Studio; el pase concede 9 ranuras, Linterna Pro, x2, pack de sombreros o reanimación; el recibo repetido no duplica | C: `[Monetizacion] activo: ... Activo=false`, `[Monetizacion] _ProbarConceder ...`, `[Monetizacion] recibo ... repetido: sin duplicar`; R: `PaseEstado`, `RobuxResult`; S: tienda ROBUX | P1 |
+| QA-39 | Compra real en entorno publicado | Place publicado con API, IDs reales y `Activo=true`; comprar un producto de precio mínimo con cuenta de prueba; esperar recibo; rejoin; comprobar entrega | El prompt abre; el recibo se procesa una sola vez; la entrega es visible y persiste; si el jugador se va antes de procesar, Roblox reintenta; no hay doble cobro; el log muestra el `purchaseId` | C: `[Monetizacion] recibo ... de ...`, `[Monetizacion] entregado ...`; D: Creator Dashboard de ventas y rejoin; S: inventario/estado | P0 |
+| QA-40 | Modo Puro | Activar Modo Puro → caer y comprobar reanimación personal; comprobar linterna Pro; desactivar; rejoin | Con Puro: no hay reanimación personal y la linterna Pro vuelve al cono base; el ajuste persiste; **brecha:** el código no separa récords ni ranking Puro (plan §7.3), así que no se puede prometer «ranking Puro» sin corregirlo | C: `[Monetizacion] Modo Puro on/off`, rechazo «Modo Puro: sin reanimación personal»; I: `PaseEstado.modoPuro`, `Head.Linterna.Angle`; D: rejoin | P1 |
+| QA-41 | Piñas x2 y caducidad | Activar x2; comprobar 30 min; recomprar antes de caducar; esperar; comparar ganancias | El multiplicador dura 30 min; recomprar extiende desde el vencimiento vigente, no reinicia desde la compra; el HUD/tienda muestra el tiempo; al caducar vuelve a 1 | C: `[Monetizacion] ...`, `[Pinas] +N`; I: `pinasX2Hasta`, `PaseEstado.pinasX2Hasta`; S: barra de estado | P1 |
+| QA-42 | PolicyService | Entrar con una cuenta/región con `ArePaidRandomItemsRestricted=true`; abrir tienda; revisar consola | La tienda sigue funcionando porque no hay compras aleatorias; se registra el estado restringido; no se bloquea una compra directa por error | C: `[Tienda] ... con aleatorios restringidos: el catálogo no tiene aleatorios, sin impacto`; S: tienda | P1 |
+| QA-43 | Ranking de amigos | En un place publicado, dos cuentas amigas juegan y obtienen distancias; abrir AMIGOS; probar sin amigos, con caché y con enfriamiento | Top 10 de amigos + fila propia; fallback global si no hay amigos o falla `GetFriendsAsync`; clave `u_<UserId>` con la mejor distancia; 10 s de enfriamiento y 60 s de caché; en Studio muestra «Ranking no disponible» sin romper | C: `[AmigosRanking] ... studs`, `[AmigosRanking] activo: HUMM_Mejores_v1 (top 10)`; I: `RankingAmigosUI` filas; D: OrderedDataStore | P1 |
+| QA-44 | Ranking de la partida | Jugar y comprobar el panel de puntos en vivo | El ranking de la partida se actualiza cada 2 s con puntos/distancia autoritativos; no muestra a espectadores; no interfiere con el ranking de amigos | C: `[Ranking] activo (cada 2 s)`; S: `HudRanking`; I: remote `Ranking` | P2 |
+
+## 6. Localización, accesibilidad y safe area
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| QA-45 | ES/EN en vivo | Abrir Ajustes → cambiar ES→EN→ES sin recargar; recorrer menú, lobby, HUD, ajustes, tienda, personalización, ranking, fin y subtítulos | Todas las cadenas de las 17 UIs cambian en vivo; no hay claves crudas ni huecos; el fallback es→clave no aparece en flujos principales | S: capturas ES/EN de cada pantalla; C: sin warnings de paridad; I: `Settings.idioma` | P1 |
+| QA-46 | Barrido de texto sin localizar | En EN, recorrer tienda, personalización, prompts de reanimar/liberar, subtítulos y chat falso | **Brecha conocida:** nombres de catálogo/ropa, `ActionText` «Reanimar»/«Liberar», subtítulos de `AudioConfig` y el banco bilingüe de El Doble no siguen `Settings.idioma`. Se listan como bloqueo si el criterio es estricto, o se aprueban como excepción | S: capturas EN; I: `Strings.lua` vs `TiendaConfig`, `RopaConfig`, `AudioConfig`, `MonsterService`, `PlayerStateService`, `ChatMimicService` | P0/P1 |
+| QA-47 | Escala de texto 140 % | Ajustes → Tamaño de texto 140 % → recorrer HUD, menús, tienda, personalización, FinScreen y subtítulos | Todo texto no `TextScaled` escala una sola vez (atributo `TextoBaseEscala`); ningún texto crítico se corta ni se solapa; los botones siguen accesibles; volver a 100 % restaura | I: `TextoBaseEscala`, `TextSize`; S: capturas a 140 %; C: sin errores | P1 |
+| QA-48 | Reducir efectos | Activar Reducir efectos → mirar cámara, peligros, audio y subtítulos | Se quita el balanceo de cámara y se atenúan efectos no críticos; los avisos de peligro y la información crítica siguen presentes; el ajuste se aplica en vivo | S: cámara estable; C: audio/subtítulos; I: `Settings.reducirEfectos` | P1 |
+| QA-49 | Subtítulos | Provocar aviso, impacto, reanimación, checkpoint, monstruo y fin; desactivar subtítulos; repetir dos avisos seguidos | Cada efecto crítico tiene subtítulo legible abajo-centro, por encima del panel de reanimación; se deduplica en <1 s; con el ajuste off no aparece; **brecha:** el texto de `AudioConfig` está en español también en EN y dura 2,5 s fijos | S: subtítulo; C: `[Audio] ...`; I: `PlayerGui.Subtitulos`; `Settings.subtitulos` | P1 |
+| QA-50 | Safe area y tamaños táctiles | En móvil con notch y en viewport corto: menú, lobby, ajustes, tienda, personalización, ranking, FinScreen, HUD y subtítulos; medir objetivos | Ningún panel queda bajo el notch ni cortado; los controles principales miden ≥44×44 px (los táctiles 56×56); la tienda y el editor se pueden recorrer; el panel de reanimación no se recorta | M: captura en dispositivo real; I: `SafeArea`, `UIScale`, `AbsoluteSize/AbsolutePosition`; S: cada pantalla | P1 |
+| QA-51 | Contraste y daltonismo | Revisar peligros, estados CAÍDO/SANO, tienda, Modo Puro y ranking | La información no depende solo del color: hay texto, forma o posición; los contrastes del ADN se mantienen; el rojo de peligro es legible sobre madera | S: capturas; M: simulación de daltonismo; I: colores del ADN | P2 |
+
+## 7. Persistencia, telemetría y datos
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| QA-52 | Persistencia completa | En place publicado: récord, Piñas, cosméticos comprados, ropa, Modo Puro, reanimaciones personales y x2; salir; volver a entrar en otro servidor | Todos los datos vuelven; el récord nunca baja; las Piñas no se duplican ni se pierden; los cosméticos se reaplican; el Modo Puro persiste; los tickets y el x2 respetan su estado | C: `[Datos] carga OK`, `[Datos] guardado OK`; D: rejoin en otro servidor; I: `TusDatos`; S: tienda/ropa/HUD | P0 |
+| QA-53 | Guardado al salir y autoguardado | Cambiar datos y salir inmediatamente; repetir dejando pasar 60 s; simular cierre de servidor | El guardado al salir y el autoguardado de 60 s escriben con `UpdateAsync`; `BindToClose` espera hasta 20 s; no se pierde el último cambio; si falla, reintenta 1-2-4 s | C: `[Datos] guardado OK`, avisos de reintento; D: rejoin; I: `sucios`/caché | P0 |
+| QA-54 | Studio sin API | Abrir el place en Studio sin API Services y jugar | Un solo aviso `[Datos] Studio sin acceso a API: persistencia desactivada (modo memoria)`; el juego funciona; no se promete persistencia; no hay errores rojos | C: aviso único; S: partida normal; I: `modo memoria` | P1 |
+| QA-55 | Datos corruptos o antiguos | Cargar un perfil con campos faltantes, tipos incorrectos o versión anterior; entrar | Los servicios usan defaults y no borran el perfil; los valores inválidos se ignoran o se clampean; no hay error que impida jugar; se conserva lo válido | C: sin errores; I: `DataService.Obtener`; D: rejoin | P1 |
+| QA-56 | Ajustes persistentes | Cambiar idioma, volúmenes, escala y subtítulos; salir y volver | **Brecha de plan:** `Settings` no tiene clave en DataService; los ajustes vuelven a los valores por defecto. Si el lanzamiento promete «ajustes guardados» (§3.3), hay que implementarlo o corregir la promesa | C: sin carga de ajustes; I: `Settings.Valores`; D: rejoin | P2 |
+| QA-57 | Telemetría en Studio | Arrancar con `TelemetriaConfig.Activo=true`; jugar; revisar consola | `[Telemetria] activa: embudo PrimeraPartida con 4 pasos`; los eventos no se convierten en datos del Creator Dashboard (solo servidor publicado); si Analytics falla, un warn y el juego sigue | C: `[Telemetria] ...`, `AnalyticsService: ... event fired`; S: partida | P1 |
+| QA-58 | Telemetría publicada | En place publicado, jugar una partida completa; revisar Creator Dashboard → Analytics → Custom/Funnel/Economy y `View Events` | `PartidaInicio`, `PartidaFin`, `Reanimacion`, `Checkpoint`, `Rapto`, `Compra`, `ReanimacionPersonal` y el embudo `PrimeraPartida` aparecen; la economía muestra Piñas fuente `Partida` y sumidero `Tienda`; no hay nombres ni texto libre | D: Creator Dashboard; C: sin errores; I: `TelemetriaConfig` | P1 |
+| QA-59 | Analytics no disponible | Forzar un fallo de Analytics (Studio sin API o servicio caído) y jugar | Un solo warn `[Telemetria] AnalyticsService no disponible...`; no se repite; no se rompe la partida; no se pierden datos de juego | C: warn único; S: partida normal | P1 |
+
+## 8. Casos negativos y seguridad
+
+| ID | Caso | Pasos | Resultado esperado | Evidencia | P |
+| --- | --- | --- | --- | --- | --- |
+| S-01 | Payloads inválidos en remotes | Desde un `LocalScript` temporal, disparar cada remote cliente→servidor con `nil`, número, string, tabla vacía, campos de tipo incorrecto y strings enormes | El servidor valida tipo y forma; ignora o responde `ok=false`; no hay errores rojos; no cambia estado, saldo ni inventario | C: sin errores; R: `CompraResult`/`RobuxResult`/`ReanimarResult`; I: estado sin cambios | P0 |
+| S-02 | Spam y rate limit | Disparar 50 veces en 5 s `Listo`, `CambiarModo`, `Comenzar`, `Comprar`, `GuardarRopa`, `PedirRankingAmigos`, `ReanimarPersonal`, `ModoPuro` | Solo pasa la primera acción permitida por el enfriamiento; no hay doble cobro, doble entrega ni bloqueo del servidor; no se saturan logs | C: sin errores; I: contadores/saldo; R: respuestas | P0 |
+| S-03 | Compra duplicada con Piñas | Doble clic en COMPRAR; repetir tras recargar; comprar el mismo item ya poseído | Un solo cobro y una sola entrada en `comprados`; el segundo clic re-equipa gratis; nunca se cobra dos veces | C: `[Tienda] ... compró ...` una vez; I: `comprados`; R: `CompraResult` | P0 |
+| S-04 | Recibo duplicado de Robux | `_ProbarRecibo(player, purchaseId, id)` dos veces con el mismo `purchaseId`; repetir con distinto id | La primera entrega; la segunda responde «sin duplicar» y sigue siendo `PurchaseGranted`; no se duplican sombreros, stock ni x2 | C: `[Monetizacion] _ProbarRecibo ... repetido: sin duplicar`; I: `recibos`, stock, `comprados` | P0 |
+| S-05 | PolicyService restrictivo | Cuenta/región con restricción de aleatorios; abrir tienda y comprar un item directo | Se registra la restricción; la compra directa sigue disponible; no se muestra ni se vende nada aleatorio | C: `[Tienda] ... aleatorios restringidos...`; S: tienda | P1 |
+| S-06 | Texto de jugador filtrado | Un jugador escribe una frase; El Doble la repite; dos receptores con cuentas distintas; probar un fallo de filtro | Cada receptor ve la versión filtrada para su cuenta; nunca se muestra el texto original sin filtrar; si el filtro falla no se envía; el aviso de imitador está visible | C: `[ChatFalso] ElDoble -> ...`, `[ChatFalso] filtro falló...`; S: chat y burbuja; I: `TextService:FilterStringAsync` | P0 |
+| S-07 | Desconexión a mitad de partida | Un cliente se desconecta durante peligros, rapto o cuenta atrás; repetir con todos | El servidor sigue con los demás; el que sale se guarda; si se van todos, la ronda se cierra y el lobby se recupera; no hay errores ni estado colgado | C: `[Match] partida abandonada...` si todos; `[Datos] guardado OK`; S: lobby | P1 |
+| S-08 | Servidor lleno | Ocho jugadores dentro; novena cuenta intenta entrar; si entra, observar lobby | No se supera el aforo; el noveno es rechazado o espectador; nunca desplaza a un participante ni rompe la partida | C: roster; S: LobbyUI; M: mensaje de Roblox | P1 |
+| S-09 | Host abandona | El host sale en lobby, en cuenta atrás y en partida; observar nuevo host | El host migra; la cuenta atrás se recalcula o se cancela; la partida sigue con el roster; no hay acciones de host huérfanas | C: `[Lobby] ...`; S: LobbyUI; I: host actual | P1 |
+| S-10 | Acciones de host no autorizadas | Un no-host dispara `CambiarModo` y `Comenzar`; un cliente dispara `ModoPuro` con tipos inválidos | El servidor comprueba `player == host` y el estado; ignora al no-host; `ModoPuro` exige boolean; no hay cambios | C: sin `[Lobby] modo:`, sin inicio; I: modo/estado | P1 |
+| S-11 | Personalización y ropa inválidas | Enviar escalas fuera de rango, ranura 0/10, patrón/color/pegatina desconocidos, tipos incorrectos y payload enorme | El servidor clampea escalas válidas y rechaza ids/ranuras inválidas; no hay error; no se guarda basura; la UI muestra rechazo | C: `[Ropa] ...`, sin errores; I: `Humanoid` scales, `ropa`; R: `RopaResult` | P1 |
+| S-12 | Saldo y compras inválidas | Comprar item desconocido, cantidad negativa, reanimación sin stock ni Piñas, id de Robux inválido o `disponible=false` | Rechazo explícito; no se cobra; no se entrega; no se abre prompt; el saldo queda intacto | C: `[Tienda] ...`, `[Monetizacion] ...`; R: `ok=false`; I: saldo/stock | P0 |
+| S-13 | Spam de reanimación personal | Caído, pulsar REANIMARME varias veces; repetir tras usarla; probar en Puro | Solo una por partida; los rechazos no cobran ni consumen stock; en Puro siempre rechaza; no hay doble reanimación | C: `[Monetizacion] reanimación personal usada...` una vez, rechazos; I: `reanimacionesPartida` | P1 |
+| S-14 | Fallo de DataStore o Analytics | Studio sin API; simular error de escritura; jugar y salir | El juego sigue en modo memoria; un warn acotado; no se pierde la sesión; no hay errores rojos; no se promete persistencia | C: `[Datos] ... modo memoria`, `[Telemetria] ...`; S: partida | P1 |
+| S-15 | Remotes solo-servidor | Un cliente dispara `FinPartida`, `HudEstado`, `Puntos`, `Pinas`, `RopaEstado`, `PaseEstado`, `Sonido`, `ChatFalso` | El servidor no escucha esos remotes; no hay efecto, no hay error, no se puede falsificar una recompensa ni un estado | C: sin errores; I: estado sin cambios; R: sin respuesta del servidor | P1 |
+| S-16 | Jugador que abandona en rapto | La víctima se desconecta justo al ser raptada; el liberador se desconecta durante el rescate | El clon y el prompt se limpian; la fase aborta; el resto sigue; no queda una víctima fantasma ni un `Highlight` huérfano | C: `[Doble] ...`; I: `workspace.ElDoble` ausente; S: escena | P1 |
+
+## 9. Regresión mínima antes de cada publicación (smoke de 10–15 min)
+
+Se ejecuta sobre el build de Rojo en E2 (Studio 2 jugadores) y se repite en E3 para compras/persistencia. Si el smoke falla, no se publica.
+
+| Min | Paso | Esperado | Evidencia |
+| --- | --- | --- | --- |
+| 0–1 | Abrir el build, Play, revisar consola | Línea base de arranque sin errores rojos; `[Datos] servicio listo`; `[Telemetria] activa`; `[Tienda] lista`; `[Doble]` y `[ChatFalso]` iniciados | C |
+| 1–3 | Menú → JUGAR → lobby 2/2 → Historia → LISTO → cuenta atrás | Roster de 2; `EnJuego=true`; teletransporte al inicio; HUD visible en ambos | C, I, S |
+| 3–5 | Mover, sprint, linterna, cámara 1.ª/3.ª; recibir un peligro; reanimar | Sprint y barra; linterna; cámara; caído con prompt; reanimación y +50; subtítulo | C, I, S |
+| 5–7 | Llegar al checkpoint 1; caer todos; FinScreen; REINTENTAR | Checkpoint +10; FinScreen con stats; récord; reintento con roster/modo y rate limit | C, S, R |
+| 7–9 | Ronda rápida: iniciar, comprobar ausencia de checkpoints, caer todos, volver al lobby | Camino modular; sin checkpoints; FinScreen «Checkpoint: —»; lobby en ≤12 s | C, I, S |
+| 9–11 | Piñas, tienda, compra de un cosmético, equiparlo, personalización y guardado; Modo Puro; seam de pase | Saldo correcto; cobro único; item aplicado; ropa guardada; Puro apaga reanimación/linterna Pro; pase concede efecto | C, R, I, S |
+| 11–13 | ES→EN→ES; escala 140 %; reducir efectos; subtítulos on/off; safe area en emulador | Texto cambia en vivo; no hay claves crudas en flujos principales; 140 % legible; efectos reducidos; subtítulos; paneles dentro del área | C, S |
+| 13–15 | Salir y volver a entrar; abrir ranking; revisar consola final | Récord/Piñas/compras/ropa/Puro persisten (E3); ranking responde o fallback; consola sin errores nuevos | C, D, S |
+
+Ampliación obligatoria antes del soft launch (no cabe en 15 min): 8 jugadores reales, móvil real con notch, rapto/rescate completo con dos cuentas, compra real de Robux y una sesión de 30 min con El Doble y chat falso.
+
+## 10. Criterios de bloqueo
+
+Se considera **bloqueante P0** cualquiera de estos:
+
+1. Error rojo en consola del servidor o del cliente durante el smoke o un caso P0, incluido un error de remote, `require`, UI o Analytics que afecte a la partida.
+2. Pérdida o corrupción de datos: Piñas, récord, compras, ropa, Modo Puro, tickets o x2 que no vuelven tras rejoin/cierre, o que se duplican.
+3. Compra cobrada sin entrega, entrega duplicada, saldo negativo o item marcado como comprado sin serlo.
+4. Cualquier texto sin localizar en un flujo principal en EN, clave cruda visible o texto cortado a 140 % que impida entender una acción o un peligro.
+5. Caída sostenida de FPS por debajo de 30 en el dispositivo móvil de referencia durante 60 s, o frame time >2× la línea base del build anterior, o servidor que no mantiene el paso con 8 jugadores.
+6. Safe area rota en móvil con notch, panel principal cortado o control primario por debajo de 44×44 px.
+7. Payload inválido que cambia estado, saldo, inventario o permite una acción no autorizada; spam que cobra o entrega dos veces.
+8. Lobby o partida que queda colgado, imposible de iniciar o de cerrar; jugador que no puede volver a jugar tras una desconexión.
+9. El Doble que mata directamente, que no libera a la víctima al expirar la ventana, o que deja un clon/prompt huérfano.
+10. Promesa comercial incumplida: «ranking Puro» sin separación de récords, «ajustes guardados» sin persistencia o «tienda Robux» sin IDs/entrega.
+
+**P1** se corrige antes del soft launch o se aprueba por escrito con impacto y fecha. **P2** se registra como deuda y se revisa en la siguiente iteración.
+
+Antes de publicar, el responsable de QA firma: smoke pasado, P0 = 0, P1 = 0 o con excepción aprobada, y los casos de 8 jugadores, móvil, compra real y persistencia ejecutados en E3/E4. Los resultados se anotan en `docs/skill-log.md`; esta matriz no se marca como «pasada» sin evidencia.
+
+## 11. Limitaciones de Studio y qué exige el entorno publicado
+
+| Tema | En Studio | Qué exige el place publicado |
+| --- | --- | --- |
+| DataStore | Por defecto sin acceso; `DataService` degrada a modo memoria y avisa una vez (código y docs de DataStore) | API Services activado, place publicado; rejoin en otro servidor para probar carga real |
+| Ranking de amigos | Sin amigos reales ni OrderedDataStore; fallback «Ranking no disponible» | Cuentas amigas reales, `GetFriendsAsync`, OrderedDataStore `HUMM_Mejores_v1` |
+| Compras Robux | `MonetizacionConfig.Activo=false`, IDs 0; no hay prompt real; solo seams de Studio | Pases/productos creados en Creator Dashboard, IDs reales, `Activo=true`, cuenta de prueba con saldo |
+| PolicyService | Puede devolver valores por defecto o no reflejar la región | Cuenta/región real; revisar el log de restricción |
+| Analytics | Los eventos no se agregan en el panel; las gráficas son de places publicados | Place publicado; `View Events` casi en tiempo real y gráficas hasta 24 h después |
+| Texto filtrado | El filtro puede comportarse distinto o fallar sin la API completa | Prueba con cuentas reales y frases que exijan filtro; verificar por receptor |
+| 8 jugadores | El MCP suele controlar un solo cliente; Studio no reproduce red real | Ocho cuentas/dispositivos y servidor con aforo configurado |
+| Móvil y safe area | El emulador cambia el viewport, no el notch, el thermals ni el rendimiento real | Dispositivo iOS/Android real, con notch y gama baja/media |
+| Servidor lleno | Depende de la configuración del place, no del repo | `MaxPlayers` configurado en Creator Dashboard; probar 8/8 y la novena cuenta |
+| Audio | `Musica.id = 0` y efectos `rbxasset://` provisionales; no hay música | Audios subidos y IDs puestos por el creador; subtítulos revisados |
+| Amigos/ranking y economía | Sin datos reales; no se pueden validar retención ni conversión | Volumen real de soft launch; esperar la ventana de datos del panel |
+
+## 12. Brechas conocidas que pueden bloquear la publicación
+
+| Brecha | Evidencia | Impacto | Decisión |
+| --- | --- | --- | --- |
+| El Modo Puro no separa récords ni ranking Puro | `src/server/MonetizacionService.lua` marca `shortcut:` en `cambiarModoPuro` | Incumple PLAN §7.3; no se puede prometer «ranking Puro» | Corregir antes de marketing o retirar la promesa |
+| La tienda no recibe `comprados` al abrir | Revisión de fase 5 en `docs/design/revision-apple-design.md`; `TiendaUI` no pide la lista | Un cosmético comprado puede mostrar COMPRAR tras rejoin | P1; corregir o avisar en la UI |
+| Nombres de catálogo/ropa sin localizar | `TiendaConfig`, `MonetizacionConfig`, `RopaConfig` usan `nombre` en español; la UI pinta `item.nombre` | Texto en español en EN; bloquea el criterio de localización | P1/P0 según el criterio de lanzamiento |
+| Prompts y subtítulos sin localizar | `PlayerStateService` («Reanimar»), `MonsterService` («Liberar», «El Doble»), `AudioConfig` (subtítulos) | Texto en español en EN en momentos críticos | P1/P0 |
+| Chat falso bilingüe sin seguir el idioma | `ChatMimicService` mezcla ES/EN en el banco |Puede confundir en EN/ES, pero es una pista de diseño | Aceptar como intencional o separar por idioma |
+| `Settings` no persiste | `Settings.lua` no tiene clave en DataService; el contrato de fase 5 no la incluye | Ajustes vuelven a defaults; incumple §3.3 si se promete | P2; implementar o corregir la promesa |
+| El Doble no distingue modo/bioma y solo hay uno | `MonsterService` no consulta modo; `clon` único | Desviación de §5.1; con 6–8 el plan permite dos | Decidir si se acepta para v1 o se ajusta |
+| `Rapto` cuenta intentos, no raptos completados | `MonsterService` emite el evento al agarrar, antes del rescate | Métrica de raptos inflada si hay rescates | Documentar en `metrics.md`; futuro evento de rescate |
+| `PartidaFin` no se emite al abandonar todos | `MatchService` cierra con `partida abandonada` sin `PartidaFin` | La tasa de cierre y la economía omiten abandonos | Medir abandonos con `PartidaInicio` y logs; futuro evento |
+| La música está en 0 | `AudioConfig.Musica.id = 0` | Sin música en el lanzamiento | Bloqueado por el creador (subir audio) |
+| IDs de pases/productos en 0 | `MonetizacionConfig` con `Activo=false` e IDs 0 | Tienda Robux no vendible | Bloqueado por el creador (publicar y crear IDs) |
+
+## 13. Cobertura ya registrada y pendiente
+
+Lo que consta en `docs/skill-log.md` como verificado en Studio: lobby 2–8 y ranking con fallback, partida completa y reintento, checkpoints, reanimación, tienda de Piñas, personalización y ropa, pases/productos por seams, reanimación personal, Modo Puro, telemetría activa y cambio ES/EN en varias pantallas. No consta una partida completa con rapto y rescate de El Doble, ni 8 jugadores reales, ni móvil real, ni DataStore real, ni compra real de Robux, ni amigos reales, ni telemetría agregada en producción. Esos casos quedan como pendientes de ejecución, no como aprobados.
+
+## 14. Enlaces de referencia
+
+- AnalyticsService: https://create.roblox.com/docs/reference/engine/classes/AnalyticsService
+- Data stores: https://create.roblox.com/docs/cloud-services/data-stores
+- Límites de DataStore: https://create.roblox.com/docs/cloud-services/data-stores/error-codes-and-limits
+- PolicyService: https://create.roblox.com/docs/reference/engine/classes/PolicyService
+- TextService:FilterStringAsync: https://create.roblox.com/docs/reference/engine/classes/TextService/FilterStringAsync
+- MarketplaceService.ProcessReceipt: https://create.roblox.com/docs/reference/engine/classes/MarketplaceService/ProcessReceipt
+- OrderedDataStore: https://create.roblox.com/docs/reference/engine/classes/OrderedDataStore
+- Analytics dashboard: https://create.roblox.com/docs/production/analytics/analytics-dashboard

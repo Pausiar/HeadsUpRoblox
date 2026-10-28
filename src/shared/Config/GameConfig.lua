@@ -45,6 +45,24 @@ Config.Etapa0 = {
 		CabezaMax = 1.25,
 		Enfriamiento = 1, -- s entre aplicaciones
 	},
+	Doble = {
+		-- plan §5: El Doble. Valores iniciales a ajustar en playtests con grupos reales.
+		RetardoAparicion = 45, -- s de partida antes de la fase 1 (Observación)
+		DuracionObservacion = 20,
+		DuracionInfiltracion = 25,
+		DuracionAcecho = 20,
+		VentanaRescate = 12, -- s para liberar a la víctima durante el rapto
+		MaxRaptos = 2, -- plan §5.4: máximo de raptos por partida
+		EnfriamientoRetirada = 60, -- plan §5.2 fase 5
+		VelocidadDoble = 18,
+	},
+	ChatFalso = {
+		-- plan §5.5: memoria de ~30 frases por jugador, 60% reales / 40% banco curado
+		MemoriaPorJugador = 30,
+		IntervaloMin = 25,
+		IntervaloMax = 60,
+		MaxMensajesPorPartida = 6,
+	},
 }
 
 return Config

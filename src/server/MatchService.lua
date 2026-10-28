@@ -21,6 +21,10 @@ local partidaTerminada = false
 local checkpointAlcanzado = Instance.new("BindableEvent")
 MatchService.CheckpointAlcanzado = checkpointAlcanzado -- (player, indice)
 
+-- Señal de fin de partida por jugador (Piñas, telemetría): (player, stats)
+local alTerminar = Instance.new("BindableEvent")
+MatchService.AlTerminar = alTerminar
+
 local function crearZona(x, indice, padre)
 	local zona = Instance.new("Part")
 	zona.Anchored = true
@@ -179,14 +183,16 @@ function MatchService.Iniciar()
 							recordSesion[player] = math.max(recordAnterior, dist)
 							-- Persistir el récord para la próxima sesión (plan §3.3/§4.5)
 							dataService.Guardar(player, "record", recordSesion[player])
-							finPartida:FireClient(player, {
+							local stats = {
 								distancia = dist,
 								tiempo = math.floor(os.clock() - inicio),
 								checkpoint = cp and cp.indice or 0,
 								puntos = puntosService.GetPuntos(player),
 								record = math.max(recordSesion[player], dist),
 								nuevoRecord = nuevoRecord,
-							})
+							}
+							finPartida:FireClient(player, stats)
+							alTerminar:Fire(player, stats)
 						end
 						print("[Match] fin de partida")
 					end

@@ -77,6 +77,12 @@ for i = 1, MAX_POPUPS do
 	p.TextTransparency = 1
 	p.ZIndex = 2
 	p.Parent = gui
+	-- P0 de la revisión apple-design: contorno marrón para que el premio sea
+	-- legible sobre el cielo (amarillo sobre cielo era ~1.1:1)
+	local trazo = Instance.new("UIStroke")
+	trazo.Color = MADERA_OSCURA
+	trazo.Thickness = 2
+	trazo.Parent = p
 	popups[i] = { label = p, tween = nil }
 end
 

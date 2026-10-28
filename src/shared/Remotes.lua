@@ -17,6 +17,30 @@ Remotes.Nombres = {
 	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al cerrar una partida
 	Comprar = "Comprar", -- client -> server: { id } del catálogo (TiendaConfig)
 	CompraResult = "CompraResult", -- server -> client: { ok, mensaje, pinas }
+
+	-- Fase 2: lobby formal y ranking de amigos
+	LobbyEstado = "LobbyEstado", -- server -> client: { fase, jugadores, modo, min, max, cuenta, host, puedeEmpezar, mensaje? }
+	Listo = "Listo", -- client -> server: boolean (cambiar estado de listo)
+	CambiarModo = "CambiarModo", -- client -> server: "historia" | "rapida" (solo host)
+	Comenzar = "Comenzar", -- client -> server: forzar inicio (solo host, todos listos)
+	RankingAmigos = "RankingAmigos", -- server -> client: { fuente, entradas = { { nombre, distancia, tu } }, mensaje? }
+	PedirRankingAmigos = "PedirRankingAmigos", -- client -> server: solicitar ranking (limitado)
+
+	-- Fase 4: ropa plan B (patrones sin EditableImage, decisión D7)
+	GuardarRopa = "GuardarRopa", -- client -> server: { ranura, patron, color1, color2, pegatina }
+	PedirRopa = "PedirRopa", -- client -> server: solicitar estado actual de ropa
+	RopaEstado = "RopaEstado", -- server -> client: { activa, ranurasDesbloqueadas, disenos }
+	RopaResult = "RopaResult", -- server -> client: { ok, mensaje }
+
+	-- Fase 5: monetización Robux (los IDs viven en MonetizacionConfig; 0 = sin publicar)
+	ComprarRobux = "ComprarRobux", -- client -> server: { id } de MonetizacionConfig
+	RobuxResult = "RobuxResult", -- server -> client: { ok, mensaje, id }
+	PaseEstado = "PaseEstado", -- server -> client: { pases, reanimaciones, pinasX2Hasta, modoPuro, activo }
+	ReanimarPersonal = "ReanimarPersonal", -- client -> server: gastar una reanimación personal
+	ModoPuro = "ModoPuro", -- client -> server: boolean (ranking Puro: sin ventajas ni reanimaciones de pago)
+
+	-- Fase 6: audio y subtítulos (el cliente decide volumen y presentación)
+	Sonido = "Sonido", -- server -> client: { id, posicion?, subtitulo? }
 }
 
 function Remotes.Crear(nombre)

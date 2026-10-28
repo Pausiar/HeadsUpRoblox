@@ -7,6 +7,8 @@ Settings.Valores = {
 	reducirEfectos = false, -- accesibilidad §8: menos movimiento/destellos
 	volumenMusica = 70, -- % (0-100)
 	volumenEfectos = 80, -- % (0-100)
+	subtitulos = true, -- accesibilidad §8: subtítulos de avisos sonoros
+	escalaTexto = 100, -- % (80-140), escala global de GUI para texto legible
 }
 
 local cambiado = Instance.new("BindableEvent")
@@ -16,6 +18,7 @@ local LIMITES = {
 	sensibilidad = { 10, 100 },
 	volumenMusica = { 0, 100 },
 	volumenEfectos = { 0, 100 },
+	escalaTexto = { 80, 140 },
 }
 
 function Settings.Cambiar(clave, valor)

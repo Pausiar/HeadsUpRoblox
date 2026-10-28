@@ -36,7 +36,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelMenu"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromOffset(480, 420)
+panel.Size = UDim2.fromOffset(480, 470)
 panel.BackgroundColor3 = MADERA_PANEL
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -63,7 +63,7 @@ etiqueta(UDim2.new(0, 0, 0, 78), 30, "MOUNTAIN MAYHEM", 24, Enum.Font.GothamBlac
 etiqueta(UDim2.new(0, 0, 1, -24), 20, "No mires solo al frente…", 16, Enum.Font.Gotham, CREMA)
 
 local mensajeSalir = etiqueta(
-	UDim2.new(0, 0, 0, 372),
+	UDim2.new(0, 0, 0, 422),
 	22,
 	"Usa el menú ESC de Roblox para salir",
 	16,
@@ -95,7 +95,8 @@ end
 local botonJugar = botonMenu("JUGAR", 116, VERDE, BLANCO)
 local botonPersonalizar = botonMenu("PERSONALIZAR", 182, MADERA_BOTON, CREMA)
 local botonAjustes = botonMenu("AJUSTES", 248, MADERA_BOTON, CREMA)
-local botonSalir = botonMenu("SALIR", 314, MADERA_BOTON, CREMA)
+local botonTienda = botonMenu("TIENDA", 314, MADERA_BOTON, CREMA)
+local botonSalir = botonMenu("SALIR", 380, MADERA_BOTON, CREMA)
 
 -- Aviso de «llega en una fase futura»: cambia el texto y congela el color 1,5 s. Devuelve la acción.
 local function avisoFase(boton, textoAviso)
@@ -144,6 +145,17 @@ botonAjustes.Activated:Connect(function()
 		return
 	end
 	parpadearAjustes()
+end)
+
+local parpadearTienda = avisoFase(botonTienda, "TIENDA · fase siguiente")
+botonTienda.Activated:Connect(function()
+	local tienda = player.PlayerGui:FindFirstChild("TiendaUI")
+	if tienda then
+		tienda.Enabled = true
+		gui.Enabled = false
+		return
+	end
+	parpadearTienda()
 end)
 
 local marcaSalir = 0

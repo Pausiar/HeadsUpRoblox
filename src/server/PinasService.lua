@@ -82,4 +82,22 @@ function PinasService.GetPinas(player)
 	return pinas[player] or 0
 end
 
+-- Gasto de la tienda (plan §7): el SERVIDOR decide si hay saldo y descuenta.
+-- Devuelve true si se completó el gasto. Publica el total actualizado.
+function PinasService.Gastar(player, cantidad)
+	if type(cantidad) ~= "number" or cantidad <= 0 then
+		return false
+	end
+	local total = pinas[player] or 0
+	if total < cantidad then
+		return false
+	end
+	pinas[player] = total - cantidad
+	if dataService then
+		dataService.Guardar(player, "pinas", pinas[player])
+	end
+	remotoPinas:FireClient(player, { pinas = pinas[player], ganadas = 0 })
+	return true
+end
+
 return PinasService

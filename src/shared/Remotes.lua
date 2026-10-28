@@ -15,6 +15,8 @@ Remotes.Nombres = {
 	TusDatos = "TusDatos", -- server -> client: tabla guardada del jugador tras cargarla del DataStore
 	ChatFalso = "ChatFalso", -- server -> client: { nick, texto } de El Doble (filtrado por receptor)
 	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al cerrar una partida
+	Comprar = "Comprar", -- client -> server: { id } del catálogo (TiendaConfig)
+	CompraResult = "CompraResult", -- server -> client: { ok, mensaje, pinas }
 }
 
 function Remotes.Crear(nombre)

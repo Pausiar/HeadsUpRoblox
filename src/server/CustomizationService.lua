@@ -1,4 +1,4 @@
--- CustomizationService: escalas corporales R15 por jugador (plan §6, spike S5).
+-- CustomizationService: escalas corporales R15 y color de camiseta por jugador (plan §6, spike S5).
 -- Servidor autoritativo: la API de HumanoidDescription NO satura valores
 -- (spike S5: set 10 -> lee 10), así que cada campo del cliente se valida y
 -- clampéa SIEMPRE aquí contra los rangos de Config antes de aplicarse.
@@ -13,6 +13,9 @@ local Personalizacion = Config.Etapa0.Personalizacion
 
 local CustomizationService = {}
 local escalas = {} -- [player] = { altura, ancho, cabeza } ya validadas
+local colores = {} -- [player] = Color3 de la camiseta (torso + brazos) ya validado
+
+local DataService -- require aplazado a Iniciar: Main llama DataService.Iniciar() antes que este
 
 local remotoPersonalizacion
 local permitir
@@ -58,6 +61,27 @@ local function aplicar(player, personaje, esc)
 		.. ": altura=" .. esc.altura .. " ancho=" .. esc.ancho .. " cabeza=" .. esc.cabeza)
 end
 
+-- Aplica el color de camiseta al personaje EN VIVO vía BodyColors (torso y
+-- ambos brazos: las tres partes que cubre la camiseta). pcall porque el rig
+-- puede estar a medio cargar o muerto; warn si falta BodyColors o falla.
+local function aplicarColor(player, personaje, color)
+	local body = personaje and personaje:FindFirstChildOfClass("BodyColors")
+	if not body then
+		warn("[Personalizacion] sin BodyColors en " .. player.Name .. ", no se aplica el color")
+		return
+	end
+	local ok, err = pcall(function()
+		body.TorsoColor3 = color
+		body.LeftArmColor3 = color
+		body.RightArmColor3 = color
+	end)
+	if not ok then
+		warn("[Personalizacion] aplicar color falló en " .. player.Name .. ": " .. tostring(err))
+		return
+	end
+	print("[Personalizacion] color de camiseta aplicado a " .. player.Name)
+end
+
 -- Restaura escalas persistidas por DataService (plan §3.3). Revalida con
 -- clampCampo porque la fuente puede estar corrupta aunque el servidor
 -- clampéara al guardar. Si el personaje ya existe, aplica en vivo.
@@ -79,6 +103,27 @@ local function cargarEscalas(player, datos)
 	end
 end
 
+-- Restaura el color de camiseta persistido por DataService. Revalida con
+-- clampCampo porque la fuente puede estar corrupta aunque el servidor
+-- clampéara al guardar. Si el personaje ya existe, aplica en vivo.
+local function cargarColor(player, datos)
+	local c = type(datos) == "table" and datos.colorCamiseta
+	if type(c) ~= "table" then
+		return
+	end
+	local r = clampCampo(c[1], 0, 255)
+	local g = clampCampo(c[2], 0, 255)
+	local b = clampCampo(c[3], 0, 255)
+	if not (r and g and b) then
+		return
+	end
+	colores[player] = Color3.new(r / 255, g / 255, b / 255)
+	local char = player.Character
+	if char then
+		aplicarColor(player, char, colores[player])
+	end
+end
+
 local function conectarJugador(player)
 	player.CharacterAdded:Connect(function(char)
 		-- Espera a que el Humanoid y el rig terminen de cargarse tras el spawn.
@@ -87,12 +132,18 @@ local function conectarJugador(player)
 		if esc then
 			aplicar(player, char, esc)
 		end
+		local color = colores[player]
+		if color then
+			aplicarColor(player, char, color)
+		end
 	end)
 end
 
 function CustomizationService.Iniciar()
 	-- Se requiere aquí: Main llama DataService.Iniciar() antes que este.
-	local DataService = require(script.Parent.DataService)
+	-- Sin `local`: asigna el upvalue del nivel de módulo ( DataService, línea 18)
+	-- que usan las funciones públicas; con `local` quedaría nil fuera de Iniciar.
+	DataService = require(script.Parent.DataService)
 	remotoPersonalizacion = Remotes.Crear(Remotes.Nombres.Personalizacion) -- el servidor crea, el cliente espera
 	permitir = RateLimiter.nuevo(Personalizacion.Enfriamiento)
 
@@ -122,12 +173,16 @@ function CustomizationService.Iniciar()
 
 	Players.PlayerRemoving:Connect(function(player)
 		escalas[player] = nil
+		colores[player] = nil
 	end)
 
 	DataService.AlCargar.Event:Connect(cargarEscalas)
+	DataService.AlCargar.Event:Connect(cargarColor)
 	-- AlCargar pudo dispararse antes de conectar el listener (jugadores ya cargados).
 	for _, player in ipairs(Players:GetPlayers()) do
-		cargarEscalas(player, DataService.Obtener(player))
+		local datos = DataService.Obtener(player)
+		cargarEscalas(player, datos)
+		cargarColor(player, datos)
 	end
 end
 
@@ -139,6 +194,28 @@ function CustomizationService.GetEscalas(player)
 		return nil
 	end
 	return { altura = esc.altura, ancho = esc.ancho, cabeza = esc.cabeza }
+end
+
+-- Color de camiseta elegido: lo llama TiendaService tras una compra de item
+-- tipo "camiseta" (la compra y su validación quedan allá; aquí solo aplicar
+-- y persistir). rgb es {r,g,b} en 0-255, igual que TiendaConfig.Catalogo.
+function CustomizationService.ElegirColorCamiseta(player, rgb)
+	if type(rgb) ~= "table" then
+		return false
+	end
+	local r = clampCampo(rgb[1], 0, 255)
+	local g = clampCampo(rgb[2], 0, 255)
+	local b = clampCampo(rgb[3], 0, 255)
+	if not (r and g and b) then
+		return false
+	end
+	colores[player] = Color3.new(r / 255, g / 255, b / 255)
+	DataService.Guardar(player, "colorCamiseta", { r, g, b }) -- persistencia (plan §3.3)
+	local char = player.Character
+	if char then
+		aplicarColor(player, char, colores[player])
+	end
+	return true
 end
 
 return CustomizationService

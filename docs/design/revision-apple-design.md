@@ -113,3 +113,23 @@ Revisión estática con la skill apple-design de `src/client/LobbyUI.client.lua`
 - **M6 · Salto del LISTO:** al empezar la cuenta el botón saltaba 106 px y cambiaba de significado. Arreglo: para el host se mantiene en x=24 durante «esperando» y «cuenta».
 
 **Diferido a fase 6 (pulido móvil):** M1 marca de selección del modo, M2 chip «TÚ» en la fila propia del lobby, M4 reintento desde el error del ranking, M5 indicador de carga animado, M7 mensaje con cuántos jugadores/listos faltan, M8 igualar alturas de LISTO/EMPEZAR y B1 botón AMIGOS duplicado con la sala abierta.
+
+---
+
+## Fase 4 — editor de ropa plan B (2026-10-28)
+
+Revisión con la skill apple-design de `src/client/CustomizationUI.client.lua` (pestaña ROPA y controles compartidos), `src/server/RopaService.lua` y `src/shared/RopaArte.lua` (set siempre-necesario + buttons, pickers, feedback, layout y writing). Verificado con `screen_capture` del editor abierto (`Capture_1`) y del personaje en el mundo con la camiseta aplicada (`Capture_2`), más clics reales del MCP (`PestanaRopa`, patrón, color, pegatina, GUARDAR) y consola del servidor: `[Ropa] diseño guardado por PausiarOG: ranura 1`; el torso mostró 2 `SurfaceGui` «RopaCamiseta» (Front/Back) con el mismo dibujo que la vista previa. CUERPO sigue enviando `Personalizacion` (el servidor aplicó escalas aleatorias en el smoke). Consola sin errores nuevos.
+
+**Resuelto durante la revisión**
+
+- **E1 · `RopaEstado` pisaba ediciones tempranas (medio):** la primera respuesta del servidor sobrescribía un diseño que el jugador ya hubiera tocado antes de que llegara. Arreglo: la condición ahora es solo `not estadoRopa.modificado`, también en la primera carga.
+- **E2 · Cambiar de ranura descartaba el borrador (medio):** editar la ranura 1 sin guardar y saltar a la 2 perdía los cambios al volver. Arreglo: borrador local por ranura (`estadoRopa.borradores`), que se restaura al volver y se limpia solo cuando el guardado coincide; `RopaEstado` no lo pisa.
+- **E3 · Carrera de guardado perceptible (bajo):** el enfriamiento de 1 s del cliente descarta pulsaciones rápidas sin explicación; se mantiene (el servidor tiene el mismo límite y el aviso GUARDADO llega con la respuesta) y se documenta aquí.
+
+**Lo que funciona:** una sola fuente de arte (`RopaArte`) para vista previa y torso, así lo que se ve es lo que se guarda; selección con texto además de color (nombre de patrón/pegatina en amarillo y `Color 1/2: <nombre>`), nunca color-alone; contrastes del ADN ya validados (crema sobre madera 11,46:1, amarillo 8,83:1) y texto oscuro sobre amarillo en los botones activos; GUARDAR solo aparece con función clara por pestaña y el aviso de éxito/error vive en la interfaz, no en un alert; la nota de ranuras dice la verdad del sistema («3 de 9 ranuras · las extra llegan con el pase»).
+
+**Pendiente para fase 6 (pulido móvil):** objetivos táctiles de 40–42 px (ranuras 56×40, patrón/pegatina 92×40, muestras 42×42), por debajo del objetivo de 44 y que a escala 0,68 quedan en ~27–29 px; anillo de selección crema sobre muestras crema/blanca casi invisible (mitigado por el nombre bajo la fila); panel de 600 px de alto que en viewports cortos depende del suelo de escala 0,68; feedback explícito al descartar un guardado por enfriamiento.
+
+**Diferido a fase 5:** el editor pinta 9 ranuras pero el servidor acepta 3 (`RanurasGratis`); al abrir las ranuras con el pase hay que ampliar también la validación del servidor, ajustar la nota y revisar la segunda fila de ranuras (40 px de alto con 4 px de separación, y la nota baja a y=232).
+
+**Veredicto:** el editor cumple el «Hecho cuando» de la fase 4 — se ve igual en cliente y servidor, se guarda y se replica en el mundo — con deuda táctil acotada y ya asignada a la fase 6.

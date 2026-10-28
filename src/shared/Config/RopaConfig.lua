@@ -6,6 +6,7 @@ local RopaConfig = {}
 RopaConfig.Modo = "planB" -- "editableImage" llegará tras el spike S1 con ID verificada
 RopaConfig.RanurasGratis = 3
 RopaConfig.RanurasMax = 9
+RopaConfig.Enfriamiento = 1 -- s entre GuardarRopa/PedirRopa por jugador
 
 RopaConfig.Colores = {
 	{ id = "verde", nombre = "Verde bosque", rgb = { 76, 140, 74 } },

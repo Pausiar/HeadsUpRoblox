@@ -99,11 +99,9 @@ Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
 end)
 
 RunService.Heartbeat:Connect(function()
-	local char = player.Character
-	local raiz = char and char:FindFirstChild("HumanoidRootPart")
-	if raiz then
-		distancia.Text = L("distancia") .. ": " .. ("%d m"):format(math.max(0, math.floor(raiz.Position.X)))
-	end
+	-- Progreso curvilíneo autoritativo del servidor: el sendero ya no es una recta en X
+	local progreso = tonumber(player:GetAttribute("Distancia")) or 0
+	distancia.Text = L("distancia") .. ": " .. ("%d m"):format(math.max(0, math.floor(progreso)))
 	local seg = math.floor(os.clock() - inicio)
 	tiempo.Text = L("tiempo") .. ": " .. ("%02d:%02d"):format(seg / 60, seg % 60)
 	if deadlineLocal then

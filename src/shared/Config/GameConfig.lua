@@ -3,9 +3,9 @@ local Config = {}
 
 Config.Etapa0 = {
 	Nombre = "Sendero de prueba",
-	Longitud = 220,
-	Ancho = 14,
 	CheckpointCada = 80,
+	ProteccionInicio = 30, -- studs de ruta sin rocas ni troncos: el spawn siempre es seguro
+	RadioProgreso = 25, -- fuera de este radio del sendero no se gana distancia ni checkpoints
 	Rocas = {
 		IntervaloMin = 2.5,
 		IntervaloMax = 5,

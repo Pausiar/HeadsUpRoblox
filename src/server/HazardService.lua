@@ -8,18 +8,19 @@ local TweenService = game:GetService("TweenService")
 local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TerrenoService = require(script.Parent.TerrenoService)
 
 local HazardService = {}
 local rng = Random.new()
 local playerState
 local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: aviso sonoro
 
-local function sombraDeAviso(pos, radio)
+local function sombraDeAviso(pos, radio, suelo)
 	local disco = Instance.new("Part")
 	disco.Name = "AvisoRoca"
 	disco.Shape = Enum.PartType.Cylinder
 	disco.Size = Vector3.new(0.2, radio * 2, radio * 2)
-	disco.CFrame = CFrame.new(pos.X, 0.35, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	disco.CFrame = CFrame.new(pos.X, suelo + 0.5, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
 	disco.Color = Color3.fromRGB(180, 40, 30)
 	disco.Material = Enum.Material.Neon
 	disco.Transparency = 0.5
@@ -32,8 +33,9 @@ end
 function HazardService.SoltarRoca(pos)
 	local cfg = Config.Etapa0.Rocas
 	local radio = rng:NextNumber(cfg.TamanoMin, cfg.TamanoMax) / 2
+	local suelo = TerrenoService.AlturaSuelo(Vector3.new(pos.X, 0, pos.Z))
 
-	local aviso = sombraDeAviso(pos, radio + 1)
+	local aviso = sombraDeAviso(pos, radio + 1, suelo)
 	-- Una vez por roca (no por frame); el subtítulo sale de AudioConfig.
 	sonido:FireAllClients({ id = "Aviso", subtitulo = AudioConfig.Efectos.Aviso.subtitulo })
 
@@ -46,7 +48,7 @@ function HazardService.SoltarRoca(pos)
 		roca.Name = "Roca"
 		roca.Shape = Enum.PartType.Ball
 		roca.Size = Vector3.new(radio * 2, radio * 2, radio * 2)
-		roca.CFrame = CFrame.new(pos.X, cfg.AlturaCaida, pos.Z)
+		roca.CFrame = CFrame.new(pos.X, suelo + cfg.AlturaCaida, pos.Z)
 		roca.Color = Color3.fromRGB(105, 105, 105)
 		roca.Material = Enum.Material.Slate
 		roca:SetAttribute("Impactado", false)
@@ -102,13 +104,16 @@ function HazardService.Iniciar()
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
 				if raiz and hum and hum.Health > 0 and not playerState.EstaCaido(player)
 					and player:GetAttribute("EnJuego") then
-					table.insert(objetivos, raiz.Position)
+					table.insert(objetivos, Vector3.new(raiz.Position.X, 0, raiz.Position.Z))
 				end
 			end
 			if #objetivos > 0 then
 				local objetivo = objetivos[rng:NextInteger(1, #objetivos)]
-				local pos = objetivo + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6))
-				HazardService.SoltarRoca(pos)
+				local ruta = TerrenoService.RutaActual()
+				if ruta and ruta:Progreso(objetivo) >= Config.Etapa0.ProteccionInicio then
+					local pos = objetivo + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6))
+					HazardService.SoltarRoca(pos)
+				end
 			end
 		end
 	end)

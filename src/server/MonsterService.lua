@@ -10,6 +10,7 @@ local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
+local TerrenoService = require(script.Parent.TerrenoService)
 
 local MonsterService = {}
 local rng = Random.new()
@@ -160,7 +161,9 @@ local function cercaDelGrupo()
 	end
 	local offset = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))
 	offset = offset.Magnitude > 0.05 and offset.Unit or Vector3.new(1, 0, 0)
-	return CFrame.new(centro + offset * 14 + Vector3.new(0, 3, 0))
+	local destino = centro + offset * 14
+	local base = TerrenoService.AlturaSuelo(Vector3.new(destino.X, 0, destino.Z))
+	return CFrame.new(destino.X, base + 3, destino.Z)
 end
 
 -- Copia el aspecto de la víctima (§5.2): Archivable + Clone, sin scripts.

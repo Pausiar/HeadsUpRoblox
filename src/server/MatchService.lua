@@ -11,14 +11,15 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 local StageService = require(script.Parent.StageService)
 local RondaRapidaService = require(script.Parent.RondaRapidaService)
+local TerrenoService = require(script.Parent.TerrenoService)
 
 local MatchService = {}
 local playerState -- asignado en Iniciar() con pcall; nil = sin reanimación
 local dataService -- asignado en Iniciar() con pcall; nil = sin persistencia
 local puntosService -- asignado en Iniciar() con pcall; nil = stats sin puntos
 
-local checkpoints = {} -- [player] = { indice = n, x = x }
-local distancia = {} -- [player] = X máxima alcanzada
+local checkpoints = {} -- [player] = { indice = n, pos = Vector3 }
+local distancia = {} -- [player] = progreso máximo en la ruta
 local recordSesion = {} -- [player] = mejor distancia de la sesión
 local inicio = nil -- os.clock() del inicio de la partida actual
 local partidaTerminada = false
@@ -26,6 +27,8 @@ local participantesPartida = {} -- roster de la partida actual
 local modoActual = nil -- "historia" | "rapida"
 local recargando = {} -- [player] = true mientras LoadCharacter está en curso
 local viajes = {} -- [player] = token del último teletransporte pendiente
+local rutaActual -- ruta del escenario construido (nil si no hay terreno)
+local totalCheckpoints = 0 -- checkpoints lógicos de la ruta actual (solo Historia)
 
 -- Señal interna para otros servicios del servidor (plan §4.5: checkpoint da puntos)
 local checkpointAlcanzado = Instance.new("BindableEvent")
@@ -41,20 +44,6 @@ MatchService.AlEmpezar = alEmpezar -- (jugadores, modo, semilla)
 
 local alTerminarPartida = Instance.new("BindableEvent")
 MatchService.AlTerminarPartida = alTerminarPartida -- (jugadores)
-
-local function crearZona(x, indice, padre)
-	local zona = Instance.new("Part")
-	zona.Anchored = true
-	zona.TopSurface = Enum.SurfaceType.Smooth
-	zona.BottomSurface = Enum.SurfaceType.Smooth
-	zona.Name = "ZonaCheckpoint" .. indice
-	zona.Size = Vector3.new(2, 10, Config.Etapa0.Ancho + 4)
-	zona.CFrame = CFrame.new(x, 5, 0)
-	zona.CanCollide = false
-	zona.Transparency = 1
-	zona.Parent = padre
-	return zona
-end
 
 -- PlayerStateService no expone su tabla de estados: caído == PlatformStand o muerte
 local function estaCaido(player)
@@ -207,10 +196,22 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	inicio = nil
 	table.clear(checkpoints)
 	table.clear(distancia)
+	for _, player in ipairs(Players:GetPlayers()) do
+		player:SetAttribute("Distancia", 0)
+	end
 	participantesPartida = roster
 	modoActual = modoPartida
 
 	prepararEscenario(modoPartida, semilla)
+	-- Los checkpoints lógicos son exactamente los postes que colocó StageService;
+	-- la ronda rápida no tiene y nunca los cobra.
+	rutaActual = TerrenoService.RutaActual()
+	totalCheckpoints = modoPartida == "historia" and StageService.TotalCheckpoints or 0
+	print(("[Match] ruta de %d studs, %d checkpoints"):format(
+		rutaActual and math.floor(rutaActual.Longitud) or 0,
+		totalCheckpoints
+	))
+
 	local destino = posicionSpawn(modoPartida)
 	for _, player in ipairs(roster) do
 		telegrafiar(player, destino, recargarCaidos == true)
@@ -266,49 +267,18 @@ function MatchService.Iniciar()
 		puntosService = resPuntos
 	end
 
-	local etapa = Config.Etapa0
 	local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: checkpoint y fin
-	local carpeta = Instance.new("Folder")
-	carpeta.Name = "Match"
-	carpeta.Parent = workspace
-
-	-- Zonas-gatillo en las mismas X que los postes visuales de StageService
-	local indice = 0
-	for x = etapa.CheckpointCada, etapa.Longitud - 20, etapa.CheckpointCada do
-		indice += 1
-		local info = { indice = indice, x = x }
-		local zona = crearZona(x, indice, carpeta)
-		zona.Touched:Connect(function(otra)
-			local char = otra and otra.Parent
-			local player = char and Players:GetPlayerFromCharacter(char)
-			if not player then
-				return
-			end
-			-- Los checkpoints son solo de Historia y solo para participantes
-			if modoActual ~= "historia" or not player:GetAttribute("EnJuego") then
-				return
-			end
-			local actual = checkpoints[player]
-			if not actual or info.indice > actual.indice then
-				checkpoints[player] = info
-				checkpointAlcanzado:Fire(player, info.indice)
-				sonido:FireClient(player, { id = "Checkpoint", subtitulo = AudioConfig.Efectos.Checkpoint.subtitulo })
-				print("[Match] checkpoint", info.indice, "por", player.Name)
-			end
-		end)
-	end
-
 	local finPartida = Remotes.Crear(Remotes.Nombres.FinPartida)
 	local reintentar = Remotes.Crear(Remotes.Nombres.Reintentar)
-	local permitirReintentar = RateLimiter.nuevo(etapa.Match.EnfriamientoReintentar)
+	local permitirReintentar = RateLimiter.nuevo(Config.Etapa0.Match.EnfriamientoReintentar)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAdded:Connect(function(char)
 			task.wait(0.1)
 			local cp = checkpoints[player]
-			-- Solo reposiciona en checkpoints durante una partida de Historia
-			if cp and char.Parent and modoActual == "historia" and MatchService.EstaEnPartida() then
-				char:PivotTo(CFrame.new(cp.x, 4, 0))
+			-- Solo reposiciona en checkpoints de Historia; los viejos sin pos se ignoran
+			if cp and cp.pos and char.Parent and modoActual == "historia" and MatchService.EstaEnPartida() then
+				char:PivotTo(CFrame.new(cp.pos + Vector3.new(0, 4, 0)))
 			end
 		end)
 	end)
@@ -354,8 +324,32 @@ function MatchService.Iniciar()
 				for _, player in Players:GetPlayers() do
 					local char = player.Character
 					local raiz = char and char:FindFirstChild("HumanoidRootPart")
-					if raiz then
-						distancia[player] = math.max(distancia[player] or 0, raiz.Position.X)
+					if raiz and rutaActual and player:GetAttribute("EnJuego") then
+						local distanciaRuta = rutaActual:CercanoXZ(raiz.Position.X, raiz.Position.Z)
+						-- Fuera del corredor no hay progreso: caerse al monte no regala checkpoints
+						if distanciaRuta > Config.Etapa0.RadioProgreso then
+							continue
+						end
+						local progreso = rutaActual:Progreso(raiz.Position)
+						distancia[player] = math.max(
+							distancia[player] or 0,
+							math.min(progreso, rutaActual.Longitud)
+						)
+						player:SetAttribute("Distancia", math.floor(distancia[player]))
+						-- Por progreso: si un tick cruza varios postes, se cobran todos
+						if modoActual == "historia" then
+							local actual = checkpoints[player]
+							local siguiente = (actual and actual.indice or 0) + 1
+							while siguiente <= totalCheckpoints
+								and progreso >= siguiente * Config.Etapa0.CheckpointCada - 2 do
+								local punto = rutaActual:PuntoEnDistancia(siguiente * Config.Etapa0.CheckpointCada)
+								checkpoints[player] = { indice = siguiente, pos = punto }
+								checkpointAlcanzado:Fire(player, siguiente)
+								sonido:FireClient(player, { id = "Checkpoint", subtitulo = AudioConfig.Efectos.Checkpoint.subtitulo })
+								print("[Match] checkpoint", siguiente, "por", player.Name)
+								siguiente += 1
+							end
+						end
 					end
 				end
 
@@ -441,7 +435,13 @@ function MatchService.Iniciar()
 		warn("[Match] sin DataService: el récord no se persiste esta sesión")
 	end
 
-	print("[Match] checkpoints activos:", indice)
+	-- La ruta de historia ya está construida por Main antes de este Iniciar
+	rutaActual = TerrenoService.RutaActual()
+	totalCheckpoints = StageService.TotalCheckpoints
+	print(("[Match] ruta: %d studs · %d checkpoints por partida"):format(
+		rutaActual and math.floor(rutaActual.Longitud) or 0,
+		totalCheckpoints
+	))
 end
 
 return MatchService

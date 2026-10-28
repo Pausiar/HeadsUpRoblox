@@ -11,7 +11,7 @@ local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local MonsterService = {}
 local rng = Random.new()
 
-local cfg = Config.Doble
+local cfg = Config.Etapa0.Doble
 local NOMBRE_CLON = "ElDoble" -- ChatMimicService busca este nombre para posicionar su mimo
 local MADRIGUERA_POS = Vector3.new(-60, 0, -60)
 local FRASES_SENUELO = { "estoy aquí, ven", "¿dónde estáis?" } -- §5.3

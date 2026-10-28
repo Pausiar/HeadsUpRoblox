@@ -14,7 +14,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ChatMimicService = {}
 local rng = Random.new()
 
-local cfg = Config.ChatFalso
+local cfg = Config.Etapa0.ChatFalso
 local NICK_DOBLE = "ElDoble"
 
 -- shortcut: el umbral de señuelo no está en GameConfig.ChatFalso; moverlo allí

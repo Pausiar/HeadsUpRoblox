@@ -19,7 +19,16 @@ local function pieza(props)
 	return p
 end
 
+-- Idempotente: quita la etapa anterior para que IniciarPartida pueda asegurarla.
+function StageService.Limpiar()
+	local anterior = workspace:FindFirstChild("Etapa0")
+	if anterior then
+		anterior:Destroy()
+	end
+end
+
 function StageService.Construir()
+	StageService.Limpiar()
 	local etapa = Config.Etapa0
 	local carpeta = Instance.new("Folder")
 	carpeta.Name = "Etapa0"

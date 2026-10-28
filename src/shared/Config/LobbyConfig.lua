@@ -14,7 +14,7 @@ LobbyConfig.EsperaResultados = 12 -- s entre el fin de partida y la vuelta al lo
 LobbyConfig.EnfriamientoListo = 0.5 -- s entre cambios de listo por jugador
 LobbyConfig.EnfriamientoModo = 1 -- s entre cambios de modo
 LobbyConfig.EnfriamientoComenzar = 1 -- s entre pulsaciones de EMPEZAR
-LobbyConfig.SpawnLobby = Vector3.new(0, 4, 0) -- punto de reunión al volver de una partida
+LobbyConfig.SpawnLobby = Vector3.new(-6, 4, 0) -- sobre la plataforma del spawn (x = -13..-3)
 
 function LobbyConfig.EsModoValido(modo)
 	for _, m in ipairs(LobbyConfig.Modos) do

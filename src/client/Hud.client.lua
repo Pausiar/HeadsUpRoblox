@@ -11,6 +11,7 @@ local player = Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
 gui.Name = "HudSlice"
 gui.ResetOnSpawn = false
+gui.Enabled = false -- solo se enciende con EnJuego (ver aplicarEnJuego)
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Safe area (notch): top va en el Vector2 superior-izquierdo, derecha en el inferior-derecho
@@ -55,6 +56,20 @@ estado.Text = "Sano"
 
 local inicio = os.clock()
 local deadlineLocal = nil
+
+-- Lobby/menú no son partida: el HUD solo vive con EnJuego. El cronómetro local
+-- arranca al entrar a partida para no sumar el tiempo de la sala de espera.
+local function aplicarEnJuego()
+	local enJuego = player:GetAttribute("EnJuego") == true
+	gui.Enabled = enJuego
+	if enJuego then
+		inicio = os.clock()
+		tiempo.Text = "Tiempo: 00:00"
+	end
+end
+
+player:GetAttributeChangedSignal("EnJuego"):Connect(aplicarEnJuego)
+aplicarEnJuego()
 
 Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
 	if datos.estado == "CAÍDO" then

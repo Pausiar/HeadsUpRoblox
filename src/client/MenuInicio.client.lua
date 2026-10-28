@@ -12,7 +12,7 @@ local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria (solo JUGA
 local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C subtítulo y avisos
 local BLANCO = Color3.fromRGB(255, 255, 255)
 
-local ANIMACION = 0.25 -- s, fundido sutil de entrada (accesibilidad §8 del plan)
+local ANIMACION = 0.2 -- s, fundido sutil de entrada (accesibilidad §8 del plan; ≤0,2 s)
 local INFO_ENTRADA = TweenInfo.new(ANIMACION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local player = Players.LocalPlayer
@@ -116,13 +116,27 @@ local function avisoFase(boton, textoAviso)
 	end
 end
 
-local remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+-- JUGAR abre la sala de espera; el servidor decide cuándo empieza (Comenzar en LobbyUI).
+local avisoJugar = avisoFase(botonJugar, "SALA NO DISPONIBLE")
+local abriendoLobby = false
 
 botonJugar.Activated:Connect(function()
-	-- El servidor pone EnJuego (los atributos de cliente no replican); local solo para la UI
-	remotes.Esperar(remotes.Nombres.Empezar):FireServer()
-	player:SetAttribute("EnJuego", true)
-	gui:Destroy()
+	if abriendoLobby then
+		return
+	end
+	abriendoLobby = true
+	botonJugar.Text = "ABRIENDO…"
+	botonJugar.AutoButtonColor = false
+	local lobby = player.PlayerGui:WaitForChild("LobbyUI", 5)
+	botonJugar.Text = "JUGAR"
+	botonJugar.AutoButtonColor = true
+	abriendoLobby = false
+	if lobby and lobby:IsA("ScreenGui") then
+		lobby.Enabled = true
+		gui.Enabled = false -- no se destruye: el VOLVER de LobbyUI re-muestra este menú
+		return
+	end
+	avisoJugar() -- sin lobby no se pone EnJuego ni se inicia nada
 end)
 
 local avisoFasePersonalizar = avisoFase(botonPersonalizar, "PERSONALIZAR · fase 4")

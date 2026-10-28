@@ -11,7 +11,6 @@ Remotes.Nombres = {
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }
 	Ranking = "Ranking", -- server -> client: array de { nombre, puntos, distancia } ordenado por puntos
 	Personalizacion = "Personalizacion", -- client -> server: { altura, ancho, cabeza } validado en servidor
-	Empezar = "Empezar", -- client -> server: JUGAR; el servidor pone EnJuego (los atributos de cliente no replican)
 	TusDatos = "TusDatos", -- server -> client: tabla guardada del jugador tras cargarla del DataStore
 	ChatFalso = "ChatFalso", -- server -> client: { nick, texto } de El Doble (filtrado por receptor)
 	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al cerrar una partida

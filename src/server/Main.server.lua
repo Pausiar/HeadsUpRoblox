@@ -10,6 +10,8 @@ local DataService = require(Server.DataService)
 local StageService = require(Server.StageService)
 local PlayerStateService = require(Server.PlayerStateService)
 local MatchService = require(Server.MatchService)
+local LobbyService = require(Server.LobbyService)
+local AmigosRankingService = require(Server.AmigosRankingService)
 local PuntosService = require(Server.PuntosService)
 local RankingService = require(Server.RankingService)
 local TroncoService = require(Server.TroncoService)
@@ -23,6 +25,8 @@ DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 StageService.Construir()
 PlayerStateService.Iniciar()
 MatchService.Iniciar()
+LobbyService.Iniciar() -- después de MatchService: engancha AlEmpezar/AlTerminarPartida
+AmigosRankingService.Iniciar() -- después de MatchService: escucha AlTerminar
 PuntosService.Iniciar()
 RankingService.Iniciar()
 TroncoService.Iniciar()

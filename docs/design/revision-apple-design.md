@@ -96,3 +96,20 @@
 **No, todavía — y eso es lo esperable en el slice.** Como entrega del slice S4 está por encima del mínimo: paleta fiel al ADN, jerarquía correcta, contrastes sobre madera sobrados (11.46/8.83/6.46:1) y código ordenado con pool y debounces. Pero no es la HUD definitiva porque le faltan: (a) legibilidad sobre el mundo (popups P0, estado P1), (b) adaptación móvil y safe area, (c) los iconos del ADN (corazón, reloj, corona, regla) y la estamina del concepto, (d) opciones de tamaño de texto. Con las mejoras 1–3 aplicadas y verificadas con `screen_capture` + simulador de dispositivos, esta arquitectura de paneles sí puede convertirse en la definitiva sin reescribirla — el esqueleto es correcto; faltan los acabados.
 
 *Citas usadas (archivos HIG abiertos): `accessibility.md › Vision`, `color.md › Inclusive color`, `typography.md › Ensuring legibility`, `layout.md › Guides and safe areas` y `› Adaptability`, `buttons.md › Best practices`, `feedback.md › Best practices`, `motion.md › Providing feedback`.*
+
+---
+
+## Fase 2 — lobby formal y ranking de amigos (2026-10-28)
+
+Revisión estática con la skill apple-design de `src/client/LobbyUI.client.lua` y `src/client/RankingAmigosUI.client.lua` (set siempre-necesario + buttons, lists-and-tables, loading, feedback y writing). Veredicto inicial: **problemas críticos**; tras los arreglos, sin críticos pendientes. Verificado con `screen_capture` del lobby (escala 1) y del ranking con velo; consola sin errores nuevos.
+
+**Resuelto**
+
+- **C1 · Escala móvil (crítico):** con suelo 0,62 el panel de 560×540 dejaba el texto en 9–10 px y los botones por debajo de 40 px en un móvil apaisado (390 px de alto). Arreglo: fuentes base +25 % (nombre 20, estado 18, HOST 17, botones 30/26/20), chip HOST 62×21, suelo de escala 0,68 y aviso de que el reflujo táctil completo (objetivos ≥44 px) entra en la fase 6.
+- **A1 · Acuse del LISTO (alto):** el botón no cambiaba hasta el siguiente payload. Arreglo: al pulsar muestra «…» y se deshabilita; `aplicarEstado` lo restaura (≤5 s por el latido).
+- **A2 · Deshabilitado indistinguible (alto):** verde apagado 1,53:1 contra verde activo. Arreglo: los estados bloqueados usan el marrón de botón #6B4A2B, no el verde.
+- **A3 · Aviso temporal de 2 s (alto):** demasiado corto para leerlo. Arreglo: 6 s.
+- **M3 · Ranking sin velo modal:** el panel se fundía con la sala y VOLVER podía dejarlo huérfano sobre el menú. Arreglo: velo #3E2A18 al 0,35 que absorbe clics + VOLVER lo cierra. Verificado en captura.
+- **M6 · Salto del LISTO:** al empezar la cuenta el botón saltaba 106 px y cambiaba de significado. Arreglo: para el host se mantiene en x=24 durante «esperando» y «cuenta».
+
+**Diferido a fase 6 (pulido móvil):** M1 marca de selección del modo, M2 chip «TÚ» en la fila propia del lobby, M4 reintento desde el error del ranking, M5 indicador de carga animado, M7 mensaje con cuántos jugadores/listos faltan, M8 igualar alturas de LISTO/EMPEZAR y B1 botón AMIGOS duplicado con la sala abierta.

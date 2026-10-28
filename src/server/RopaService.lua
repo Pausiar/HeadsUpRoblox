@@ -16,6 +16,7 @@ local disenos = {} -- [player] = { [ranura] = { patron, color1, color2, pegatina
 local activa = {} -- [player] = ranura activa (o nil)
 
 local DataService -- se requiere en Iniciar: Main llama DataService.Iniciar() antes
+local MonetizacionService -- require perezoso: MonetizacionService también llama aquí
 
 local remotoGuardar
 local remotoPedir
@@ -31,6 +32,21 @@ local function ranuraValida(valor, maximo)
 		return nil
 	end
 	return n
+end
+
+-- Ranuras disponibles: 3 gratis o 9 con el pase (fase 5). Require perezoso para
+-- que la validación y la UI usen la misma fuente sin acoplar el arranque.
+local function ranurasDe(player)
+	if not MonetizacionService then
+		local ok, res = pcall(require, script.Parent.MonetizacionService)
+		if ok then
+			MonetizacionService = res
+		end
+	end
+	if MonetizacionService then
+		return MonetizacionService.RanurasRopa(player)
+	end
+	return RopaConfig.RanurasGratis
 end
 
 -- Normaliza un diseño en bruto a SOLO los ids de RopaConfig (o nil si algo no
@@ -110,7 +126,7 @@ local function guardarRopa(player, payload)
 	if not permitirGuardar(player) then
 		return
 	end
-	local ranura = type(payload) == "table" and ranuraValida(payload.ranura, RopaConfig.RanurasGratis)
+	local ranura = type(payload) == "table" and ranuraValida(payload.ranura, ranurasDe(player))
 	local diseno = ranura and normalizarDiseno(payload)
 	if not (ranura and diseno) then
 		remotoResultado:FireClient(player, { ok = false, mensaje = "Diseño inválido" })
@@ -128,15 +144,26 @@ local function guardarRopa(player, payload)
 end
 
 -- PedirRopa (client -> server): estado completo con copia profunda.
+local function enviarEstado(player)
+	remotoEstado:FireClient(player, {
+		activa = activa[player],
+		ranurasDesbloqueadas = ranurasDe(player),
+		disenos = copiarDisenos(player),
+	})
+end
+
 local function pedirRopa(player)
 	if not permitirPedir(player) then
 		return
 	end
-	remotoEstado:FireClient(player, {
-		activa = activa[player],
-		ranurasDesbloqueadas = RopaConfig.RanurasGratis,
-		disenos = copiarDisenos(player),
-	})
+	enviarEstado(player)
+end
+
+-- Tras un pase de ranuras: reenviar el estado para que la UI muestre las 9.
+function RopaService.RefrescarRanuras(player)
+	if remotoEstado and player and player.Parent then
+		enviarEstado(player)
+	end
 end
 
 -- Restaura lo persistido por DataService. Revalida cada diseño (ids y ranura

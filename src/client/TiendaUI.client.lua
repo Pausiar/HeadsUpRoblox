@@ -1,27 +1,38 @@
--- Tienda de Piñas (plan §7). LocalScript en StarterPlayerScripts; gui contratada con MenuInicio:
--- su botón TIENDA habilita esta gui (PlayerGui.TiendaUI) y nuestro VOLVER re-muestra MenuInicio
--- si EnJuego ~= true, mismo contrato que MenuAjustes. Panel de madera del ADN, sin UIStroke:
--- los textos van sobre madera con contraste alto (los trazos quedan para el HUD sobre el mundo).
--- SIMPLIFICACIÓN fase 5: «ya comprado» no es observable en cliente al arrancar (el servidor aún
--- no envía la lista de comprados; llegará en fase 2 con el TusDatos ampliado). Todo arranca como
--- COMPRAR: si el item ya era del jugador, el servidor responde ok («Equipado») sin cobrar y la
--- tarjeta pasa a EQUIPAR igualmente.
+-- Tienda (plan §7): panel de madera 500x440 con pestañas PIÑAS y ROBUX.
+-- PIÑAS conserva el catálogo de TiendaConfig y su flujo Comprar/CompraResult/Pinas;
+-- ROBUX lista MonetizacionConfig y solo avisa al servidor (la entrega se revalida allí).
+-- PaseEstado pinta los pases ACTIVO, el stock de reanimaciones, Piñas x2 y Modo Puro.
+-- Contrato con MenuInicio: su botón TIENDA habilita esta gui; VOLVER la oculta y
+-- re-muestra MenuInicio si EnJuego ~= true. Paleta: docs/design/design-dna.md.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
+local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
 
 local player = Players.LocalPlayer
 
 -- Paleta del ADN (docs/design/design-dna.md)
 local MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21 (panel)
+local MADERA_OSCURA = Color3.fromRGB(62, 42, 24) -- #3E2A18 (botón deshabilitado)
 local MARRON_TARJETA = Color3.fromRGB(107, 74, 43) -- #6B4A2B (tarjetas)
 local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8
 local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A (acción primaria)
-local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C (Piñas)
-local ROJO_AVISO = Color3.fromRGB(255, 111, 97) -- #FF6F61 (aviso temporal de compra)
+local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C (Piñas y selección)
+local ROJO_AVISO = Color3.fromRGB(255, 111, 97) -- #FF6F61 (aviso de error)
+
+-- Remotes resueltos una vez y ANTES de construir la UI: Esperar puede rendir.
+local remoteComprar = Remotes.Esperar(Remotes.Nombres.Comprar)
+local remotePinas = Remotes.Esperar(Remotes.Nombres.Pinas)
+local remoteResultado = Remotes.Esperar(Remotes.Nombres.CompraResult)
+local remoteComprarRobux = Remotes.Esperar(Remotes.Nombres.ComprarRobux)
+local remoteRobuxResultado = Remotes.Esperar(Remotes.Nombres.RobuxResult)
+local remotePaseEstado = Remotes.Esperar(Remotes.Nombres.PaseEstado)
+local remoteReclamarPase = Remotes.Esperar(Remotes.Nombres.ReclamarPase)
+local remoteModoPuro = Remotes.Esperar(Remotes.Nombres.ModoPuro)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "TiendaUI"
@@ -31,11 +42,13 @@ gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Safe area móvil (mismo patrón que MenuAjustes/HudPinas): respetar la notch
-local inset = GuiService:GetGuiInset()
+-- Safe area móvil: respetar notch y barras del sistema en los cuatro lados.
+local insetSuperior, insetInferior = GuiService:GetGuiInset()
 local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, inset.Y)
-pad.PaddingLeft = UDim.new(0, inset.X)
+pad.PaddingTop = UDim.new(0, insetSuperior.Y)
+pad.PaddingBottom = UDim.new(0, insetInferior.Y)
+pad.PaddingLeft = UDim.new(0, insetSuperior.X)
+pad.PaddingRight = UDim.new(0, insetInferior.X)
 pad.Parent = gui
 
 local function redondear(objeto, radio)
@@ -46,16 +59,31 @@ end
 
 local panel = Instance.new("Frame")
 panel.Name = "Panel"
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = UDim2.fromScale(0.5, 0.5)
 panel.Size = UDim2.fromOffset(500, 440)
-panel.Position = UDim2.new(0.5, -250, 0.5, -220)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = gui
 redondear(panel, 16)
 
+-- El panel nominal es 500x440; en pantallas estrechas se escala el conjunto
+-- (mismo patrón que LobbyUI/CustomizationUI) para no recortar el VOLVER.
+local escala = Instance.new("UIScale")
+escala.Parent = panel
+local function ajustarEscala()
+	local ancho, alto = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+	if ancho <= 0 or alto <= 0 then
+		return
+	end
+	escala.Scale = math.clamp(math.min(ancho / 540, alto / 560), 0.62, 1)
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
+ajustarEscala()
+
 local titulo = Instance.new("TextLabel")
 titulo.Size = UDim2.fromOffset(240, 34)
-titulo.Position = UDim2.new(0, 16, 0, 8)
+titulo.Position = UDim2.fromOffset(16, 4)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
 titulo.TextSize = 30
@@ -67,7 +95,7 @@ titulo.Parent = panel
 -- Saldo a la derecha del título: se refresca con el remote Pinas y con el ok de CompraResult.
 local saldo = Instance.new("TextLabel")
 saldo.Size = UDim2.fromOffset(220, 24)
-saldo.Position = UDim2.new(1, -236, 0, 13)
+saldo.Position = UDim2.new(1, -236, 0, 9)
 saldo.BackgroundTransparency = 1
 saldo.Font = Enum.Font.GothamBold
 saldo.TextSize = 20
@@ -76,20 +104,23 @@ saldo.TextColor3 = AMARILLO
 saldo.TextXAlignment = Enum.TextXAlignment.Right
 saldo.Parent = panel
 
--- Aviso temporal bajo el título (2 s) para compras fallidas.
+-- Aviso compartido (2 s) para Piñas, Robux, reclamo de pase y Modo Puro.
 local aviso = Instance.new("TextLabel")
+aviso.Name = "Aviso"
 aviso.Size = UDim2.new(1, 0, 0, 16)
-aviso.Position = UDim2.new(0, 0, 0, 44)
+aviso.Position = UDim2.fromOffset(0, 84)
 aviso.BackgroundTransparency = 1
 aviso.Font = Enum.Font.GothamBold
-aviso.TextSize = 16
+aviso.TextSize = 15
 aviso.Text = ""
 aviso.TextColor3 = ROJO_AVISO
+aviso.TextTruncate = Enum.TextTruncate.AtEnd
 aviso.Parent = panel
 
 local tareaAviso = nil
-local function mostrarAviso(texto)
+local function mostrarAviso(texto, color)
 	aviso.Text = texto
+	aviso.TextColor3 = color or ROJO_AVISO
 	if tareaAviso then
 		task.cancel(tareaAviso)
 	end
@@ -99,19 +130,72 @@ local function mostrarAviso(texto)
 	end)
 end
 
--- Grid: 8 tarjetas de 230x84 en 2 columnas x 4 filas, SIEMPRE construidas del catálogo.
--- El VOLVER (240x48) cuelga del panel como tablón 12 px por debajo: el panel de 440 ya está
--- lleno con título + aviso + 4 filas de 84, y las medidas del contrato son fijas.
-local ANCHO, ALTO = 230, 84
-local X_COL1, X_COL2 = 14, 256 -- 14 + 230 + 12 + 230 + 14 = 500
-local Y_INICIO, PASO_Y = 66, 92 -- 66 + 4x84 + 3x8 = 426, margen inferior 14
+-- Pestañas bajo el título: 130x44 (objetivo táctil), activa en amarillo con texto oscuro.
+local function crearPestana(texto, x)
+	local b = Instance.new("TextButton")
+	b.Name = "Pestana" .. texto
+	b.Size = UDim2.fromOffset(130, 44)
+	b.Position = UDim2.fromOffset(x, 40)
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBlack
+	b.TextSize = 19
+	b.Text = texto
+	b.Parent = panel
+	redondear(b, 10)
+	return b
+end
 
--- Remotes resueltos una vez y ANTES de crear las tarjetas (las closures los capturan; Esperar rinde).
-local remoteComprar = Remotes.Esperar(Remotes.Nombres.Comprar)
-local remotePinas = Remotes.Esperar(Remotes.Nombres.Pinas)
-local remoteResultado = Remotes.Esperar(Remotes.Nombres.CompraResult)
+local pestanaPinas = crearPestana("PIÑAS", 16)
+local pestanaRobux = crearPestana("ROBUX", 154)
 
-local tarjetas = {} -- id -> registro { item, boton, comprado }
+local function pintarPestana(boton, activa)
+	boton.BackgroundColor3 = activa and AMARILLO or MARRON_TARJETA
+	boton.TextColor3 = activa and MADERA_OSCURA or CREMA
+end
+
+-- Páginas: se muestran/ocultan, nunca se destruyen. Contenido desde y=100.
+local paginaPinas = Instance.new("Frame")
+paginaPinas.Name = "PaginaPinas"
+paginaPinas.Position = UDim2.fromOffset(16, 100)
+paginaPinas.Size = UDim2.fromOffset(468, 338)
+paginaPinas.BackgroundTransparency = 1
+paginaPinas.Parent = panel
+
+local paginaRobux = Instance.new("Frame")
+paginaRobux.Name = "PaginaRobux"
+paginaRobux.Position = UDim2.fromOffset(16, 100)
+paginaRobux.Size = UDim2.fromOffset(468, 338)
+paginaRobux.BackgroundTransparency = 1
+paginaRobux.Visible = false
+paginaRobux.Parent = panel
+
+-- Estado de monetización recibido del servidor (PaseEstado).
+local estadoPases = {
+	pases = {},
+	reanimaciones = 0,
+	pinasX2Hasta = 0,
+	modoPuro = false,
+	activo = false,
+}
+local registrosRobux = {}
+local refrescarEstadoRobux -- se define tras crear las etiquetas de la pestaña ROBUX
+
+local function seleccionar(cual)
+	local pinas = cual == "pinas"
+	paginaPinas.Visible = pinas
+	paginaRobux.Visible = not pinas
+	pintarPestana(pestanaPinas, pinas)
+	pintarPestana(pestanaRobux, not pinas)
+	if not pinas and refrescarEstadoRobux then
+		refrescarEstadoRobux()
+	end
+end
+
+-- ===== PESTAÑA PIÑAS =====
+-- 8 tarjetas de 230x80 en 2 columnas x 4 filas (230 + 8 + 230 = 468).
+local ANCHO_TARJETA, ALTO_TARJETA = 230, 80
+local PASO_X, PASO_Y = 238, 85
+
 local registroPendiente = nil -- tarjeta del último COMPRAR en vuelo (CompraResult no trae id)
 
 local function marcarComprado(registro)
@@ -119,22 +203,22 @@ local function marcarComprado(registro)
 	registro.boton.Text = "EQUIPAR"
 end
 
-local function crearTarjeta(item, columna, fila)
+local function crearTarjetaPinas(item, columna, fila)
 	local tarjeta = Instance.new("Frame")
 	tarjeta.Name = "Tarjeta_" .. item.id
-	tarjeta.Size = UDim2.fromOffset(ANCHO, ALTO)
-	tarjeta.Position = UDim2.fromOffset(columna == 1 and X_COL1 or X_COL2, Y_INICIO + (fila - 1) * PASO_Y)
+	tarjeta.Size = UDim2.fromOffset(ANCHO_TARJETA, ALTO_TARJETA)
+	tarjeta.Position = UDim2.fromOffset((columna - 1) * PASO_X, (fila - 1) * PASO_Y)
 	tarjeta.BackgroundColor3 = MARRON_TARJETA
 	tarjeta.BorderSizePixel = 0
-	tarjeta.Parent = panel
+	tarjeta.Parent = paginaPinas
 	redondear(tarjeta, 10)
 
 	local nombre = Instance.new("TextLabel")
 	nombre.Size = UDim2.new(1, item.tipo == "camiseta" and -56 or -20, 0, 22)
-	nombre.Position = UDim2.new(0, 10, 0, 8)
+	nombre.Position = UDim2.fromOffset(10, 5)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
-	nombre.TextSize = 18
+	nombre.TextSize = 17
 	nombre.Text = item.nombre
 	nombre.TextColor3 = CREMA
 	nombre.TextXAlignment = Enum.TextXAlignment.Left
@@ -145,7 +229,7 @@ local function crearTarjeta(item, columna, fila)
 	if item.tipo == "camiseta" and item.color then
 		local muestra = Instance.new("Frame")
 		muestra.Size = UDim2.fromOffset(18, 18)
-		muestra.Position = UDim2.new(1, -28, 0, 10)
+		muestra.Position = UDim2.new(1, -28, 0, 8)
 		muestra.BackgroundColor3 = Color3.fromRGB(item.color[1], item.color[2], item.color[3])
 		muestra.BorderSizePixel = 0
 		muestra.Parent = tarjeta
@@ -153,8 +237,8 @@ local function crearTarjeta(item, columna, fila)
 	end
 
 	local precio = Instance.new("TextLabel")
-	precio.Size = UDim2.fromOffset(120, 20)
-	precio.Position = UDim2.new(0, 10, 0, 50) -- centrado con el botón (42..78)
+	precio.Size = UDim2.fromOffset(108, 18)
+	precio.Position = UDim2.fromOffset(10, 45) -- centrado con el botón (29..73)
 	precio.BackgroundTransparency = 1
 	precio.Font = Enum.Font.GothamBold
 	precio.TextSize = 16
@@ -164,11 +248,11 @@ local function crearTarjeta(item, columna, fila)
 	precio.Parent = tarjeta
 
 	local boton = Instance.new("TextButton")
-	boton.Size = UDim2.fromOffset(100, 36)
-	boton.Position = UDim2.new(1, -108, 0, 42)
+	boton.Size = UDim2.fromOffset(100, 44)
+	boton.Position = UDim2.new(1, -108, 0, 29)
 	boton.BackgroundColor3 = VERDE
 	boton.Font = Enum.Font.GothamBlack
-	boton.TextSize = 16
+	boton.TextSize = 15
 	boton.Text = "COMPRAR"
 	boton.TextColor3 = CREMA
 	boton.Parent = tarjeta
@@ -179,37 +263,225 @@ local function crearTarjeta(item, columna, fila)
 		registroPendiente = registro
 		remoteComprar:FireServer(item.id)
 	end)
-	tarjetas[item.id] = registro
 end
 
 for i, item in ipairs(TiendaConfig.Catalogo) do
-	crearTarjeta(item, (i - 1) % 2 + 1, math.floor((i - 1) / 2) + 1)
+	crearTarjetaPinas(item, (i - 1) % 2 + 1, math.floor((i - 1) / 2) + 1)
 end
 
-remotePinas.OnClientEvent:Connect(function(datos)
-	saldo.Text = ("Piñas: %d"):format(datos.pinas or 0)
-end)
+-- ===== PESTAÑA ROBUX =====
+-- Barra fija: stock de reanimaciones, tiempo restante de Piñas x2 y toggle de Modo Puro.
+local barraEstado = Instance.new("Frame")
+barraEstado.Name = "BarraEstado"
+barraEstado.Size = UDim2.fromOffset(468, 46)
+barraEstado.BackgroundColor3 = MARRON_TARJETA
+barraEstado.BorderSizePixel = 0
+barraEstado.Parent = paginaRobux
+redondear(barraEstado, 10)
 
-remoteResultado.OnClientEvent:Connect(function(datos)
-	if datos.ok == true then
-		-- Compra (o re-uso «Equipado») aceptada: tarjeta a EQUIPAR y saldo del payload.
-		if registroPendiente then
-			marcarComprado(registroPendiente)
-			registroPendiente = nil
-		end
-		if type(datos.pinas) == "number" then
-			saldo.Text = ("Piñas: %d"):format(datos.pinas)
-		end
+local stockLabel = Instance.new("TextLabel")
+stockLabel.Size = UDim2.fromOffset(190, 18)
+stockLabel.Position = UDim2.fromOffset(10, 4)
+stockLabel.BackgroundTransparency = 1
+stockLabel.Font = Enum.Font.GothamBold
+stockLabel.TextSize = 14
+stockLabel.Text = "Reanimaciones: 0"
+stockLabel.TextColor3 = CREMA
+stockLabel.TextXAlignment = Enum.TextXAlignment.Left
+stockLabel.Parent = barraEstado
+
+local x2Label = Instance.new("TextLabel")
+x2Label.Size = UDim2.fromOffset(190, 18)
+x2Label.Position = UDim2.fromOffset(10, 23)
+x2Label.BackgroundTransparency = 1
+x2Label.Font = Enum.Font.GothamBold
+x2Label.TextSize = 14
+x2Label.Text = "Piñas x2: —"
+x2Label.TextColor3 = AMARILLO
+x2Label.TextXAlignment = Enum.TextXAlignment.Left
+x2Label.Parent = barraEstado
+
+local modoPuroBoton = Instance.new("TextButton")
+modoPuroBoton.Name = "ModoPuro"
+modoPuroBoton.AnchorPoint = Vector2.new(1, 0)
+modoPuroBoton.Position = UDim2.new(1, -10, 0, 2)
+modoPuroBoton.Size = UDim2.fromOffset(164, 42)
+modoPuroBoton.BackgroundColor3 = MADERA_OSCURA
+modoPuroBoton.BorderSizePixel = 0
+modoPuroBoton.Font = Enum.Font.GothamBlack
+modoPuroBoton.TextSize = 14
+modoPuroBoton.Text = "MODO PURO: NO"
+modoPuroBoton.TextColor3 = CREMA
+modoPuroBoton.Parent = barraEstado
+redondear(modoPuroBoton, 8)
+
+-- ScrollingFrame de 2 columnas con las tarjetas de MonetizacionConfig.Todos().
+local scrollRobux = Instance.new("ScrollingFrame")
+scrollRobux.Name = "CatalogoRobux"
+scrollRobux.Position = UDim2.fromOffset(0, 52)
+scrollRobux.Size = UDim2.fromOffset(468, 286)
+scrollRobux.BackgroundTransparency = 1
+scrollRobux.BorderSizePixel = 0
+scrollRobux.ScrollBarThickness = 5
+scrollRobux.ScrollBarImageColor3 = CREMA
+scrollRobux.ScrollingDirection = Enum.ScrollingDirection.Y
+scrollRobux.CanvasSize = UDim2.fromOffset(0, 0)
+scrollRobux.Parent = paginaRobux
+
+local rejilla = Instance.new("UIGridLayout")
+rejilla.CellSize = UDim2.new(0.5, -8, 0, 108)
+rejilla.CellPadding = UDim2.fromOffset(10, 10)
+rejilla.SortOrder = Enum.SortOrder.LayoutOrder
+rejilla.Parent = scrollRobux
+
+local ultimaCompraRobux = 0
+
+local function actualizarBotonRobux(registro)
+	local item = registro.item
+	local boton = registro.boton
+	local poseido = item.tipo == "pase"
+		and type(estadoPases.pases) == "table"
+		and estadoPases.pases[item.efecto] == true
+	local idRobux = item.tipo == "pase" and item.paseId or item.productoId
+	local publicable = MonetizacionConfig.Activo == true
+		and type(idRobux) == "number"
+		and idRobux > 0
+
+	local texto, habilitado, activo
+	if poseido then
+		texto, habilitado, activo = "ACTIVO", false, true
+	elseif item.disponible == false then
+		texto, habilitado, activo = "PRÓXIMAMENTE", false, false
+	elseif not publicable then
+		texto, habilitado, activo = "AL PUBLICAR", false, false
 	else
-		local texto = datos.mensaje
-		if type(texto) ~= "string" or texto == "" then
-			texto = "Piñas insuficientes"
+		texto, habilitado, activo = "COMPRAR", true, false
+	end
+
+	boton.Text = texto
+	boton.BackgroundColor3 = habilitado and VERDE or MADERA_OSCURA
+	boton.TextColor3 = activo and AMARILLO or CREMA
+	boton.TextTransparency = (habilitado or activo) and 0 or 0.35
+	boton.Active = habilitado
+	boton.Selectable = habilitado
+	boton.AutoButtonColor = habilitado
+	registro.habilitado = habilitado
+end
+
+local function crearTarjetaRobux(item, orden)
+	local tarjeta = Instance.new("Frame")
+	tarjeta.Name = "Robux_" .. item.id
+	tarjeta.Size = UDim2.fromOffset(220, 108)
+	tarjeta.LayoutOrder = orden
+	tarjeta.BackgroundColor3 = MARRON_TARJETA
+	tarjeta.BorderSizePixel = 0
+	tarjeta.Parent = scrollRobux
+	redondear(tarjeta, 10)
+
+	local nombre = Instance.new("TextLabel")
+	nombre.Size = UDim2.new(1, -20, 0, 36)
+	nombre.Position = UDim2.fromOffset(10, 3)
+	nombre.BackgroundTransparency = 1
+	nombre.Font = Enum.Font.GothamBold
+	nombre.TextSize = 15
+	nombre.Text = item.nombre
+	nombre.TextColor3 = CREMA
+	nombre.TextXAlignment = Enum.TextXAlignment.Left
+	nombre.TextYAlignment = Enum.TextYAlignment.Top
+	nombre.TextWrapped = true
+	nombre.Parent = tarjeta
+
+	local precio = Instance.new("TextLabel")
+	precio.Size = UDim2.new(1, -20, 0, 18)
+	precio.Position = UDim2.fromOffset(10, 41)
+	precio.BackgroundTransparency = 1
+	precio.Font = Enum.Font.GothamBold
+	precio.TextSize = 16
+	local precioRobux = tonumber(item.precioRobux) or 0
+	if precioRobux > 0 then
+		precio.Text = ("%d %s"):format(precioRobux, MonetizacionConfig.Moneda or "Robux")
+	else
+		precio.Text = "— " .. (MonetizacionConfig.Moneda or "Robux")
+	end
+	precio.TextColor3 = AMARILLO
+	precio.TextXAlignment = Enum.TextXAlignment.Left
+	precio.Parent = tarjeta
+
+	local boton = Instance.new("TextButton")
+	boton.Size = UDim2.new(1, -20, 0, 44)
+	boton.Position = UDim2.fromOffset(10, 62)
+	boton.BackgroundColor3 = MADERA_OSCURA
+	boton.Font = Enum.Font.GothamBlack
+	boton.TextSize = 16
+	boton.Text = "COMPRAR"
+	boton.TextColor3 = CREMA
+	boton.Parent = tarjeta
+	redondear(boton, 8)
+
+	local registro = { item = item, boton = boton, habilitado = false }
+	boton.Activated:Connect(function()
+		if not registro.habilitado then
+			return
 		end
-		mostrarAviso(texto)
-		registroPendiente = nil
+		if os.clock() - ultimaCompraRobux < 0.8 then
+			return -- un prompt a la vez; el servidor revalida y limita
+		end
+		ultimaCompraRobux = os.clock()
+		remoteComprarRobux:FireServer({ id = item.id })
+	end)
+	registrosRobux[item.id] = registro
+	actualizarBotonRobux(registro)
+end
+
+local catalogoRobux = MonetizacionConfig.Todos()
+for i, item in ipairs(catalogoRobux) do
+	crearTarjetaRobux(item, i)
+end
+local filasRobux = math.ceil(#catalogoRobux / 2)
+scrollRobux.CanvasSize = UDim2.fromOffset(0, filasRobux * 108 + math.max(0, filasRobux - 1) * 10)
+
+refrescarEstadoRobux = function()
+	stockLabel.Text = ("Reanimaciones: %d"):format(estadoPases.reanimaciones)
+	local restante = estadoPases.pinasX2Hasta - os.time()
+	if restante > 0 then
+		x2Label.Text = ("Piñas x2: %d min"):format(math.ceil(restante / 60))
+	else
+		x2Label.Text = "Piñas x2: —"
+	end
+	modoPuroBoton.Text = ("MODO PURO: %s"):format(estadoPases.modoPuro and "SÍ" or "NO")
+	modoPuroBoton.BackgroundColor3 = estadoPases.modoPuro and AMARILLO or MADERA_OSCURA
+	modoPuroBoton.TextColor3 = estadoPases.modoPuro and MADERA_OSCURA or CREMA
+end
+refrescarEstadoRobux()
+
+-- El minuto restante de Piñas x2 caduca con el reloj: refresco perezoso cada 15 s.
+task.spawn(function()
+	while true do
+		task.wait(15)
+		if paginaRobux.Visible then
+			refrescarEstadoRobux()
+		end
 	end
 end)
 
+local ultimoModoPuro = 0
+modoPuroBoton.Activated:Connect(function()
+	if os.clock() - ultimoModoPuro < 1 then
+		return
+	end
+	ultimoModoPuro = os.clock()
+	remoteModoPuro:FireServer(not estadoPases.modoPuro)
+end)
+
+pestanaPinas.Activated:Connect(function()
+	seleccionar("pinas")
+end)
+pestanaRobux.Activated:Connect(function()
+	seleccionar("robux")
+end)
+seleccionar("pinas")
+
+-- ===== Volver (contrato con MenuInicio) =====
 local volver = Instance.new("TextButton")
 volver.Name = "Volver"
 volver.Size = UDim2.fromOffset(240, 48)
@@ -230,6 +502,84 @@ volver.Activated:Connect(function()
 			inicio.Enabled = true
 		end
 	end
+end)
+
+-- ===== Remotes =====
+remotePinas.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	saldo.Text = ("Piñas: %d"):format(datos.pinas or 0)
+end)
+
+remoteResultado.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	if datos.ok == true then
+		-- Compra (o re-uso «Equipado») aceptada: tarjeta a EQUIPAR y saldo del payload.
+		if registroPendiente then
+			marcarComprado(registroPendiente)
+			registroPendiente = nil
+		end
+		if type(datos.pinas) == "number" then
+			saldo.Text = ("Piñas: %d"):format(datos.pinas)
+		end
+	else
+		local texto = datos.mensaje
+		if type(texto) ~= "string" or texto == "" then
+			texto = "Piñas insuficientes"
+		end
+		mostrarAviso(texto)
+		registroPendiente = nil
+	end
+end)
+
+remoteRobuxResultado.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	local mensaje = datos.mensaje
+	if type(mensaje) ~= "string" or mensaje == "" then
+		mensaje = datos.ok == true and "Compra iniciada" or "Compra no disponible"
+	end
+	mostrarAviso(mensaje, datos.ok == true and AMARILLO or ROJO_AVISO)
+end)
+
+remotePaseEstado.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	estadoPases.pases = type(datos.pases) == "table" and datos.pases or {}
+	estadoPases.reanimaciones = math.max(0, math.floor(tonumber(datos.reanimaciones) or 0))
+	estadoPases.pinasX2Hasta = tonumber(datos.pinasX2Hasta) or 0
+	estadoPases.modoPuro = datos.modoPuro == true
+	estadoPases.activo = datos.activo == true
+	for _, registro in pairs(registrosRobux) do
+		actualizarBotonRobux(registro)
+	end
+	refrescarEstadoRobux()
+end)
+
+-- Tras el prompt, el cliente solo avisa; el servidor vuelve a comprobar la posesión.
+local pasesPorRobux = {}
+for _, item in ipairs(MonetizacionConfig.Pases) do
+	local paseId = tonumber(item.paseId)
+	if item.tipo == "pase" and paseId and paseId > 0 then
+		pasesPorRobux[paseId] = item
+	end
+end
+
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(jugador, paseId, comprado)
+	if jugador ~= player or comprado ~= true then
+		return
+	end
+	local item = pasesPorRobux[paseId]
+	if not item then
+		return
+	end
+	remoteReclamarPase:FireServer(item.id)
+	mostrarAviso("Comprobando pase…", AMARILLO)
 end)
 
 print("[TiendaUI] activa")

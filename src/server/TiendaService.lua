@@ -61,6 +61,31 @@ local function aplicarItem(player, item)
 	end
 end
 
+-- Entrega sin cobro (recibos de Robux y pruebas de Studio): valida el catálogo,
+-- añade a "comprados" sin duplicar, persiste y aplica el cosmético.
+function TiendaService.ConcederItem(player, id)
+	if not dataService then
+		warn("[Tienda] ConcederItem antes de Iniciar: sin DataService")
+		return false
+	end
+	if type(id) ~= "string" then
+		return false
+	end
+	local item = TiendaConfig.PorId(id)
+	if not item then
+		warn("[Tienda] ConcederItem con id desconocido: " .. tostring(id))
+		return false
+	end
+	local comprados = listaComprados(player)
+	if not table.find(comprados, id) then
+		table.insert(comprados, id)
+		dataService.Guardar(player, "comprados", comprados) -- sin cobro: ya pagado en Robux
+	end
+	aplicarItem(player, item)
+	print("[Tienda] concedido " .. item.nombre .. " a " .. player.Name)
+	return true
+end
+
 -- Flujo de compra (plan §7): rate limit → validar → ¿ya comprado? re-equipar
 -- gratis → cobrar → guardar → aplicar → responder.
 local function procesarCompra(player, payload)

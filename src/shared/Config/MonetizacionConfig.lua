@@ -36,7 +36,8 @@ MonetizacionConfig.Pases = {
 		paseId = 0,
 		precioRobux = 149,
 		efecto = "botasAgarre",
-		disponible = true,
+		-- La v1 no tiene sistema de adherencia: no se vende algo sin efecto.
+		disponible = false,
 	},
 	{
 		id = "mochila_pro",
@@ -78,6 +79,8 @@ MonetizacionConfig.Productos = {
 		precioRobux = 25,
 		efecto = "reanimacion",
 		usos = 1,
+		costoPinas = 100, -- alternativa a gastar stock (plan §7.3)
+		limitePorPartida = 1,
 		disponible = true,
 	},
 	{

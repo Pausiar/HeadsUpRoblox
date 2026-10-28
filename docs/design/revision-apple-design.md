@@ -133,3 +133,22 @@ Revisión con la skill apple-design de `src/client/CustomizationUI.client.lua` (
 **Diferido a fase 5:** el editor pinta 9 ranuras pero el servidor acepta 3 (`RanurasGratis`); al abrir las ranuras con el pase hay que ampliar también la validación del servidor, ajustar la nota y revisar la segunda fila de ranuras (40 px de alto con 4 px de separación, y la nota baja a y=232).
 
 **Veredicto:** el editor cumple el «Hecho cuando» de la fase 4 — se ve igual en cliente y servidor, se guarda y se replica en el mundo — con deuda táctil acotada y ya asignada a la fase 6.
+
+---
+
+## Fase 5 — tienda Robux, reanimación personal y Modo Puro (2026-10-28)
+
+Revisión con la skill apple-design de `src/client/TiendaUI.client.lua` (reescrita con pestañas PIÑAS/ROBUX), `src/client/ReanimarPersonalUI.client.lua` (nueva) y el perfil visual de `src/client/Linterna.client.lua` con el pase (set siempre-necesario + buttons, tab-bars, lists-and-tables, feedback, loading, writing y color). Verificado con `screen_capture` de la tienda en ambas pestañas, del panel de reanimación sobre el HUD caído, del aviso REANIMADO y del Modo Puro activo; clics reales del MCP y consola del servidor (`[Monetizacion] reanimación personal usada por PausiarOG (stock)`, rechazo por límite por partida, rechazo en Modo Puro, `Modo Puro on/off`, linterna 40,25° ↔ 35° en vivo). Consola sin errores del juego.
+
+**Resuelto durante la revisión**
+
+- **E1 · «AL PUBLICAR» para lo no vendible (alto):** con `Activo=false`, los pases `disponible=false` mostraban «AL PUBLICAR», que sugiere que basta publicar. Arreglo: `disponible == false` se evalúa antes y el botón dice «PRÓXIMAMENTE», deshabilitado.
+- **E2 · Recompra de Piñas x2 (alto, dinero):** recomprar reiniciaba el vencimiento desde el momento de la compra, así que el jugador pagaba otra vez por el mismo tramo. Arreglo: la recompra extiende desde el vencimiento vigente.
+- **E3 · Saldo inicial invisible (alto):** la tienda y el HUD mostraban «Piñas: 0» hasta cerrar una partida, aunque el jugador tuviera saldo guardado. Arreglo: `PinasService` publica el total al cargar los datos y al entrar.
+- **E4 · Copia de stock (bajo):** «1 reanimación(es) personal(es)» → singular/plural.
+
+**Lo que funciona:** la propiedad se comunica con texto («ACTIVO», amarillo) además de color; una sola barra de estado resume stock, x2 y Puro; los rechazos del servidor se explican en la interfaz (2 s) y no en alerts; PIÑAS/ROBUX son pestañas de 44 px con estado activo amarillo y texto oscuro; los precios van en amarillo junto al botón; el panel de reanimación aparece solo con CAÍDO y se retira con Sano; el Modo Puro se explica en el propio botón («Modo Puro: sin reanimación de pago») y apaga la ventaja de la linterna en vivo; safe area en ambos paneles; salidas claras (VOLVER y el menú ESC de Roblox).
+
+**Pendiente para fase 6 (pulido móvil):** botón Modo Puro de 164×42 px y panel de reanimación de 320 px sin `UIScale` (se recortan en pantallas de menos de 320); tarjetas ROBUX a escala 0,62 con objetivos por debajo de 44 px; panel de la tienda de 500×440 en viewports cortos; la tienda no recibe la lista de `comprados`, así que tras reentrar los cosméticos ya comprados muestran COMPRAR hasta pulsarlos (el servidor re-equipa gratis). `PolicyService` ya se consulta en la tienda de Piñas y el catálogo no tiene compras aleatorias de pago.
+
+**Veredicto:** cumple el «Hecho cuando» de la fase 5 en Studio — pases y productos con estado, entrega idempotente, reanimación personal con límite por partida y Modo Puro efectivo — con deuda táctil acotada para la fase 6. Queda bloqueado por el usuario: publicar el place, crear pases y productos en el Creator Dashboard, poner sus IDs y `Activo=true`, y probar una compra real de Robux.

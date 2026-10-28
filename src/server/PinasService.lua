@@ -19,6 +19,11 @@ local pinas = {} -- [player] = total del jugador (sesión; se siembra desde Data
 local remotoPinas
 local dataService -- asignado en Iniciar() con pcall; nil = sin persistencia
 
+-- Publica el total sin ganancia: siembra el saldo del HUD y de la tienda al entrar.
+local function publicar(player, ganadas)
+	remotoPinas:FireClient(player, { pinas = pinas[player] or 0, ganadas = ganadas or 0 })
+end
+
 -- Nunca baja un total ya alcanzado (mismo patrón que el récord en MatchService)
 local function aplicarPinasGuardadas(player, valor)
 	if type(valor) == "number" then
@@ -47,11 +52,19 @@ function PinasService.Iniciar()
 		if stats and stats.nuevoRecord then
 			ganadas += BONUS_RECORD
 		end
+		-- Multiplicador x2 de monetización: require perezoso dentro del handler
+		-- para no acoplar el arranque de PinasService a MonetizacionService.
+		local multiplicador = 1
+		local ok, monetizacion = pcall(require, script.Parent.MonetizacionService)
+		if ok and monetizacion then
+			multiplicador = monetizacion.MultiplicadorPinas(player)
+		end
+		ganadas = ganadas * multiplicador
 		pinas[player] = (pinas[player] or 0) + ganadas
 		if dataService then
 			dataService.Guardar(player, "pinas", pinas[player])
 		end
-		remotoPinas:FireClient(player, { pinas = pinas[player], ganadas = ganadas })
+		remotoPinas:FireClient(player, { pinas = pinas[player], ganadas = ganadas, multiplicador = multiplicador })
 		print("[Pinas] +" .. ganadas .. " a " .. player.Name .. ": total " .. pinas[player])
 	end)
 
@@ -61,6 +74,7 @@ function PinasService.Iniciar()
 			if type(datos) == "table" then
 				aplicarPinasGuardadas(player, datos.pinas)
 			end
+			publicar(player)
 		end)
 		-- Carrera: los datos pueden haber cargado antes de conectar AlCargar
 		for _, player in Players:GetPlayers() do
@@ -68,6 +82,7 @@ function PinasService.Iniciar()
 			if type(datos) == "table" then
 				aplicarPinasGuardadas(player, datos.pinas)
 			end
+			publicar(player)
 		end
 	end
 

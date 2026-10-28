@@ -20,6 +20,47 @@ Ningún agente edita `src/shared/Remotes.lua`, `src/server/Main.server.lua`,
 - Ranking de amigos: OrderedDataStore `HUMM_Mejores_v1`, clave `u_<UserId>`
   con la mejor distancia entera.
 
+## Contrato de fase 5 (oleada 3)
+
+`MonetizacionService` (servidor, nuevo) expone:
+
+- `Estado(player)` → payload de `PaseEstado`:
+  `{ activo, pases = { ranurasRopa = bool, linternaPro = bool }, reanimaciones, pinasX2Hasta, modoPuro }`.
+- `TienePase(player, efecto)`, `RanurasRopa(player)` (3 o 9),
+  `MultiplicadorPinas(player)` (1 o 2), `EsModoPuro(player)`.
+- `Refrescar(player)`: recalcula pases y publica `PaseEstado` a ese jugador.
+- Pases: `UserOwnsGamePassAsync` al entrar y tras `ReclamarPase` (el servidor revalida;
+  el cliente solo avisa). En Studio sin API degrada a «sin pases» con warn.
+- `ComprarRobux` valida id y `disponible`; si `MonetizacionConfig.Activo` es false
+  responde `RobuxResult { ok=false, mensaje=AvisoNoPublicado }` sin prompt.
+  Si está activo y es pase → `PromptGamePassPurchase`; producto → `PromptProductPurchase`.
+- `ProcessReceipt` de productos: valida productId, idempotencia con DataService `recibos`
+  (lista acotada), y entrega: `pinas_x2` (os.time+1800 en `pinasX2Hasta`),
+  `reanimacion_personal` (+1 en `reanimacionesPersonales`), `pack_sombreros`
+  (los 3 ids a `comprados` vía `TiendaService.ConcederItem`).
+- `ReanimarPersonal`: exige caído, no Puro, límite 1 por partida y stock
+  (`reanimacionesPersonales`) o `PinasService.Gastar(player, costoPinas)`; reanima con
+  `PlayerStateService.Reanimar`; responde `ReanimarResult { ok, mensaje }`.
+  El límite se reinicia en `MatchService.AlEmpezar`.
+- `ModoPuro` (boolean): persiste en DataService `modoPuro` y republica `PaseEstado`.
+  En Puro no hay reanimación personal ni efecto de Linterna Pro.
+- Seams de prueba SOLO Studio (`RunService:IsStudio()`): `_ProbarConceder(player, id)`
+  (pase o producto, misma entrega que un recibo válido) y `_ProbarRecibo(player, purchaseId, id)`
+  (repetir el mismo purchaseId no entrega dos veces). En producción no existen.
+
+Integraciones:
+
+- `PinasService`: ganadas × `MultiplicadorPinas` y aviso en el payload.
+- `RopaService`: `guardarRopa`/`pedirRopa` usan `RanurasRopa`; `RefrescarRanuras(player)`
+  publica estado fresco tras un pase.
+- `TiendaService.ConcederItem(player, id)`: valida catálogo, añade a `comprados` sin cobrar
+  y aplica el cosmético (sombreros/camiseta).
+- `Linterna.client.lua`: con `linternaPro` y sin Puro, cono 40,25 y color propio.
+- `TiendaUI`: pestañas PIÑAS/ROBUX, catálogo de `MonetizacionConfig`, `PaseEstado` para
+  estados, `ReclamarPase` tras `PromptGamePassPurchaseFinished`, toggle Modo Puro.
+- `ReanimarPersonalUI`: visible solo con HudEstado «CAÍDO»; muestra stock o coste en Piñas;
+  envía `ReanimarPersonal` y muestra `ReanimarResult`.
+
 ## Oleadas
 
 | Oleada | Fase | Agentes | Archivos (propiedad exclusiva) |
@@ -32,7 +73,7 @@ Ningún agente edita `src/shared/Remotes.lua`, `src/server/Main.server.lua`,
 | 2 | 4 | F · Ropa UI | `client/CustomizationUI.client.lua`, `client/TiendaUI.client.lua` |
 | 2 | 6 | G · Móvil/accesibilidad | `client/Movil.client.lua`, `client/Acciones.lua`, `client/Estamina.client.lua`, `client/Linterna.client.lua`, `client/CameraController.client.lua`, `client/Accesibilidad.client.lua`, `client/MenuAjustes.client.lua`, `shared/Settings.lua` |
 | 2 | 6 | H · Telemetría | `server/TelemetriaService.lua`, `Config/TelemetriaConfig.lua`, `server/MonsterService.lua`, `server/PinasService.lua` |
-| 3 | 5 | I · Monetización servidor | `server/MonetizacionService.lua`, `Config/MonetizacionConfig.lua`, `server/PinasService.lua`, `server/RopaService.lua`, `server/AccesoriosService.lua`, `client/Linterna.client.lua` |
+| 3 | 5 | I · Monetización servidor | `server/MonetizacionService.lua`, `Config/MonetizacionConfig.lua`, `server/PinasService.lua`, `server/RopaService.lua`, `server/TiendaService.lua`, `client/Linterna.client.lua` |
 | 3 | 5 | J · Monetización UI | `client/TiendaUI.client.lua`, `client/ReanimarPersonalUI.client.lua` |
 | 4 | 6 | K · Audio/subtítulos | `client/AudioService.client.lua`, `client/Subtitulos.client.lua`, `Config/AudioConfig.lua`, `server/HazardService.lua`, `server/TroncoService.lua`, `server/PlayerStateService.lua`, `server/MonsterService.lua`, `server/MatchService.lua` |
 | 4 | 7 | L · Soft launch | `docs/launch/soft-launch.md`, `docs/launch/creator-dashboard.md` |

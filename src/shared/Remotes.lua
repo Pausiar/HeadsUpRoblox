@@ -35,8 +35,10 @@ Remotes.Nombres = {
 	ComprarRobux = "ComprarRobux", -- client -> server: { id } de MonetizacionConfig
 	RobuxResult = "RobuxResult", -- server -> client: { ok, mensaje, id }
 	PaseEstado = "PaseEstado", -- server -> client: { pases, reanimaciones, pinasX2Hasta, modoPuro, activo }
+	ReclamarPase = "ReclamarPase", -- client -> server: id del pase tras PromptGamePassPurchaseFinished; el servidor revalida posesión
 	ReanimarPersonal = "ReanimarPersonal", -- client -> server: gastar una reanimación personal
-	ModoPuro = "ModoPuro", -- client -> server: boolean (ranking Puro: sin ventajas ni reanimaciones de pago)
+	ReanimarResult = "ReanimarResult", -- server -> client: { ok, mensaje }
+	ModoPuro = "ModoPuro", -- client -> server: boolean (modo Puro: sin ventajas ni reanimaciones de pago)
 
 	-- Fase 6: audio y subtítulos (el cliente decide volumen y presentación)
 	Sonido = "Sonido", -- server -> client: { id, posicion?, subtitulo? }

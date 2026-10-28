@@ -2,17 +2,24 @@
 -- Sirve para ver en zonas oscuras y prepara el contrajuego contra El Doble (gancho abajo).
 -- Solo funciona en partida: mismo contrato del atributo "EnJuego" que Estamina.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local TECLA = Enum.KeyCode.F
+local ANGULO_BASE = 35
+local ANGULO_PRO = 40.25 -- +15 % de cono con el pase (plan §7.2)
+local RANGO = 40
+local COLOR_BASE = Color3.fromRGB(255, 243, 214) -- blanco cálido #FFF3D6
+local COLOR_PRO = Color3.fromRGB(63, 127, 191) -- azul del ADN #3F7FBF (información/selección)
 
 -- GANCHO_DELATE (plan §5.3, contrajuego contra El Doble): al integrarlo, el SERVIDOR
 -- comprobará si el cono de la linterna de un jugador ilumina al Doble —producto punto
 -- entre la dirección del haz (LookVector de la Head, hacia donde apunta el SpotLight
--- con Face Front) y el vector unitario hacia el Doble, dentro del ángulo (35°) y el
--- alcance (40) del cono— y le pondrá un Highlight para delatarlo. No se implementa aquí:
--- la detección es autoritativa del servidor; esta constante es el gancho documentado.
+-- con Face Front) y el vector unitario hacia el Doble, dentro del ángulo vigente
+-- (35° o 40,25° con Linterna Pro) y el alcance (40) del cono— y le pondrá un Highlight
+-- para delatarlo. No se implementa aquí: la detección es autoritativa del servidor;
+-- esta constante es el gancho documentado.
 local GANCHO_DELATE = false
 
 -- Etiqueta discreta del atajo, clonada de la de «V: cámara» (CameraController),
@@ -37,6 +44,19 @@ aviso.Text = "F: linterna"
 aviso.Parent = gui
 
 local encendida = false
+local tienePro = false
+local modoPuro = false
+
+-- Linterna Pro: cono más ancho y color propio; en Modo Puro no hay ventaja.
+local function aplicarPerfil(luz)
+	if tienePro and not modoPuro then
+		luz.Angle = ANGULO_PRO
+		luz.Color = COLOR_PRO
+	else
+		luz.Angle = ANGULO_BASE
+		luz.Color = COLOR_BASE
+	end
+end
 
 local function crearLuz()
 	local cabeza = player.Character and player.Character:FindFirstChild("Head")
@@ -45,12 +65,11 @@ local function crearLuz()
 	end
 	local luz = Instance.new("SpotLight")
 	luz.Name = "Linterna"
-	luz.Angle = 35
-	luz.Range = 40
+	luz.Range = RANGO
 	luz.Brightness = 2
-	luz.Color = Color3.fromRGB(255, 243, 214) -- blanco cálido #FFF3D6
 	luz.Face = Enum.NormalId.Front -- la Head mira por su LookVector: el haz sigue la mirada
 	luz.Shadows = true
+	aplicarPerfil(luz)
 	luz.Parent = cabeza
 end
 
@@ -98,5 +117,29 @@ player.CharacterAdded:Connect(function(char)
 		crearLuz()
 	end
 end)
+
+-- El estado llega del servidor (entrada, compra del pase, Modo Puro). Si la luz
+-- ya está encendida se actualiza en vivo; si aún no existe, se crea con el perfil.
+local function actualizarEstado()
+	local cabeza = player.Character and player.Character:FindFirstChild("Head")
+	local luz = cabeza and cabeza:FindFirstChild("Linterna")
+	if luz then
+		aplicarPerfil(luz)
+	elseif encendida then
+		crearLuz()
+	end
+end
+
+local carpetaRemotes = ReplicatedStorage:WaitForChild("Remotes", 15)
+local remotoPase = carpetaRemotes and carpetaRemotes:WaitForChild("PaseEstado", 15)
+if remotoPase then
+	remotoPase.OnClientEvent:Connect(function(datos)
+		tienePro = type(datos) == "table" and type(datos.pases) == "table" and datos.pases.linternaPro == true
+		modoPuro = type(datos) == "table" and datos.modoPuro == true
+		actualizarEstado()
+	end)
+else
+	warn("[Linterna] sin remote PaseEstado: se usa la linterna base")
+end
 
 print("[Linterna] activo")

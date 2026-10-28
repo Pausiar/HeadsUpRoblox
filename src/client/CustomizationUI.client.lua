@@ -666,10 +666,17 @@ renderRopa = function()
 	end
 
 	notaRanuras.Position = UDim2.fromOffset(194, 140 + filas * 44 + 4)
-	notaRanuras.Text = ("%d de %d ranuras · las extra llegan con el pase"):format(
-		estadoRopa.ranuras,
-		RopaConfig.RanurasMax
-	)
+	if estadoRopa.ranuras >= RopaConfig.RanurasMax then
+		notaRanuras.Text = ("%d de %d ranuras · todas desbloqueadas"):format(
+			estadoRopa.ranuras,
+			RopaConfig.RanurasMax
+		)
+	else
+		notaRanuras.Text = ("%d de %d ranuras · las extra llegan con el pase"):format(
+			estadoRopa.ranuras,
+			RopaConfig.RanurasMax
+		)
+	end
 
 	for _, item in ipairs(botonesPatron) do
 		pintarSeleccion(item.boton, estadoRopa.diseno.patron == item.id)

@@ -5,11 +5,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local HazardService = {}
 local rng = Random.new()
 local playerState
+local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: aviso sonoro
 
 local function sombraDeAviso(pos, radio)
 	local disco = Instance.new("Part")
@@ -31,6 +34,8 @@ function HazardService.SoltarRoca(pos)
 	local radio = rng:NextNumber(cfg.TamanoMin, cfg.TamanoMax) / 2
 
 	local aviso = sombraDeAviso(pos, radio + 1)
+	-- Una vez por roca (no por frame); el subtítulo sale de AudioConfig.
+	sonido:FireAllClients({ id = "Aviso", subtitulo = AudioConfig.Efectos.Aviso.subtitulo })
 
 	task.delay(cfg.AvisoSeg, function()
 		if aviso.Parent then

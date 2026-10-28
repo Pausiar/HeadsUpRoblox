@@ -2,6 +2,13 @@
 -- Paleta y estilo: docs/design/design-dna.md. Patrón de GUI reutilizado de FinScreen.client.lua.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 -- Mini-tokens del ADN (docs/design/design-dna.md)
 local MADERA_PANEL = Color3.fromRGB(92, 58, 33) -- #5C3A21 panel
@@ -58,30 +65,33 @@ local function etiqueta(pos, altura, texto, tamano, fuente, color)
 	return t
 end
 
+-- El logo es marca del juego: se queda igual en los dos idiomas.
 etiqueta(UDim2.new(0, 0, 0, 10), 66, "HEADS UP!", 54, Enum.Font.GothamBlack, CREMA)
 etiqueta(UDim2.new(0, 0, 0, 78), 30, "MOUNTAIN MAYHEM", 24, Enum.Font.GothamBlack, AMARILLO)
-etiqueta(UDim2.new(0, 0, 1, -24), 20, "No mires solo al frente…", 16, Enum.Font.Gotham, CREMA)
+local lema = etiqueta(UDim2.new(0, 0, 1, -24), 20, L("lema"), 16, Enum.Font.Gotham, CREMA)
 
 local mensajeSalir = etiqueta(
 	UDim2.new(0, 0, 0, 422),
 	22,
-	"Usa el menú ESC de Roblox para salir",
+	L("salir_ayuda"),
 	16,
 	Enum.Font.Gotham,
 	AMARILLO
 )
 mensajeSalir.Visible = false
 
-local function botonMenu(texto, y, color, colorTexto)
+local botonesTexto = {}
+
+local function botonMenu(clave, y, color, colorTexto)
 	local b = Instance.new("TextButton")
-	b.Name = "Boton" .. texto
+	b.Name = "Boton" .. clave
 	b.AnchorPoint = Vector2.new(0.5, 0)
 	b.Position = UDim2.new(0.5, 0, 0, y)
 	b.Size = UDim2.fromOffset(300, 56) -- objetivo de toque grande (≥44 px)
 	b.BackgroundColor3 = color
 	b.BorderSizePixel = 0
 	b.Font = Enum.Font.GothamBold
-	b.Text = texto
+	b.Text = L(clave):upper()
 	b.TextSize = 24
 	b.TextColor3 = colorTexto
 	b.Parent = panel
@@ -89,27 +99,27 @@ local function botonMenu(texto, y, color, colorTexto)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 12)
 	c.Parent = b
+	table.insert(botonesTexto, { boton = b, clave = clave })
 	return b
 end
 
-local botonJugar = botonMenu("JUGAR", 116, VERDE, BLANCO)
-local botonPersonalizar = botonMenu("PERSONALIZAR", 182, MADERA_BOTON, CREMA)
-local botonAjustes = botonMenu("AJUSTES", 248, MADERA_BOTON, CREMA)
-local botonTienda = botonMenu("TIENDA", 314, MADERA_BOTON, CREMA)
-local botonSalir = botonMenu("SALIR", 380, MADERA_BOTON, CREMA)
+local botonJugar = botonMenu("jugar", 116, VERDE, BLANCO)
+local botonPersonalizar = botonMenu("personalizar", 182, MADERA_BOTON, CREMA)
+local botonAjustes = botonMenu("ajustes", 248, MADERA_BOTON, CREMA)
+local botonTienda = botonMenu("tienda", 314, MADERA_BOTON, CREMA)
+local botonSalir = botonMenu("salir", 380, MADERA_BOTON, CREMA)
 
 -- Aviso de «llega en una fase futura»: cambia el texto y congela el color 1,5 s. Devuelve la acción.
-local function avisoFase(boton, textoAviso)
-	local textoOriginal = boton.Text
+local function avisoFase(boton, claveAviso, claveOriginal)
 	local marca = 0
 	return function()
 		marca += 1
 		local esta = marca
-		boton.Text = textoAviso
+		boton.Text = L(claveAviso)
 		boton.AutoButtonColor = false
 		task.delay(1.5, function()
 			if marca == esta then
-				boton.Text = textoOriginal
+				boton.Text = L(claveOriginal):upper()
 				boton.AutoButtonColor = true
 			end
 		end)
@@ -117,7 +127,7 @@ local function avisoFase(boton, textoAviso)
 end
 
 -- JUGAR abre la sala de espera; el servidor decide cuándo empieza (Comenzar en LobbyUI).
-local avisoJugar = avisoFase(botonJugar, "SALA NO DISPONIBLE")
+local avisoJugar = avisoFase(botonJugar, "sala_no_disponible", "jugar")
 local abriendoLobby = false
 
 botonJugar.Activated:Connect(function()
@@ -125,10 +135,10 @@ botonJugar.Activated:Connect(function()
 		return
 	end
 	abriendoLobby = true
-	botonJugar.Text = "ABRIENDO…"
+	botonJugar.Text = L("abriendo")
 	botonJugar.AutoButtonColor = false
 	local lobby = player.PlayerGui:WaitForChild("LobbyUI", 5)
-	botonJugar.Text = "JUGAR"
+	botonJugar.Text = L("jugar"):upper()
 	botonJugar.AutoButtonColor = true
 	abriendoLobby = false
 	if lobby and lobby:IsA("ScreenGui") then
@@ -139,7 +149,7 @@ botonJugar.Activated:Connect(function()
 	avisoJugar() -- sin lobby no se pone EnJuego ni se inicia nada
 end)
 
-local avisoFasePersonalizar = avisoFase(botonPersonalizar, "PERSONALIZAR · fase 4")
+local avisoFasePersonalizar = avisoFase(botonPersonalizar, "personalizar_fase", "personalizar")
 botonPersonalizar.Activated:Connect(function()
 	local personalizacion = player.PlayerGui:FindFirstChild("Personalizacion")
 	if personalizacion then
@@ -150,7 +160,7 @@ botonPersonalizar.Activated:Connect(function()
 	avisoFasePersonalizar()
 end)
 
-local parpadearAjustes = avisoFase(botonAjustes, "AJUSTES · fase siguiente")
+local parpadearAjustes = avisoFase(botonAjustes, "ajustes_fase", "ajustes")
 botonAjustes.Activated:Connect(function()
 	local menuAjustes = player.PlayerGui:FindFirstChild("MenuAjustes")
 	if menuAjustes then
@@ -161,7 +171,7 @@ botonAjustes.Activated:Connect(function()
 	parpadearAjustes()
 end)
 
-local parpadearTienda = avisoFase(botonTienda, "TIENDA · fase siguiente")
+local parpadearTienda = avisoFase(botonTienda, "tienda_fase", "tienda")
 botonTienda.Activated:Connect(function()
 	local tienda = player.PlayerGui:FindFirstChild("TiendaUI")
 	if tienda then
@@ -186,5 +196,17 @@ end)
 
 -- Entrada sutil: solo funde el velo; el panel aparece sólido con él.
 TweenService:Create(velo, INFO_ENTRADA, { BackgroundTransparency = 0.25 }):Play()
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	lema.Text = L("lema")
+	mensajeSalir.Text = L("salir_ayuda")
+	for _, par in ipairs(botonesTexto) do
+		par.boton.Text = L(par.clave):upper()
+	end
+end)
 
 print("[MenuInicio] activo")

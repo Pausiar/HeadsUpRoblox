@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local LobbyConfig = require(ReplicatedStorage.Shared.Config.LobbyConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -266,6 +267,7 @@ function MatchService.Iniciar()
 	end
 
 	local etapa = Config.Etapa0
+	local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: checkpoint y fin
 	local carpeta = Instance.new("Folder")
 	carpeta.Name = "Match"
 	carpeta.Parent = workspace
@@ -290,6 +292,7 @@ function MatchService.Iniciar()
 			if not actual or info.indice > actual.indice then
 				checkpoints[player] = info
 				checkpointAlcanzado:Fire(player, info.indice)
+				sonido:FireClient(player, { id = "Checkpoint", subtitulo = AudioConfig.Efectos.Checkpoint.subtitulo })
 				print("[Match] checkpoint", info.indice, "por", player.Name)
 			end
 		end)
@@ -401,6 +404,8 @@ function MatchService.Iniciar()
 							finPartida:FireClient(player, stats)
 							alTerminar:Fire(player, stats)
 						end
+						-- Una sola vez por partida, fuera del bucle de jugadores.
+						sonido:FireAllClients({ id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
 						-- Aviso único al lobby (los FinPartida por jugador siguen igual)
 						local roster = {}
 						for _, player in ipairs(participantesPartida) do

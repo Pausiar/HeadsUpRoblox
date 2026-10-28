@@ -4,11 +4,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local TroncoService = {}
 local rng = Random.new()
 local playerState
+local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: aviso e impacto
 
 local function franjaDeAviso(x, ancho)
 	local franja = Instance.new("Part")
@@ -28,6 +31,8 @@ local function lanzarTronco(x)
 	local cfg = Config.Etapa0
 	local lado = rng:NextInteger(0, 1) == 0 and 1 or -1
 	local aviso = franjaDeAviso(x, cfg.Ancho)
+	-- Una vez por tronco, al pintar la franja de aviso.
+	sonido:FireAllClients({ id = "Aviso", subtitulo = AudioConfig.Efectos.Aviso.subtitulo })
 
 	task.delay(cfg.Troncos.AvisoSeg, function()
 		if aviso.Parent then
@@ -63,6 +68,8 @@ local function lanzarTronco(x)
 						local delta = raiz.Position - tronco.Position
 						if math.abs(delta.X) <= cfg.Troncos.Largo / 2 and delta.Magnitude < radioGolpe then
 							golpeados[player] = true
+							-- Solo al jugador golpeado: golpeados[] impide repetirlo en el barrido.
+							sonido:FireClient(player, { id = "Impacto", subtitulo = AudioConfig.Efectos.Impacto.subtitulo })
 							hum:TakeDamage(cfg.Troncos.Danio)
 							playerState.Derribar(player, "tronco")
 						end

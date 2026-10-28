@@ -7,7 +7,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local LobbyConfig = require(ReplicatedStorage.Shared.Config.LobbyConfig)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 -- Mini-tokens del ADN (docs/design/design-dna.md)
 local MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21 panel
@@ -105,11 +110,11 @@ local function boton(padre, nombre, posicion, tamano, texto, tamanoTexto, colorF
 	return b
 end
 
-etiqueta(
+local tituloSala = etiqueta(
 	panel,
 	UDim2.fromOffset(0, 12),
 	UDim2.new(1, 0, 0, 34),
-	"SALA DE ESPERA",
+	L("sala_espera"),
 	32,
 	CREMA,
 	Enum.Font.GothamBlack
@@ -119,7 +124,7 @@ local subtitulo = etiqueta(
 	panel,
 	UDim2.fromOffset(0, 48),
 	UDim2.new(1, 0, 0, 20),
-	"2–8 jugadores · todos listos para empezar",
+	("%d–%d "):format(LobbyConfig.MinJugadores, LobbyConfig.MaxJugadores) .. L("jugadores_listos"),
 	18,
 	AMARILLO,
 	Enum.Font.Gotham
@@ -131,7 +136,7 @@ local botonHistoria = boton(
 	"ModoHistoria",
 	UDim2.fromOffset(94, 72),
 	UDim2.fromOffset(180, 44),
-	"HISTORIA",
+	L("historia"),
 	20,
 	MADERA_BOTON,
 	CREMA
@@ -141,7 +146,7 @@ local botonRapida = boton(
 	"ModoRapida",
 	UDim2.fromOffset(286, 72),
 	UDim2.fromOffset(180, 44),
-	"RONDA RÁPIDA",
+	L("ronda_rapida"),
 	20,
 	MADERA_BOTON,
 	CREMA
@@ -198,7 +203,7 @@ for i = 1, MAX_JUGADORES do
 		fondo,
 		UDim2.fromOffset(320, 3),
 		UDim2.fromOffset(62, 21),
-		"HOST",
+		L("host"),
 		17,
 		MARRON_OSCURO,
 		Enum.Font.GothamBlack
@@ -256,7 +261,7 @@ local botonListo = boton(
 	"BotonListo",
 	UDim2.fromOffset(130, 416),
 	UDim2.fromOffset(300, 56),
-	"LISTO",
+	L("listo"):upper(),
 	30,
 	VERDE,
 	BLANCO
@@ -271,7 +276,7 @@ local botonEmpezar = boton(
 	"BotonEmpezar",
 	UDim2.fromOffset(356, 420),
 	UDim2.fromOffset(180, 48),
-	"EMPEZAR",
+	L("empezar"):upper(),
 	26,
 	VERDE,
 	BLANCO
@@ -283,7 +288,7 @@ local botonRanking = boton(
 	"BotonRanking",
 	UDim2.fromOffset(396, 482),
 	UDim2.fromOffset(140, 44),
-	"RANKING",
+	L("ranking"):upper(),
 	20,
 	MADERA_BOTON,
 	CREMA
@@ -294,7 +299,7 @@ local botonVolver = boton(
 	"BotonVolver",
 	UDim2.fromOffset(24, 482),
 	UDim2.fromOffset(120, 44),
-	"VOLVER",
+	L("volver"):upper(),
 	20,
 	MADERA_BOTON,
 	CREMA
@@ -307,8 +312,9 @@ local esHost = false
 local soyParticipante = false
 local listoActual = false
 local modoActual = LobbyConfig.ModoPorDefecto
-local mensajeServidor = "Conectando con la sala…"
+local mensajeServidor = L("conectando")
 local mensajeTemporal = nil
+local mensajeTemporalClave = nil
 local tokenMensaje = 0
 local ocultaPorPartida = false
 
@@ -321,21 +327,23 @@ local function pintarMensaje()
 		and estadoActual ~= nil
 		and estadoActual.puedeEmpezar ~= true
 	then
-		texto = "Faltan jugadores o listos"
+		texto = L("faltan_jugadores")
 	end
 	mensaje.Text = texto
 end
 
-local function mostrarMensajeTemporal(texto)
+local function mostrarMensajeTemporal(texto, clave)
 	tokenMensaje += 1
 	local token = tokenMensaje
 	mensajeTemporal = texto
+	mensajeTemporalClave = clave
 	pintarMensaje()
 	task.delay(AVISO_RANKING, function()
 		if token ~= tokenMensaje then
 			return
 		end
 		mensajeTemporal = nil
+		mensajeTemporalClave = nil
 		pintarMensaje()
 	end)
 end
@@ -357,7 +365,7 @@ local function pintarListo()
 	-- En cuenta atrás solo se puede CANCELAR (el servidor acepta listo=false y para la cuenta)
 	local puedeCancelar = faseActual == "cuenta" and listoActual
 	local bloqueado = not soyParticipante or estadoActual == nil or (faseActual ~= "esperando" and not puedeCancelar)
-	botonListo.Text = listoActual and "CANCELAR" or "LISTO"
+	botonListo.Text = listoActual and L("cancelar"):upper() or L("listo"):upper()
 	botonListo.Active = not bloqueado
 	botonListo.AutoButtonColor = not bloqueado
 	botonListo.Selectable = not bloqueado
@@ -386,6 +394,7 @@ local function aplicarEstado(datos)
 	if faseActual ~= nil and faseActual ~= fase then
 		tokenMensaje += 1
 		mensajeTemporal = nil
+		mensajeTemporalClave = nil
 	end
 	faseActual = fase
 	estadoActual = datos
@@ -404,7 +413,7 @@ local function aplicarEstado(datos)
 
 	local min = tonumber(datos.min) or LobbyConfig.MinJugadores
 	local max = tonumber(datos.max) or LobbyConfig.MaxJugadores
-	subtitulo.Text = ("%d–%d jugadores · todos listos para empezar"):format(min, max)
+	subtitulo.Text = ("%d–%d "):format(min, max) .. L("jugadores_listos")
 
 	modoActual = datos.modo == "rapida" and "rapida" or "historia"
 	mensajeServidor = type(datos.mensaje) == "string" and datos.mensaje or ""
@@ -414,11 +423,11 @@ local function aplicarEstado(datos)
 		local jugador = jugadores[i]
 		if type(jugador) == "table" then
 			fila.fondo.Visible = true
-			fila.nombre.Text = type(jugador.nombre) == "string" and jugador.nombre or "Jugador"
+			fila.nombre.Text = type(jugador.nombre) == "string" and jugador.nombre or L("jugador")
 			fila.numero.Text = tostring(i)
 			fila.host.Visible = jugador.host == true
 			local listo = jugador.listo == true
-			fila.estado.Text = listo and "LISTO" or "ESPERANDO"
+			fila.estado.Text = listo and L("listo"):upper() or L("esperando"):upper()
 			fila.estado.TextColor3 = listo and AMARILLO or CREMA
 			local propioFila = jugador.tu == true
 			fila.trazo.Thickness = propioFila and 2 or 0
@@ -431,7 +440,9 @@ local function aplicarEstado(datos)
 
 	if fase == "cuenta" then
 		local n = tonumber(datos.cuenta)
-		cuenta.Text = n and ("EMPIEZA EN %d…"):format(math.max(0, math.floor(n))) or "EMPIEZA EN BREVE…"
+		cuenta.Text = if n
+			then L("empieza_en") .. " " .. ("%d…"):format(math.max(0, math.floor(n)))
+			else L("empieza_breve")
 	else
 		cuenta.Text = ""
 	end
@@ -519,7 +530,7 @@ botonRanking.Activated:Connect(function()
 	if ranking and ranking:IsA("ScreenGui") then
 		ranking.Enabled = true -- el panel de ranking escucha su propio Enabled
 	else
-		mostrarMensajeTemporal("Ranking no disponible")
+		mostrarMensajeTemporal(L("ranking_no_disponible"), "ranking_no_disponible")
 	end
 end)
 
@@ -533,9 +544,43 @@ botonVolver.Activated:Connect(function()
 	ocultaPorPartida = false
 	tokenMensaje += 1
 	mensajeTemporal = nil
+	mensajeTemporalClave = nil
 	local menuInicio = player.PlayerGui:FindFirstChild("MenuInicio")
 	if menuInicio then
 		menuInicio.Enabled = true
+	end
+end)
+
+local function aplicarTextosBase()
+	tituloSala.Text = L("sala_espera")
+	subtitulo.Text = ("%d–%d "):format(LobbyConfig.MinJugadores, LobbyConfig.MaxJugadores)
+		.. L("jugadores_listos")
+	botonHistoria.Text = L("historia")
+	botonRapida.Text = L("ronda_rapida")
+	botonListo.Text = L("listo"):upper()
+	botonEmpezar.Text = L("empezar"):upper()
+	botonRanking.Text = L("ranking"):upper()
+	botonVolver.Text = L("volver"):upper()
+	for _, fila in ipairs(filas) do
+		fila.host.Text = L("host")
+	end
+end
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	if mensajeTemporalClave then
+		mensajeTemporal = L(mensajeTemporalClave)
+	end
+	aplicarTextosBase()
+	if estadoActual then
+		aplicarEstado(estadoActual)
+	else
+		mensajeServidor = L("conectando")
+		pintarListo()
+		pintarMensaje()
 	end
 end)
 

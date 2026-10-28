@@ -6,10 +6,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 
 local MonsterService = {}
 local rng = Random.new()
+local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: revelación/rapto
 
 local cfg = Config.Etapa0.Doble
 local NOMBRE_CLON = "ElDoble" -- ChatMimicService busca este nombre para posicionar su mimo
@@ -19,6 +23,7 @@ local TICK = 0.3
 
 local playerState -- PlayerStateService (se requiere en Iniciar, patrón de HazardService)
 local chatMimic -- ChatMimicService si existe (pcall: sus señuelos son opcionales)
+local telemetriaService
 
 local fase = 0 -- 0 Latente, 1..5 fases activas, 6 fin
 local clon -- Model de El Doble; nunca hay más de uno activo (§5.1)
@@ -297,6 +302,11 @@ local function rapto()
 	revelado.Parent = clon
 
 	print("[Doble] rapto de " .. victima.Name)
+	if telemetriaService then
+		telemetriaService.Evento(victima, TelemetriaConfig.Eventos.Rapto)
+	end
+	-- Una vez por fase 4 (no está en el bucle de ticks): alarma para todos.
+	sonido:FireAllClients({ id = "Monstruo", subtitulo = AudioConfig.Efectos.Monstruo.subtitulo })
 	-- Derribo y arrastre (PivotTo de ambos) síncronos, antes del señuelo:
 	-- HablarComo puede esperar (filtro) y la limpieza externa podría destruir el clon.
 	playerState.Derribar(victima, "ElDoble")
@@ -395,6 +405,7 @@ function MonsterService.Iniciar()
 	iniciado = true
 
 	playerState = require(script.Parent.PlayerStateService)
+	telemetriaService = require(script.Parent.TelemetriaService)
 	local okChat, modChat = pcall(require, script.Parent.ChatMimicService)
 	if okChat then
 		chatMimic = modChat -- §5.3: señuelos; si el servicio aún no existe, seguimos sin él

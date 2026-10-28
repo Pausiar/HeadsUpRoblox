@@ -6,6 +6,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 -- mini-tokens
 local COLOR_PANEL = Color3.fromRGB(62, 42, 24) -- #3E2A18
@@ -53,7 +58,7 @@ titulo.Font = FUENTE
 titulo.TextSize = TAMANO_TEXTO
 titulo.TextXAlignment = Enum.TextXAlignment.Left
 titulo.TextColor3 = COLOR_CREMA
-titulo.Text = "RANKING"
+titulo.Text = L("ranking"):upper()
 titulo.Parent = panel
 
 -- Cada fila son tres etiquetas (número, nombre, puntos) para pintar el número y
@@ -84,8 +89,11 @@ for i = 1, MAX_FILAS do
 end
 
 -- Redibuja las filas con el payload del remote (array de { nombre, puntos, distancia }).
+local ultimaLista = {}
+
 local function pintar(lista)
 	lista = lista or {}
+	ultimaLista = lista
 
 	for i = 1, MAX_FILAS do
 		local fila = filas[i]
@@ -100,9 +108,10 @@ local function pintar(lista)
 			fila.num.TextColor3 = color
 			fila.nombre.TextTransparency = 0
 			fila.nombre.Size = UDim2.fromOffset(ANCHO_NOMBRE, ALTO_FILA)
-			fila.nombre.Text = entrada.nombre .. (entrada.nombre == player.DisplayName and " (tú)" or "")
+			fila.nombre.Text = entrada.nombre
+				.. (entrada.nombre == player.DisplayName and (" (" .. L("tu"):lower() .. ")") or "")
 			fila.puntos.TextColor3 = color
-			fila.puntos.Text = ("— %d pts"):format(entrada.puntos)
+			fila.puntos.Text = ("— %d %s"):format(entrada.puntos, L("pts"))
 		end
 	end
 
@@ -110,7 +119,7 @@ local function pintar(lista)
 	if #lista == 0 then
 		local primera = filas[1]
 		primera.nombre.Visible = true
-		primera.nombre.Text = "Sin jugadores"
+		primera.nombre.Text = L("sin_jugadores")
 		primera.nombre.TextTransparency = 0.4
 		primera.nombre.Size = UDim2.fromOffset(ANCHO_NOMBRE_VACIO, ALTO_FILA)
 	end
@@ -118,5 +127,14 @@ end
 
 Remotes.Esperar(Remotes.Nombres.Ranking).OnClientEvent:Connect(pintar)
 pintar({})
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	titulo.Text = L("ranking"):upper()
+	pintar(ultimaLista)
+end)
 
 print("[HudRanking] activo")

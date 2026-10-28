@@ -3,11 +3,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local PlayerStateService = {}
 local estados = {} -- [player] = { caido = bool, deadline = number }
+local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: reanimación
 
 -- Señal interna para otros servicios del servidor (plan §4.5: reanimar da puntos)
 local reanimado = Instance.new("BindableEvent")
@@ -67,6 +69,7 @@ function PlayerStateService.Reanimar(player, reanimador)
 	hum.Health = math.max(hum.Health, 60)
 	quitarPrompt(char)
 	reanimado:Fire(reanimador, player)
+	sonido:FireClient(player, { id = "Reanimar", subtitulo = AudioConfig.Efectos.Reanimar.subtitulo })
 	print("[Estado] reanimado:", player.Name, "por", reanimador and reanimador.Name or "?")
 end
 

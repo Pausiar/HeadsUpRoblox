@@ -24,6 +24,7 @@ local TiendaService = require(Server.TiendaService)
 local MonsterService = require(Server.MonsterService)
 local ChatMimicService = require(Server.ChatMimicService)
 local MonetizacionService = require(Server.MonetizacionService)
+local TelemetriaService = require(Server.TelemetriaService)
 
 DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 StageService.Construir()
@@ -43,5 +44,6 @@ TiendaService.Iniciar() -- después de PinasService, AccesoriosService y Customi
 ChatMimicService.Iniciar()
 MonsterService.Iniciar()
 MonetizacionService.Iniciar() -- después de TiendaService y MatchService: los usa
+TelemetriaService.Iniciar() -- al final: engancha eventos de MatchService y PlayerStateService
 
 print("[Slice] servidor listo: lobby, match, puntos, ranking, troncos, rocas, personalización, ropa, sombreros, Piñas, tienda, El Doble y Robux")

@@ -152,3 +152,25 @@ Revisión con la skill apple-design de `src/client/TiendaUI.client.lua` (reescri
 **Pendiente para fase 6 (pulido móvil):** botón Modo Puro de 164×42 px y panel de reanimación de 320 px sin `UIScale` (se recortan en pantallas de menos de 320); tarjetas ROBUX a escala 0,62 con objetivos por debajo de 44 px; panel de la tienda de 500×440 en viewports cortos; la tienda no recibe la lista de `comprados`, así que tras reentrar los cosméticos ya comprados muestran COMPRAR hasta pulsarlos (el servidor re-equipa gratis). `PolicyService` ya se consulta en la tienda de Piñas y el catálogo no tiene compras aleatorias de pago.
 
 **Veredicto:** cumple el «Hecho cuando» de la fase 5 en Studio — pases y productos con estado, entrega idempotente, reanimación personal con límite por partida y Modo Puro efectivo — con deuda táctil acotada para la fase 6. Queda bloqueado por el usuario: publicar el place, crear pases y productos en el Creator Dashboard, poner sus IDs y `Activo=true`, y probar una compra real de Robux.
+
+---
+
+## Fase 6 — audio, subtítulos, móvil, accesibilidad, telemetría y localización (2026-10-28)
+
+Revisión con la skill apple-design de `src/client/AudioService.client.lua`, `src/client/Subtitulos.client.lua`, `src/client/Acciones.lua`, `src/client/Accesibilidad.client.lua`, el selector ES/EN de `src/client/MenuAjustes.client.lua` y los popups de `src/client/HudPuntos.client.lua` / `HudPinas.client.lua` (set siempre-necesario + feedback, motion, settings, accessibility y layout). Evidencia: capturas `fase6-ajustes-es` y `fase6-ajustes-en` (cambio de idioma en vivo sobre ajustes, HUD y ranking), consulta de estado de los 8 popups (texto vacío y trazo transparente en reposo), `[Telemetria] activa: embudo PrimeraPartida con 4 pasos`, `AnalyticsService: LogFunnelStepEvent event fired.` y consola sin errores nuevos.
+
+**Resuelto durante la revisión**
+
+- **P0 · Popups fantasma en el HUD (crítico visual):** los 8 `TextLabel` del pool nacían con el texto por defecto «Label» y un `UIStroke` marrón visible al 100 %, dibujando corchetes sobre el cielo. Arreglo: `Text = ""` y `Transparency = 1` al crear, y en HudPuntos el trazo se desvanece con su propio tween cancelable (`tweenTrazo:Cancel()`); en HudPinas se añadió la cancelación que faltaba. Verificado: todos los slots en reposo quedan `Text='' Transparencia=1 Trazo=1` y «Piñas: 35» actualiza sin fantasmas.
+- **P1 · Eco de subtítulos:** dos eventos casi seguidos repetían el mismo texto; se deduplica en menos de 1 s y cada aviso renueva el token de visibilidad.
+
+**Deuda documentada (no bloquea la fase)**
+
+- **M1 · Subtítulos con temporizador (medio):** 2,5 s fijos; `accessibility.md › Cognitive` pide minimizar elementos que se autodescartan por tiempo porque quien necesita más tiempo los pierde. Mitigación actual: se puede desactivar en Ajustes y cada sonido vuelve a mostrarlo; recomendación para la fase 7: 3,5–4 s o persistir hasta el siguiente aviso.
+- **M2 · Escala de texto 100–140 % (medio):** `accessibility.md › Vision` recomienda hasta 200 %; ampliar más exige reflujo real (los paneles están posicionados en píxeles). `shortcut:` registrado en Accesibilidad; 140 % ya cubre el mínimo de watchOS y no rompe ninguna UI verificada.
+- **M3 · Controles táctiles no escalan (medio):** `Acciones` usa `TextScaled` con `MaxTextSize` 15 y `Accesibilidad` omite `TextScaled`, así que SPRINT/LINTERNA/CÁMARA no crecen con la escala de texto; el objetivo táctil de 56×56 sí cumple. Arreglo barato: subir el tope del `UITextSizeConstraint` con `escalaTexto`.
+- **B1 · Subtítulos bajo Ajustes (bajo):** Subtítulos tiene DisplayOrder 59 y Ajustes 60; con el panel abierto el subtítulo queda detrás, pero el sonido sigue y Ajustes no pausa. Es coherente con «el ajuste se ve donde se cambia».
+
+**Lo que funciona:** el audio no es la única vía de la información —cada efecto crítico tiene subtítulo, popup y estado en HUD (`feedback.md › Best practices`, «Make sure all feedback is accessible»); los controles táctiles son 56×56 con 8 px de separación (por encima del 44×44 de `accessibility.md › Mobility`); safe area en subtítulos (IgnoreGuiInset → DeviceSafeInsets) y en la fila táctil; el selector ES/EN usa 44×44 y estado por luminancia (amarillo #FFC93C sobre marrón #3E2A18), no solo por tono; Ajustes mantiene 8 controles generales y poco frecuentes, con el ESC de Roblox como salida (`settings.md › Best practices`); «Reducir efectos» atenúa o silencia efectos no críticos sin quitar los avisos de peligro (`motion.md › Best practices`, movimiento opcional); el idioma cambia en vivo las 17 UIs sin recargar y el fallback es→clave nunca deja un hueco.
+
+**Veredicto:** la capa de pulido hereda el ADN (madera, crema, amarillo) sin añadir plantilla nueva y cumple el «Hecho cuando» de la fase 6 en Studio — audio con subtítulos, controles táctiles, escala de texto, telemetría y ES/EN en vivo — con la deuda de reflujo acotada. Queda bloqueado por el usuario: subir los audios reales (hoy `Musica.id = 0` y efectos con `rbxasset://` provisionales) y publicar el place con API para que la telemetría y los DataStore sean reales.

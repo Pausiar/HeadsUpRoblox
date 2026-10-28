@@ -8,6 +8,10 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 local TERCERA = Enum.CameraMode.Classic
@@ -31,7 +35,7 @@ aviso.TextSize = 14
 aviso.TextTransparency = 0.25
 aviso.TextXAlignment = Enum.TextXAlignment.Right
 aviso.TextColor3 = Color3.fromRGB(245, 235, 216)
-aviso.Text = "V: cámara"
+aviso.Text = L("v_camara")
 aviso.Parent = gui
 
 -- Accesibilidad §8: sin balanceo si se activa "reducirEfectos" (actualización en vivo)
@@ -39,6 +43,9 @@ local reducirEfectos = Settings.Obtener("reducirEfectos") == true
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave == "reducirEfectos" then
 		reducirEfectos = valor == true
+	elseif clave == "idioma" then
+		Localization.Establecer(valor)
+		aviso.Text = L("v_camara")
 	end
 end)
 
@@ -121,6 +128,17 @@ UserInputService.InputBegan:Connect(function(entrada, procesado)
 		cambiarModo(not primeraPersona)
 	end
 end)
+
+-- Táctil: botón compartido que alterna 3ª/1ª persona igual que V. El atajo de teclado
+-- no se muestra en móvil; la cámara funciona también en el lobby.
+if UserInputService.TouchEnabled then
+	aviso.Visible = false
+	local Acciones = require(script.Parent:WaitForChild("Acciones"))
+	local boton = Acciones.CrearBoton("camara", 3)
+	boton.Activated:Connect(function()
+		cambiarModo(not primeraPersona)
+	end)
+end
 
 -- La cámara se recrea al respawn: si seguimos en 1ª persona, reconstruir el viewmodel
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()

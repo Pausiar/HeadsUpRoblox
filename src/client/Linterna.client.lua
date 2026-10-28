@@ -5,6 +5,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
+
 local player = Players.LocalPlayer
 local TECLA = Enum.KeyCode.F
 local ANGULO_BASE = 35
@@ -40,7 +46,7 @@ aviso.TextSize = 14
 aviso.TextTransparency = 0.25
 aviso.TextXAlignment = Enum.TextXAlignment.Right
 aviso.TextColor3 = Color3.fromRGB(245, 235, 216)
-aviso.Text = "F: linterna"
+aviso.Text = L("f_linterna")
 aviso.Parent = gui
 
 local encendida = false
@@ -102,6 +108,20 @@ UserInputService.InputBegan:Connect(function(entrada, procesado)
 	end
 end)
 
+-- Táctil: botón compartido que alterna la linterna igual que F. En móvil el atajo
+-- de teclado no se muestra (sería falso).
+if UserInputService.TouchEnabled then
+	aviso.Visible = false
+	local Acciones = require(script.Parent:WaitForChild("Acciones"))
+	local boton = Acciones.CrearBoton("linterna", 2)
+	local function actualizarVisibilidad()
+		boton.Visible = player:GetAttribute("EnJuego") == true
+	end
+	player:GetAttributeChangedSignal("EnJuego"):Connect(actualizarVisibilidad)
+	actualizarVisibilidad()
+	boton.Activated:Connect(alternar)
+end
+
 -- Volver al lobby la apaga (mismo contrato que Estamina)
 player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 	if player:GetAttribute("EnJuego") ~= true then
@@ -141,5 +161,13 @@ if remotoPase then
 else
 	warn("[Linterna] sin remote PaseEstado: se usa la linterna base")
 end
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	aviso.Text = L("f_linterna")
+end)
 
 print("[Linterna] activo")

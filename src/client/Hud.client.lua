@@ -6,6 +6,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
@@ -50,12 +55,20 @@ local distancia = etiqueta(8, 24, Color3.fromRGB(245, 235, 216))
 local tiempo = etiqueta(36, 22, Color3.fromRGB(255, 201, 60))
 local estado = etiqueta(64, 22, Color3.fromRGB(139, 195, 74))
 
-distancia.Text = "Distancia: 0 m"
-tiempo.Text = "Tiempo: 00:00"
-estado.Text = "Sano"
+distancia.Text = L("distancia") .. ": 0 m"
+tiempo.Text = L("tiempo") .. ": 00:00"
+estado.Text = L("sano")
 
 local inicio = os.clock()
 local deadlineLocal = nil
+
+local function refrescarEstado()
+	if deadlineLocal then
+		estado.Text = L("caido") .. " · " .. ("%ds"):format(math.max(0, math.ceil(deadlineLocal - os.clock())))
+	else
+		estado.Text = L("sano")
+	end
+end
 
 -- Lobby/menú no son partida: el HUD solo vive con EnJuego. El cronómetro local
 -- arranca al entrar a partida para no sumar el tiempo de la sala de espera.
@@ -64,7 +77,7 @@ local function aplicarEnJuego()
 	gui.Enabled = enJuego
 	if enJuego then
 		inicio = os.clock()
-		tiempo.Text = "Tiempo: 00:00"
+		tiempo.Text = L("tiempo") .. ": 00:00"
 	end
 end
 
@@ -76,11 +89,12 @@ Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
 		deadlineLocal = os.clock() + (datos.restante or 0)
 		estado.TextSize = 20
 		estado.TextColor3 = Color3.fromRGB(255, 111, 97) -- #FF6F61, contraste ≥ 4.5:1 (revisión apple-design)
+		refrescarEstado()
 	else
 		deadlineLocal = nil
-		estado.Text = "Sano"
 		estado.TextSize = 18
 		estado.TextColor3 = Color3.fromRGB(139, 195, 74)
+		refrescarEstado()
 	end
 end)
 
@@ -88,13 +102,21 @@ RunService.Heartbeat:Connect(function()
 	local char = player.Character
 	local raiz = char and char:FindFirstChild("HumanoidRootPart")
 	if raiz then
-		distancia.Text = ("Distancia: %d m"):format(math.max(0, math.floor(raiz.Position.X)))
+		distancia.Text = L("distancia") .. ": " .. ("%d m"):format(math.max(0, math.floor(raiz.Position.X)))
 	end
 	local seg = math.floor(os.clock() - inicio)
-	tiempo.Text = ("Tiempo: %02d:%02d"):format(seg / 60, seg % 60)
+	tiempo.Text = L("tiempo") .. ": " .. ("%02d:%02d"):format(seg / 60, seg % 60)
 	if deadlineLocal then
-		estado.Text = ("CAÍDO · %ds"):format(math.max(0, math.ceil(deadlineLocal - os.clock())))
+		refrescarEstado()
 	end
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	refrescarEstado()
 end)
 
 print("[Hud] activo")

@@ -95,3 +95,65 @@ Integraciones:
 - Playtest MCP al cerrar cada fase: consola sin errores, capturas de lobby,
   personalización, tienda, ranking y audio/subtítulos.
 - Evidencia en `docs/skill-log.md` (la escribe el coordinador, no los agentes).
+
+## Contrato de fase 6 (oleadas 4-5)
+
+Objetivo (plan §9): presupuestos y beta cerrada sin bloqueantes — móvil y mando,
+accesibilidad, audio con subtítulos, telemetría y localización ES/EN. Ningún agente toca
+`Main.server.lua`, `Remotes.lua`, `docs/skill-log.md` ni `AGENTS.md`; el coordinador integra.
+
+**Oleada 4 (paralela):** G móvil/accesibilidad y K audio/subtítulos. Archivos disjuntos.
+
+### G · Móvil y accesibilidad
+
+- Nuevos: `client/Movil.client.lua`, `client/Accesibilidad.client.lua` y `client/Acciones.lua`
+  solo si el helper se reutiliza en dos scripts.
+- Edita: `MenuAjustes.client.lua`, `Estamina.client.lua`, `Linterna.client.lua`,
+  `CameraController.client.lua`, `shared/Settings.lua` y los ajustes de encaje táctil de
+  `TiendaUI`, `ReanimarPersonalUI`, `CustomizationUI`, `LobbyUI`, `MenuInicio`,
+  `RankingAmigosUI`, `FinScreen` y los `Hud*.client.lua`.
+- `Settings`: añade `idioma = "es"` (lo usará N).
+- `MenuAjustes`: sliders de tamaño de texto (80-140) y toggles de subtítulos y reducir
+  efectos; safe area en los cuatro lados; el panel debe caber y escalar.
+- `Accesibilidad`: aplica `escalaTexto` a los TextSize de PlayerGui (guarda el tamaño base
+  una vez en un atributo) y respeta `reducirEfectos`; se reaplica al cambiar el ajuste.
+- `Movil`: con `UserInputService.TouchEnabled` añade botones táctiles para sprint (mantener),
+  linterna (toque) y cámara (toque) reutilizando `ContextActionService:BindAction`
+  (`createTouchButton=true`) o el patrón existente; sin duplicar el manejo de teclado.
+- Encaje táctil: resolver los pendientes de `docs/design/revision-apple-design.md`
+  (Modo Puro 42→44 px, controles de 40 px de Customization, panel de reanimación con
+  UIScale, ROBUX con escala legible). No cambia copia ni remotes.
+
+### K · Audio y subtítulos
+
+- Nuevos: `client/AudioService.client.lua`, `client/Subtitulos.client.lua`.
+- Mantiene los sonidos `rbxasset://` de `AudioConfig`; sin assets nuevos ni IDs externos.
+- Emite por `Remotes.Crear(Nombres.Sonido)` desde `HazardService` (Aviso), `TroncoService`
+  (Aviso/Impacto), `PlayerStateService` (Reanimar), `MonsterService` (Monstruo) y
+  `MatchService` (Checkpoint/Fin): `{ id, posicion?, subtitulo? }`.
+- `AudioService`: respeta `volumenEfectos`, `volumenMusica` y `reducirEfectos`; música solo
+  si `AudioConfig.Musica.id ~= 0`; reutiliza un pool de `Sound`; pcall y consola limpia.
+- `Subtitulos`: muestra `subtitulo` 2,5 s abajo-centro, por encima del panel de reanimación,
+  solo si `Settings.subtitulos`; crema sobre madera, sin emojis ni alertas.
+
+**Oleada 5 (paralela):** H telemetría (servidor) y N localización (cliente).
+
+### H · Telemetría
+
+- Nuevo: `server/TelemetriaService.lua`; el coordinador llama `Iniciar()` en Main.
+- `AnalyticsService` en pcall, con `TelemetriaConfig.Activo`; degrada con un warn en Studio
+  sin API. Sin datos personales ni texto libre.
+- Conecta `MatchService.AlEmpezar/AlTerminar`, `LobbyService`, `MonsterService` (Rapto),
+  `PinasService` (economía) y `TiendaService` (Compra) sin cambiar su comportamiento.
+- Embudo `PrimeraPartida`: Lobby → PrimeraEtapa → PrimerCheckpoint → PartidaCompletada,
+  una vez por jugador.
+
+### N · Localización
+
+- `Strings.lua` con todas las claves ES/EN del texto visible; los formatos numéricos
+  (`%d`, `%02d`) se quedan en cada UI.
+- Todos los `client/*.client.lua` componen su texto con `Localization.L`; las pantallas
+  estáticas guardan referencias y reasignan al cambiar el idioma.
+- `MenuAjustes`: selector ES/EN que llama `Localization.Establecer` y avisa por
+  `Settings.AlCambiar("idioma")`; el idioma vive en `Settings.idioma`.
+- No toca servidor ni remotes.

@@ -13,6 +13,11 @@ local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RopaConfig = require(ReplicatedStorage.Shared.Config.RopaConfig)
 local RopaArte = require(ReplicatedStorage.Shared.RopaArte)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local personalizacion = Config.Etapa0.Personalizacion
 local player = Players.LocalPlayer
@@ -118,37 +123,53 @@ local function pintarSeleccion(b, activo)
 	b.TextColor3 = activo and MARRON_OSCURO or CREMA
 end
 
-etiqueta(
+-- Guarda las etiquetas con su clave para reaplicar el idioma sin reconstruir la UI.
+local textosTraducibles = {}
+local function registrarTexto(objeto, clave, mayusculas)
+	table.insert(textosTraducibles, { objeto = objeto, clave = clave, mayusculas = mayusculas == true })
+	return objeto
+end
+
+local function etiquetaClave(padre, posicion, tamano, clave, tamanoTexto, color, fuente, alineacion)
+	return registrarTexto(
+		etiqueta(padre, posicion, tamano, L(clave), tamanoTexto, color, fuente, alineacion),
+		clave
+	)
+end
+
+registrarTexto(etiqueta(
 	panel,
 	UDim2.fromOffset(0, 4),
 	UDim2.new(1, 0, 0, 36),
-	"PERSONALIZACIÓN",
+	L("personalizacion"),
 	28,
 	CREMA,
 	Enum.Font.GothamBlack
-)
+), "personalizacion")
 
 -- Pestañas: 160 de ancho y 42 de alto (objetivo táctil ≥40); activa en amarillo con texto oscuro.
 local pestanaCuerpo = boton(
 	panel,
 	UDim2.fromOffset(114, 44),
 	UDim2.fromOffset(160, 42),
-	"CUERPO",
+	L("cuerpo"):upper(),
 	20,
 	AMARILLO,
 	MARRON_OSCURO
 )
+registrarTexto(pestanaCuerpo, "cuerpo", true)
 pestanaCuerpo.Name = "PestanaCuerpo"
 pestanaCuerpo.ZIndex = 2 -- por encima de los grupos de contenido, que cubren todo el panel
 local pestanaRopa = boton(
 	panel,
 	UDim2.fromOffset(286, 44),
 	UDim2.fromOffset(160, 42),
-	"ROPA",
+	L("ropa"):upper(),
 	20,
 	MARRON,
 	CREMA
 )
+registrarTexto(pestanaRopa, "ropa", true)
 pestanaRopa.Name = "PestanaRopa"
 pestanaRopa.ZIndex = 2
 pintarSeleccion(pestanaCuerpo, true)
@@ -256,25 +277,24 @@ local function enviar()
 end
 
 -- Etiqueta de fila del cuerpo: título a la izquierda, valor del slider alineado a la derecha.
-local function etiquetaFila(y, texto)
-	local t = etiqueta(
+local function etiquetaFila(y, clave)
+	return etiquetaClave(
 		grupoCuerpo,
 		UDim2.fromOffset(64, y),
 		UDim2.fromOffset(336, 24),
-		texto,
+		clave,
 		20,
 		CREMA,
 		Enum.Font.GothamBold,
 		Enum.TextXAlignment.Left
 	)
-	return t
 end
 
 -- Slider real: pista 432x8 + knob circular arrastrable (patrón EXACTO de MenuAjustes).
 -- Adaptado: valores flotantes con 2 decimales, sin símbolo % (los rangos no empiezan en 0),
 -- escribe en `estado` y devuelve su refrescar para el botón ALEATORIO.
-local function crearSlider(yFila, texto, clave, minimo, maximo)
-	etiquetaFila(yFila, texto)
+local function crearSlider(yFila, claveTexto, clave, minimo, maximo)
+	etiquetaFila(yFila, claveTexto)
 
 	local pista = Instance.new("Frame")
 	pista.Size = UDim2.fromOffset(432, 8)
@@ -357,9 +377,9 @@ local function crearSlider(yFila, texto, clave, minimo, maximo)
 end
 
 -- Grupo centrado en la franja de contenido: las filas van de 170 a 472 (centro 321 del panel).
-local refrescarAltura = crearSlider(170, "Altura", "altura", personalizacion.AlturaMin, personalizacion.AlturaMax)
-local refrescarAncho = crearSlider(258, "Ancho", "ancho", personalizacion.AnchoMin, personalizacion.AnchoMax)
-local refrescarCabeza = crearSlider(346, "Cabeza", "cabeza", personalizacion.CabezaMin, personalizacion.CabezaMax)
+local refrescarAltura = crearSlider(170, "altura", "altura", personalizacion.AlturaMin, personalizacion.AlturaMax)
+local refrescarAncho = crearSlider(258, "ancho", "ancho", personalizacion.AnchoMin, personalizacion.AnchoMax)
+local refrescarCabeza = crearSlider(346, "cabeza", "cabeza", personalizacion.CabezaMin, personalizacion.CabezaMax)
 
 -- Con los sliders ya creados, define cómo aplicar las escalas recibidas y vuelca
 -- las pendientes si TusDatos llegó antes de crearlos (solo refresca la UI: no reenvía).
@@ -381,11 +401,12 @@ local aleatorio = boton(
 	grupoCuerpo,
 	UDim2.fromOffset(160, 428),
 	UDim2.fromOffset(240, 44),
-	"ALEATORIO",
+	L("aleatorio"):upper(),
 	20,
 	MARRON,
 	CREMA
 )
+registrarTexto(aleatorio, "aleatorio", true)
 aleatorio.Name = "Aleatorio"
 
 local function valorAleatorio(minimo, maximo)
@@ -482,7 +503,7 @@ local ranuraTitulo = etiqueta(
 	grupoRopa,
 	UDim2.fromOffset(194, 116),
 	UDim2.fromOffset(342, 20),
-	"RANURA 1",
+	L("ranura"):upper() .. " 1",
 	18,
 	AMARILLO,
 	Enum.Font.GothamBlack,
@@ -495,8 +516,8 @@ for i = 1, RopaConfig.RanurasMax do
 	local columna = (i - 1) % 5
 	local b = boton(
 		grupoRopa,
-		UDim2.fromOffset(194 + columna * 64, 140 + fila * 44),
-		UDim2.fromOffset(56, 40),
+		UDim2.fromOffset(194 + columna * 64, 140 + fila * 48),
+		UDim2.fromOffset(56, 44),
 		tostring(i),
 		20,
 		MARRON,
@@ -523,11 +544,11 @@ local notaRanuras = etiqueta(
 notaRanuras.Name = "NotaRanuras"
 notaRanuras.TextTruncate = Enum.TextTruncate.AtEnd
 
-etiqueta(
+etiquetaClave(
 	grupoRopa,
 	UDim2.fromOffset(34, 388),
 	UDim2.fromOffset(240, 20),
-	"Patrón",
+	"patron",
 	17,
 	CREMA,
 	Enum.Font.GothamBlack,
@@ -539,7 +560,7 @@ for i, item in ipairs(RopaConfig.Patrones) do
 	local b = boton(
 		grupoRopa,
 		UDim2.fromOffset(34 + (i - 1) * 100, 410),
-		UDim2.fromOffset(92, 40),
+		UDim2.fromOffset(92, 44),
 		item.nombre,
 		18,
 		MARRON,
@@ -556,14 +577,14 @@ for i, item in ipairs(RopaConfig.Patrones) do
 	botonesPatron[i] = { id = item.id, boton = b }
 end
 
--- Muestras de 34x34 dentro de una zona táctil de 42x42 (los huecos de 8 px las separan).
+-- Muestras de 36x36 dentro de una zona táctil de 44x44 (sin huecos: 8 colores ocupan 352 px).
 local function crearFilaColor(clave, y)
 	local botones = {}
 	for i, color in ipairs(RopaConfig.Colores) do
 		local b = Instance.new("TextButton")
 		b.Name = ("Color_%s_%d"):format(clave, i)
-		b.Size = UDim2.fromOffset(42, 42)
-		b.Position = UDim2.fromOffset(194 + (i - 1) * 42, y)
+		b.Size = UDim2.fromOffset(44, 44)
+		b.Position = UDim2.fromOffset(186 + (i - 1) * 44, y)
 		b.BackgroundTransparency = 1
 		b.BorderSizePixel = 0
 		b.Text = ""
@@ -571,12 +592,12 @@ local function crearFilaColor(clave, y)
 
 		local muestra = Instance.new("Frame")
 		muestra.Name = "Muestra"
-		muestra.Size = UDim2.fromOffset(34, 34)
+		muestra.Size = UDim2.fromOffset(36, 36)
 		muestra.Position = UDim2.fromOffset(4, 4)
 		muestra.BackgroundColor3 = Color3.fromRGB(color.rgb[1], color.rgb[2], color.rgb[3])
 		muestra.BorderSizePixel = 0
 		muestra.Parent = b
-		redondear(muestra, 17)
+		redondear(muestra, 18)
 
 		local trazo = Instance.new("UIStroke")
 		trazo.Color = CREMA
@@ -599,8 +620,8 @@ end
 local botonesColor1 = crearFilaColor("color1", 252)
 local color1Nombre = etiqueta(
 	grupoRopa,
-	UDim2.fromOffset(194, 296),
-	UDim2.fromOffset(342, 18),
+	UDim2.fromOffset(186, 296),
+	UDim2.fromOffset(350, 18),
 	"",
 	17,
 	CREMA,
@@ -610,8 +631,8 @@ local color1Nombre = etiqueta(
 local botonesColor2 = crearFilaColor("color2", 320)
 local color2Nombre = etiqueta(
 	grupoRopa,
-	UDim2.fromOffset(194, 364),
-	UDim2.fromOffset(342, 18),
+	UDim2.fromOffset(186, 364),
+	UDim2.fromOffset(350, 18),
 	"",
 	17,
 	CREMA,
@@ -619,11 +640,11 @@ local color2Nombre = etiqueta(
 	Enum.TextXAlignment.Left
 )
 
-etiqueta(
+etiquetaClave(
 	grupoRopa,
-	UDim2.fromOffset(34, 456),
+	UDim2.fromOffset(34, 458),
 	UDim2.fromOffset(240, 20),
-	"Pegatina",
+	"pegatina",
 	17,
 	CREMA,
 	Enum.Font.GothamBlack,
@@ -634,8 +655,8 @@ local botonesPegatina = {}
 for i, item in ipairs(RopaConfig.Pegatinas) do
 	local b = boton(
 		grupoRopa,
-		UDim2.fromOffset(34 + (i - 1) * 100, 478),
-		UDim2.fromOffset(92, 40),
+		UDim2.fromOffset(34 + (i - 1) * 100, 480),
+		UDim2.fromOffset(92, 44),
 		item.nombre,
 		18,
 		MARRON,
@@ -655,7 +676,7 @@ end
 -- Pinta todo el editor ROPA desde estadoRopa y redibuja la vista previa. No envía remotes.
 renderRopa = function()
 	local filas = math.ceil(estadoRopa.ranuras / 5)
-	ranuraTitulo.Text = ("RANURA %d"):format(estadoRopa.ranura)
+	ranuraTitulo.Text = L("ranura"):upper() .. " " .. ("%d"):format(estadoRopa.ranura)
 
 	for i, b in ipairs(botonesRanura) do
 		local visible = i <= estadoRopa.ranuras
@@ -665,17 +686,15 @@ renderRopa = function()
 		end
 	end
 
-	notaRanuras.Position = UDim2.fromOffset(194, 140 + filas * 44 + 4)
+	notaRanuras.Position = UDim2.fromOffset(194, 140 + filas * 48 + 4)
+	local cabecera = ("%d "):format(estadoRopa.ranuras)
+		.. L("de")
+		.. " "
+		.. ("%d "):format(RopaConfig.RanurasMax)
 	if estadoRopa.ranuras >= RopaConfig.RanurasMax then
-		notaRanuras.Text = ("%d de %d ranuras · todas desbloqueadas"):format(
-			estadoRopa.ranuras,
-			RopaConfig.RanurasMax
-		)
+		notaRanuras.Text = cabecera .. L("ranuras_todas")
 	else
-		notaRanuras.Text = ("%d de %d ranuras · las extra llegan con el pase"):format(
-			estadoRopa.ranuras,
-			RopaConfig.RanurasMax
-		)
+		notaRanuras.Text = cabecera .. L("ranuras_extra")
 	end
 
 	for _, item in ipairs(botonesPatron) do
@@ -693,8 +712,8 @@ renderRopa = function()
 
 	local color1 = RopaConfig.ColorPorId(estadoRopa.diseno.color1)
 	local color2 = RopaConfig.ColorPorId(estadoRopa.diseno.color2)
-	color1Nombre.Text = ("Color 1: %s"):format(color1 and color1.nombre or "—")
-	color2Nombre.Text = ("Color 2: %s"):format(color2 and color2.nombre or "—")
+	color1Nombre.Text = L("color_1") .. ": " .. (color1 and color1.nombre or "—")
+	color2Nombre.Text = L("color_2") .. ": " .. (color2 and color2.nombre or "—")
 
 	redibujarRopa()
 end
@@ -797,22 +816,23 @@ local guardar = boton(
 	panel,
 	UDim2.fromOffset(24, 532),
 	UDim2.fromOffset(240, 52),
-	"GUARDAR",
+	L("guardar"):upper(),
 	22,
 	VERDE,
 	CREMA
 )
+registrarTexto(guardar, "guardar", true)
 guardar.Name = "Guardar"
 
 guardar.Activated:Connect(function()
 	if pestanaActual == "cuerpo" then
 		enviar() -- reenvía por si soltó el ratón/dedo fuera de la pista
-		mostrarAviso("GUARDADO", VERDE_CLARO, 1.2)
+		mostrarAviso(L("guardado"), VERDE_CLARO, 1.2)
 		return
 	end
 
 	if not estadoRopa.cargada then
-		mostrarAviso("Cargando ropa…", CREMA, 1.5)
+		mostrarAviso(L("cargando_ropa"), CREMA, 1.5)
 		remotePedirRopa:FireServer()
 		return
 	end
@@ -841,11 +861,12 @@ local volver = boton(
 	panel,
 	UDim2.fromOffset(296, 536),
 	UDim2.fromOffset(240, 44),
-	"VOLVER",
+	L("volver"):upper(),
 	20,
 	MARRON,
 	CREMA
 )
+registrarTexto(volver, "volver", true)
 volver.Name = "Volver"
 
 volver.Activated:Connect(function()
@@ -880,10 +901,10 @@ remoteRopaResult.OnClientEvent:Connect(function(datos)
 			end
 		end
 		envioRopa = nil
-		mostrarAviso("GUARDADO", VERDE_CLARO, 1.2)
+		mostrarAviso(L("guardado"), VERDE_CLARO, 1.2)
 	else
 		envioRopa = nil
-		local texto = "No se pudo guardar"
+		local texto = L("no_guardar")
 		if type(datos.mensaje) == "string" and datos.mensaje ~= "" then
 			texto = datos.mensaje
 		end
@@ -899,5 +920,24 @@ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 end)
 
 renderRopa() -- pinta default/ranura 1 y deja la vista previa lista antes del primer RopaEstado
+
+local function aplicarTextos()
+	for _, par in ipairs(textosTraducibles) do
+		local texto = L(par.clave)
+		if par.mayusculas then
+			texto = texto:upper()
+		end
+		par.objeto.Text = texto
+	end
+end
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	aplicarTextos()
+	renderRopa()
+end)
 
 print("[CustomizationUI] activo")

@@ -10,8 +10,13 @@ local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 
@@ -69,6 +74,10 @@ redondear(panel, 16)
 
 -- El panel nominal es 500x440; en pantallas estrechas se escala el conjunto
 -- (mismo patrón que LobbyUI/CustomizationUI) para no recortar el VOLVER.
+-- Suelo 0,72 cuando el ancho lo permite: a 0,62 el texto de las tarjetas ROBUX
+-- quedaba por debajo de 10 px. En pantallas más estrechas se baja lo justo.
+-- shortcut: por debajo de ~360 px de ancho el texto ROBUX vuelve a ~10 px;
+-- validar en un dispositivo de 320 px.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()
@@ -76,10 +85,13 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 540, alto / 560), 0.62, 1)
+	local suelo = math.max(0.62, math.min(0.72, ancho / 500))
+	escala.Scale = math.clamp(math.min(ancho / 540, alto / 560), suelo, 1)
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()
+
+local pinasActuales = 0
 
 local titulo = Instance.new("TextLabel")
 titulo.Size = UDim2.fromOffset(240, 34)
@@ -87,7 +99,7 @@ titulo.Position = UDim2.fromOffset(16, 4)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
 titulo.TextSize = 30
-titulo.Text = "TIENDA"
+titulo.Text = L("tienda"):upper()
 titulo.TextColor3 = CREMA
 titulo.TextXAlignment = Enum.TextXAlignment.Left
 titulo.Parent = panel
@@ -99,7 +111,7 @@ saldo.Position = UDim2.new(1, -236, 0, 9)
 saldo.BackgroundTransparency = 1
 saldo.Font = Enum.Font.GothamBold
 saldo.TextSize = 20
-saldo.Text = "Piñas: 0"
+saldo.Text = L("pinas") .. ": 0"
 saldo.TextColor3 = AMARILLO
 saldo.TextXAlignment = Enum.TextXAlignment.Right
 saldo.Parent = panel
@@ -145,8 +157,8 @@ local function crearPestana(texto, x)
 	return b
 end
 
-local pestanaPinas = crearPestana("PIÑAS", 16)
-local pestanaRobux = crearPestana("ROBUX", 154)
+local pestanaPinas = crearPestana(L("pinas_tab"), 16)
+local pestanaRobux = crearPestana(L("robux"), 154)
 
 local function pintarPestana(boton, activa)
 	boton.BackgroundColor3 = activa and AMARILLO or MARRON_TARJETA
@@ -197,10 +209,11 @@ local ANCHO_TARJETA, ALTO_TARJETA = 230, 80
 local PASO_X, PASO_Y = 238, 85
 
 local registroPendiente = nil -- tarjeta del último COMPRAR en vuelo (CompraResult no trae id)
+local registrosPinas = {}
 
 local function marcarComprado(registro)
 	registro.comprado = true
-	registro.boton.Text = "EQUIPAR"
+	registro.boton.Text = L("equipar")
 end
 
 local function crearTarjetaPinas(item, columna, fila)
@@ -253,12 +266,13 @@ local function crearTarjetaPinas(item, columna, fila)
 	boton.BackgroundColor3 = VERDE
 	boton.Font = Enum.Font.GothamBlack
 	boton.TextSize = 15
-	boton.Text = "COMPRAR"
+	boton.Text = L("comprar")
 	boton.TextColor3 = CREMA
 	boton.Parent = tarjeta
 	redondear(boton, 8)
 
 	local registro = { item = item, boton = boton, comprado = false }
+	table.insert(registrosPinas, registro)
 	boton.Activated:Connect(function()
 		registroPendiente = registro
 		remoteComprar:FireServer(item.id)
@@ -285,7 +299,7 @@ stockLabel.Position = UDim2.fromOffset(10, 4)
 stockLabel.BackgroundTransparency = 1
 stockLabel.Font = Enum.Font.GothamBold
 stockLabel.TextSize = 14
-stockLabel.Text = "Reanimaciones: 0"
+stockLabel.Text = L("reanimaciones") .. ": 0"
 stockLabel.TextColor3 = CREMA
 stockLabel.TextXAlignment = Enum.TextXAlignment.Left
 stockLabel.Parent = barraEstado
@@ -296,7 +310,7 @@ x2Label.Position = UDim2.fromOffset(10, 23)
 x2Label.BackgroundTransparency = 1
 x2Label.Font = Enum.Font.GothamBold
 x2Label.TextSize = 14
-x2Label.Text = "Piñas x2: —"
+x2Label.Text = L("pinas_x2") .. ": —"
 x2Label.TextColor3 = AMARILLO
 x2Label.TextXAlignment = Enum.TextXAlignment.Left
 x2Label.Parent = barraEstado
@@ -304,13 +318,13 @@ x2Label.Parent = barraEstado
 local modoPuroBoton = Instance.new("TextButton")
 modoPuroBoton.Name = "ModoPuro"
 modoPuroBoton.AnchorPoint = Vector2.new(1, 0)
-modoPuroBoton.Position = UDim2.new(1, -10, 0, 2)
-modoPuroBoton.Size = UDim2.fromOffset(164, 42)
+modoPuroBoton.Position = UDim2.new(1, -10, 0, 1)
+modoPuroBoton.Size = UDim2.fromOffset(164, 44) -- objetivo táctil ≥44 (barra de 46)
 modoPuroBoton.BackgroundColor3 = MADERA_OSCURA
 modoPuroBoton.BorderSizePixel = 0
 modoPuroBoton.Font = Enum.Font.GothamBlack
 modoPuroBoton.TextSize = 14
-modoPuroBoton.Text = "MODO PURO: NO"
+modoPuroBoton.Text = L("modo_puro"):upper() .. ": " .. L("no")
 modoPuroBoton.TextColor3 = CREMA
 modoPuroBoton.Parent = barraEstado
 redondear(modoPuroBoton, 8)
@@ -349,13 +363,13 @@ local function actualizarBotonRobux(registro)
 
 	local texto, habilitado, activo
 	if poseido then
-		texto, habilitado, activo = "ACTIVO", false, true
+		texto, habilitado, activo = L("activo"), false, true
 	elseif item.disponible == false then
-		texto, habilitado, activo = "PRÓXIMAMENTE", false, false
+		texto, habilitado, activo = L("proximamente"), false, false
 	elseif not publicable then
-		texto, habilitado, activo = "AL PUBLICAR", false, false
+		texto, habilitado, activo = L("al_publicar"), false, false
 	else
-		texto, habilitado, activo = "COMPRAR", true, false
+		texto, habilitado, activo = L("comprar"), true, false
 	end
 
 	boton.Text = texto
@@ -379,11 +393,11 @@ local function crearTarjetaRobux(item, orden)
 	redondear(tarjeta, 10)
 
 	local nombre = Instance.new("TextLabel")
-	nombre.Size = UDim2.new(1, -20, 0, 36)
+	nombre.Size = UDim2.new(1, -20, 0, 39)
 	nombre.Position = UDim2.fromOffset(10, 3)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
-	nombre.TextSize = 15
+	nombre.TextSize = 16
 	nombre.Text = item.nombre
 	nombre.TextColor3 = CREMA
 	nombre.TextXAlignment = Enum.TextXAlignment.Left
@@ -393,10 +407,10 @@ local function crearTarjetaRobux(item, orden)
 
 	local precio = Instance.new("TextLabel")
 	precio.Size = UDim2.new(1, -20, 0, 18)
-	precio.Position = UDim2.fromOffset(10, 41)
+	precio.Position = UDim2.fromOffset(10, 42)
 	precio.BackgroundTransparency = 1
 	precio.Font = Enum.Font.GothamBold
-	precio.TextSize = 16
+	precio.TextSize = 17
 	local precioRobux = tonumber(item.precioRobux) or 0
 	if precioRobux > 0 then
 		precio.Text = ("%d %s"):format(precioRobux, MonetizacionConfig.Moneda or "Robux")
@@ -412,8 +426,8 @@ local function crearTarjetaRobux(item, orden)
 	boton.Position = UDim2.fromOffset(10, 62)
 	boton.BackgroundColor3 = MADERA_OSCURA
 	boton.Font = Enum.Font.GothamBlack
-	boton.TextSize = 16
-	boton.Text = "COMPRAR"
+	boton.TextSize = 17
+	boton.Text = L("comprar")
 	boton.TextColor3 = CREMA
 	boton.Parent = tarjeta
 	redondear(boton, 8)
@@ -441,14 +455,14 @@ local filasRobux = math.ceil(#catalogoRobux / 2)
 scrollRobux.CanvasSize = UDim2.fromOffset(0, filasRobux * 108 + math.max(0, filasRobux - 1) * 10)
 
 refrescarEstadoRobux = function()
-	stockLabel.Text = ("Reanimaciones: %d"):format(estadoPases.reanimaciones)
+	stockLabel.Text = L("reanimaciones") .. ": " .. ("%d"):format(estadoPases.reanimaciones)
 	local restante = estadoPases.pinasX2Hasta - os.time()
 	if restante > 0 then
-		x2Label.Text = ("Piñas x2: %d min"):format(math.ceil(restante / 60))
+		x2Label.Text = L("pinas_x2") .. ": " .. ("%d min"):format(math.ceil(restante / 60))
 	else
-		x2Label.Text = "Piñas x2: —"
+		x2Label.Text = L("pinas_x2") .. ": —"
 	end
-	modoPuroBoton.Text = ("MODO PURO: %s"):format(estadoPases.modoPuro and "SÍ" or "NO")
+	modoPuroBoton.Text = L("modo_puro"):upper() .. ": " .. (estadoPases.modoPuro and L("si") or L("no"))
 	modoPuroBoton.BackgroundColor3 = estadoPases.modoPuro and AMARILLO or MADERA_OSCURA
 	modoPuroBoton.TextColor3 = estadoPases.modoPuro and MADERA_OSCURA or CREMA
 end
@@ -489,7 +503,7 @@ volver.Position = UDim2.fromOffset(130, 452) -- 12 px bajo el borde inferior del
 volver.BackgroundColor3 = VERDE
 volver.Font = Enum.Font.GothamBlack
 volver.TextSize = 22
-volver.Text = "VOLVER"
+volver.Text = L("volver"):upper()
 volver.TextColor3 = CREMA
 volver.Parent = panel
 redondear(volver, 12)
@@ -509,7 +523,8 @@ remotePinas.OnClientEvent:Connect(function(datos)
 	if type(datos) ~= "table" then
 		return
 	end
-	saldo.Text = ("Piñas: %d"):format(datos.pinas or 0)
+	saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas or 0)
+	pinasActuales = datos.pinas or 0
 end)
 
 remoteResultado.OnClientEvent:Connect(function(datos)
@@ -523,12 +538,13 @@ remoteResultado.OnClientEvent:Connect(function(datos)
 			registroPendiente = nil
 		end
 		if type(datos.pinas) == "number" then
-			saldo.Text = ("Piñas: %d"):format(datos.pinas)
+			pinasActuales = datos.pinas
+			saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas)
 		end
 	else
 		local texto = datos.mensaje
 		if type(texto) ~= "string" or texto == "" then
-			texto = "Piñas insuficientes"
+			texto = L("pinas_insuficientes")
 		end
 		mostrarAviso(texto)
 		registroPendiente = nil
@@ -541,7 +557,7 @@ remoteRobuxResultado.OnClientEvent:Connect(function(datos)
 	end
 	local mensaje = datos.mensaje
 	if type(mensaje) ~= "string" or mensaje == "" then
-		mensaje = datos.ok == true and "Compra iniciada" or "Compra no disponible"
+		mensaje = datos.ok == true and L("compra_iniciada") or L("compra_no_disponible")
 	end
 	mostrarAviso(mensaje, datos.ok == true and AMARILLO or ROJO_AVISO)
 end)
@@ -579,7 +595,26 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(jugador, pase
 		return
 	end
 	remoteReclamarPase:FireServer(item.id)
-	mostrarAviso("Comprobando pase…", AMARILLO)
+	mostrarAviso(L("comprobando_pase"), AMARILLO)
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	titulo.Text = L("tienda"):upper()
+	pestanaPinas.Text = L("pinas_tab")
+	pestanaRobux.Text = L("robux")
+	volver.Text = L("volver"):upper()
+	saldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
+	for _, registro in ipairs(registrosPinas) do
+		registro.boton.Text = registro.comprado and L("equipar") or L("comprar")
+	end
+	for _, registro in pairs(registrosRobux) do
+		actualizarBotonRobux(registro)
+	end
+	refrescarEstadoRobux()
 end)
 
 print("[TiendaUI] activa")

@@ -10,6 +10,7 @@ local PolicyService = game:GetService("PolicyService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
+local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 
 local TiendaService = {}
@@ -21,6 +22,7 @@ local dataService -- se asignan en Iniciar: Main llama DataService.Iniciar() ant
 local pinasService
 local accesorios
 local personalizacion
+local telemetriaService
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
 
 -- Fuente única de compras: DataService.Obtener(player).comprados (lista de ids).
@@ -119,6 +121,11 @@ local function procesarCompra(player, payload)
 	dataService.Guardar(player, "comprados", comprados) -- marca sucio para autoguardado
 	aplicarItem(player, item)
 	remotoResultado:FireClient(player, { ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player) })
+	if telemetriaService then
+		telemetriaService.Evento(player, TelemetriaConfig.Eventos.Compra)
+		telemetriaService.Economia(player, false, item.precio, pinasService.GetPinas(player),
+			TelemetriaConfig.Economia.SumideroTienda, item.id)
+	end
 	print("[Tienda] " .. player.Name .. " compró " .. item.nombre .. " (" .. item.precio .. " Piñas)")
 end
 
@@ -129,6 +136,7 @@ function TiendaService.Iniciar()
 	pinasService = require(script.Parent.PinasService)
 	accesorios = require(script.Parent.AccesoriosService)
 	personalizacion = require(script.Parent.CustomizationService)
+	telemetriaService = require(script.Parent.TelemetriaService)
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)

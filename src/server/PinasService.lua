@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 
 -- Reglas de ganancia (plan §4.5): al cerrar la partida, 1 Piña por cada N studs
 -- de distancia máxima alcanzada (redondeo abajo) y un bonus fijo por récord
@@ -18,6 +19,7 @@ local pinas = {} -- [player] = total del jugador (sesión; se siembra desde Data
 
 local remotoPinas
 local dataService -- asignado en Iniciar() con pcall; nil = sin persistencia
+local telemetriaService
 
 -- Publica el total sin ganancia: siembra el saldo del HUD y de la tienda al entrar.
 local function publicar(player, ganadas)
@@ -46,6 +48,7 @@ function PinasService.Iniciar()
 
 	-- Fin de partida: calcular ganadas, sumar, persistir y publicar
 	local matchService = require(script.Parent.MatchService)
+	telemetriaService = require(script.Parent.TelemetriaService)
 	matchService.AlTerminar.Event:Connect(function(player, stats)
 		local dist = tonumber(stats and stats.distancia) or 0
 		local ganadas = math.floor(dist / STUDIOS_POR_PINA)
@@ -65,6 +68,10 @@ function PinasService.Iniciar()
 			dataService.Guardar(player, "pinas", pinas[player])
 		end
 		remotoPinas:FireClient(player, { pinas = pinas[player], ganadas = ganadas, multiplicador = multiplicador })
+		if telemetriaService then
+			telemetriaService.Economia(player, true, ganadas, pinas[player],
+				TelemetriaConfig.Economia.FuentePartida, "pinas_partida")
+		end
 		print("[Pinas] +" .. ganadas .. " a " .. player.Name .. ": total " .. pinas[player])
 	end)
 

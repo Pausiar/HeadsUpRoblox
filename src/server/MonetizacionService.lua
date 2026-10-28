@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 
@@ -31,6 +32,7 @@ local playerState
 local matchService
 local ropaService -- require perezoso: RopaService también requiere este módulo
 local tiendaService -- require perezoso: TiendaService no depende de este módulo
+local telemetriaService
 
 local remotoComprar
 local remotoResultado
@@ -312,6 +314,9 @@ local function reanimarPersonal(player)
 	reanimacionesPartida[player] = (reanimacionesPartida[player] or 0) + 1
 	publicar(player)
 	responder(true, "Reanimado")
+	if telemetriaService then
+		telemetriaService.Evento(player, TelemetriaConfig.Eventos.ReanimacionPersonal)
+	end
 	print("[Monetizacion] reanimación personal usada por " .. player.Name
 		.. (usaStock and " (stock)" or " (" .. costo .. " Piñas)"))
 end
@@ -366,6 +371,7 @@ function MonetizacionService.Iniciar()
 	pinasService = require(script.Parent.PinasService)
 	playerState = require(script.Parent.PlayerStateService)
 	matchService = require(script.Parent.MatchService)
+	telemetriaService = require(script.Parent.TelemetriaService)
 
 	remotoComprar = Remotes.Crear(Remotes.Nombres.ComprarRobux)
 	remotoResultado = Remotes.Crear(Remotes.Nombres.RobuxResult)

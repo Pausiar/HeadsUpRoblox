@@ -4,8 +4,13 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 
@@ -25,24 +30,48 @@ gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Safe area móvil (P1 de la revisión apple-design): respetar la notch
-local inset = game:GetService("GuiService"):GetGuiInset()
-local pad = Instance.new("UIPadding")
-pad.PaddingTop = UDim.new(0, inset.Y)
-pad.PaddingLeft = UDim.new(0, inset.X)
-pad.Parent = gui
+-- Safe area móvil en los cuatro lados. UIPadding solo aplica a GuiObject, así que el
+-- relleno va en un contenedor a pantalla completa y no directamente en el ScreenGui.
+local insetSup, insetInf = GuiService:GetGuiInset()
+local contenedor = Instance.new("Frame")
+contenedor.Name = "SafeArea"
+contenedor.Size = UDim2.fromScale(1, 1)
+contenedor.BackgroundTransparency = 1
+contenedor.Parent = gui
 
+local pad = Instance.new("UIPadding")
+pad.PaddingTop = UDim.new(0, insetSup.Y)
+pad.PaddingLeft = UDim.new(0, insetSup.X)
+pad.PaddingRight = UDim.new(0, insetInf.X)
+pad.PaddingBottom = UDim.new(0, insetInf.Y)
+pad.Parent = contenedor
+
+-- Panel nominal 460x480 (bajo el tope de ~520 px): 4 sliders y 2 toggles con
+-- objetivos de 44 px. En pantallas cortas el UIScale encoge el conjunto.
 local panel = Instance.new("Frame")
 panel.Name = "Panel"
-panel.Size = UDim2.fromOffset(460, 420)
-panel.Position = UDim2.new(0.5, -230, 0.5, -210)
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.Size = UDim2.fromOffset(460, 480)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
-panel.Parent = gui
+panel.Parent = contenedor
 
 local esquinaPanel = Instance.new("UICorner")
 esquinaPanel.CornerRadius = UDim.new(0, 16)
 esquinaPanel.Parent = panel
+
+local escala = Instance.new("UIScale")
+escala.Parent = panel
+local function ajustarEscala()
+	local ancho, alto = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+	if ancho <= 0 or alto <= 0 then
+		return
+	end
+	escala.Scale = math.clamp(math.min(ancho / 500, alto / 540), 0.7, 1)
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
+ajustarEscala()
 
 local function redondear(objeto, radio)
 	local esquina = Instance.new("UICorner")
@@ -51,16 +80,44 @@ local function redondear(objeto, radio)
 end
 
 local titulo = Instance.new("TextLabel")
-titulo.Size = UDim2.new(1, 0, 0, 36)
-titulo.Position = UDim2.new(0, 0, 0, 14)
+titulo.Size = UDim2.new(1, 0, 0, 34)
+titulo.Position = UDim2.new(0, 0, 0, 12)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
-titulo.TextSize = 32
-titulo.Text = "AJUSTES"
+titulo.TextSize = 30
+titulo.Text = L("ajustes"):upper()
 titulo.TextColor3 = CREMA
 titulo.Parent = panel
 
-local function etiquetaFila(y, texto)
+-- Selector de idioma en la fila del título: dos botones de 44x44, sin mover nada más.
+-- El idioma vive en Settings; AlCambiar se encarga de reaplicar los textos.
+local selectores = {}
+local function crearSelector(idioma, x)
+	local b = Instance.new("TextButton")
+	b.Name = "Idioma" .. idioma:upper()
+	b.Size = UDim2.fromOffset(44, 44)
+	b.Position = UDim2.fromOffset(x, 8)
+	b.BackgroundColor3 = MARRON_OSCURO
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBlack
+	b.TextSize = 18
+	b.Text = idioma:upper()
+	b.TextColor3 = CREMA
+	b.AutoButtonColor = false
+	b.Parent = panel
+	redondear(b, 10)
+	b.Activated:Connect(function()
+		Settings.Cambiar("idioma", idioma)
+	end)
+	table.insert(selectores, { idioma = idioma, boton = b })
+end
+crearSelector("es", 352)
+crearSelector("en", 400)
+
+local etiquetasTraducibles = {}
+local refrescosTexto = {}
+
+local function etiquetaFila(y, clave)
 	local t = Instance.new("TextLabel")
 	t.Size = UDim2.new(1, -48, 0, 22)
 	t.Position = UDim2.new(0, 24, 0, y)
@@ -69,19 +126,20 @@ local function etiquetaFila(y, texto)
 	t.TextSize = 20
 	t.TextXAlignment = Enum.TextXAlignment.Left
 	t.TextColor3 = CREMA
-	t.Text = texto
+	t.Text = L(clave)
 	t.Parent = panel
+	table.insert(etiquetasTraducibles, { objeto = t, clave = clave })
 	return t
 end
 
 -- Slider real: pista 300x8 + knob circular arrastrable. El knob vive dentro de un botón
--- invisible de 40x40: área de agarre mayor que el knob, para dedo y puntero.
-local function crearSlider(yFila, texto, clave, minimo, maximo, colorKnob)
-	etiquetaFila(yFila, texto)
+-- invisible de 44x44: área de agarre mínima táctil, mayor que el knob.
+local function crearSlider(yFila, claveTexto, clave, minimo, maximo, colorKnob)
+	etiquetaFila(yFila, claveTexto)
 
 	local pista = Instance.new("Frame")
 	pista.Size = UDim2.fromOffset(300, 8)
-	pista.Position = UDim2.new(0, 24, 0, yFila + 32)
+	pista.Position = UDim2.new(0, 24, 0, yFila + 30)
 	pista.BackgroundColor3 = CREMA
 	pista.BackgroundTransparency = 0.3
 	pista.BorderSizePixel = 0
@@ -90,7 +148,7 @@ local function crearSlider(yFila, texto, clave, minimo, maximo, colorKnob)
 
 	local valor = Instance.new("TextLabel")
 	valor.Size = UDim2.fromOffset(100, 26)
-	valor.Position = UDim2.new(0, 336, 0, yFila + 23)
+	valor.Position = UDim2.new(0, 336, 0, yFila + 21)
 	valor.BackgroundTransparency = 1
 	valor.Font = Enum.Font.GothamBold
 	valor.TextSize = 20
@@ -99,7 +157,7 @@ local function crearSlider(yFila, texto, clave, minimo, maximo, colorKnob)
 	valor.Parent = panel
 
 	local agarre = Instance.new("TextButton")
-	agarre.Size = UDim2.fromOffset(40, 40)
+	agarre.Size = UDim2.fromOffset(44, 44)
 	agarre.BackgroundTransparency = 1
 	agarre.Text = ""
 	agarre.AutoButtonColor = false
@@ -116,7 +174,7 @@ local function crearSlider(yFila, texto, clave, minimo, maximo, colorKnob)
 	local function refrescar(v)
 		v = math.floor(v)
 		local alpha = (v - minimo) / (maximo - minimo)
-		agarre.Position = UDim2.new(alpha, -20, 0.5, -20)
+		agarre.Position = UDim2.new(alpha, -22, 0.5, -22)
 		valor.Text = ("%d%%"):format(v)
 	end
 
@@ -158,46 +216,54 @@ local function crearSlider(yFila, texto, clave, minimo, maximo, colorKnob)
 	refrescar(Settings.Obtener(clave))
 end
 
-crearSlider(58, "Sensibilidad", "sensibilidad", 10, 100, VERDE)
+-- Toggle reutilizado para «Reducir efectos» y «Subtítulos»: 186x44, estado por texto y color.
+local function crearToggle(yFila, claveTexto, clave)
+	etiquetaFila(yFila + 11, claveTexto)
 
--- Nota: los volúmenes solo se guardan en Settings; el audio real se conecta en la fase 6.
-etiquetaFila(128, "Reducir efectos")
+	local toggle = Instance.new("TextButton")
+	toggle.Size = UDim2.fromOffset(186, 44)
+	toggle.Position = UDim2.new(0, 250, 0, yFila)
+	toggle.Font = Enum.Font.GothamBlack
+	toggle.TextSize = 18
+	toggle.Parent = panel
+	redondear(toggle, 10)
 
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.fromOffset(186, 38)
-toggle.Position = UDim2.new(0, 250, 0, 120)
-toggle.Font = Enum.Font.GothamBlack
-toggle.TextSize = 18
-toggle.Parent = panel
-redondear(toggle, 10)
+	local function refrescar(activado)
+		toggle.Text = (activado and L("activado") or L("desactivado")):upper()
+		toggle.BackgroundColor3 = activado and VERDE or GRIS
+		toggle.TextColor3 = activado and CREMA or MARRON_OSCURO
+	end
 
-local function refrescarToggle(activado)
-	toggle.Text = activado and "ACTIVADO" or "DESACTIVADO"
-	toggle.BackgroundColor3 = activado and VERDE or GRIS
-	toggle.TextColor3 = activado and CREMA or MARRON_OSCURO
+	toggle.Activated:Connect(function()
+		Settings.Cambiar(clave, not Settings.Obtener(clave))
+	end)
+	Settings.AlCambiar.Event:Connect(function(claveCambiada, v)
+		if claveCambiada == clave then
+			refrescar(v == true)
+		end
+	end)
+	table.insert(refrescosTexto, function()
+		refrescar(Settings.Obtener(clave) == true)
+	end)
+	refrescar(Settings.Obtener(clave) == true)
 end
 
-toggle.Activated:Connect(function()
-	Settings.Cambiar("reducirEfectos", not Settings.Obtener("reducirEfectos"))
-end)
-Settings.AlCambiar.Event:Connect(function(clave, v)
-	if clave == "reducirEfectos" then
-		refrescarToggle(v == true)
-	end
-end)
-refrescarToggle(Settings.Obtener("reducirEfectos") == true)
+crearSlider(52, "sensibilidad", "sensibilidad", 10, 100, VERDE)
+crearSlider(114, "tamano_texto", "escalaTexto", 80, 140, AMARILLO)
+crearSlider(176, "volumen_musica", "volumenMusica", 0, 100, AMARILLO)
+crearSlider(238, "volumen_efectos", "volumenEfectos", 0, 100, AMARILLO)
 
-crearSlider(178, "Volumen música", "volumenMusica", 0, 100, AMARILLO)
-crearSlider(238, "Volumen efectos", "volumenEfectos", 0, 100, AMARILLO)
+crearToggle(306, "reducir_efectos", "reducirEfectos")
+crearToggle(354, "subtitulos", "subtitulos")
 
 local volver = Instance.new("TextButton")
 volver.Size = UDim2.fromOffset(240, 52)
-volver.Position = UDim2.new(0, 110, 0, 336)
+volver.Position = UDim2.new(0, 110, 0, 412)
 volver.BackgroundColor3 = VERDE
 volver.Font = Enum.Font.GothamBlack
 volver.TextSize = 22
 volver.TextColor3 = CREMA
-volver.Text = "VOLVER"
+volver.Text = L("volver"):upper()
 volver.Parent = panel
 redondear(volver, 12)
 
@@ -210,5 +276,32 @@ volver.Activated:Connect(function()
 		end
 	end
 end)
+
+local function aplicarTextos()
+	titulo.Text = L("ajustes"):upper()
+	volver.Text = L("volver"):upper()
+	for _, par in ipairs(etiquetasTraducibles) do
+		par.objeto.Text = L(par.clave)
+	end
+	for _, refrescar in ipairs(refrescosTexto) do
+		refrescar()
+	end
+	local idioma = Settings.Obtener("idioma")
+	for _, par in ipairs(selectores) do
+		local activo = par.idioma == idioma
+		par.boton.BackgroundColor3 = activo and AMARILLO or MARRON_OSCURO
+		par.boton.TextColor3 = activo and MARRON_OSCURO or CREMA
+	end
+end
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	aplicarTextos()
+end)
+
+aplicarTextos()
 
 print("[MenuAjustes] activo")

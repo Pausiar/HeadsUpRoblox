@@ -9,6 +9,13 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 
@@ -75,7 +82,7 @@ texto.Font = Enum.Font.GothamBold
 texto.TextSize = 14
 texto.TextXAlignment = Enum.TextXAlignment.Left
 texto.TextColor3 = COLOR_TEXTO
-texto.Text = "Sprint: Shift"
+texto.Text = L("sprint_shift")
 texto.Parent = fondo
 
 -- reducirEfectos (Settings): aquí no hay animaciones que desactivar — el tamaño de la barra es
@@ -92,20 +99,51 @@ player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 	end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end -- un TextBox u otro sistema se quedó la tecla
-	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
+local function iniciarSprint()
 	local humanoid = obtenerHumanoid()
 	if not humanoid or humanoid.Health <= 0 then return end
 	esprintando = true
+end
+
+local function detenerSprint()
+	-- Sin check de gameProcessed a propósito: si un TextBox consumió la pulsación hay que soltar
+	-- igualmente, o el sprint queda pegado drenando estamina.
+	esprintando = false
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end -- un TextBox u otro sistema se quedó la tecla
+	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
+	iniciarSprint()
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
-	-- Sin check de gameProcessed a propósito: si un TextBox consumió la pulsación hay que soltar
-	-- igualmente, o el sprint queda pegado drenando estamina.
-	esprintando = false
+	detenerSprint()
 end)
+
+-- Táctil: botón compartido que mantiene el sprint mientras se toca. El atajo de teclado
+-- no se muestra (sería falso en móvil); el botón se explica solo.
+if UserInputService.TouchEnabled then
+	texto.Visible = false
+	local Acciones = require(script.Parent:WaitForChild("Acciones"))
+	local boton = Acciones.CrearBoton("sprint", 1)
+	local function actualizarVisibilidad()
+		boton.Visible = player:GetAttribute("EnJuego") == true
+	end
+	player:GetAttributeChangedSignal("EnJuego"):Connect(actualizarVisibilidad)
+	actualizarVisibilidad()
+	boton.InputBegan:Connect(function(entrada)
+		if entrada.UserInputType == Enum.UserInputType.Touch then
+			iniciarSprint()
+		end
+	end)
+	boton.InputEnded:Connect(function(entrada)
+		if entrada.UserInputType == Enum.UserInputType.Touch then
+			detenerSprint()
+		end
+	end)
+end
 
 local function alPersonaje(character)
 	estamina = ESTAMINA_MAX
@@ -152,6 +190,14 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 
 	barra.Size = UDim2.new(estamina / ESTAMINA_MAX, -4, 0, 14)
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	texto.Text = L("sprint_shift")
 end)
 
 print("[Estamina] activo")

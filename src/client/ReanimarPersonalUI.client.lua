@@ -7,7 +7,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 
@@ -59,13 +64,28 @@ panel.BorderSizePixel = 0
 panel.Parent = gui
 redondear(panel, 14)
 
+-- El panel nominal es 320 de ancho: en pantallas más estrechas se encoge para no
+-- recortarse (suelo 0,8, que mantiene legible el botón de 48 px).
+-- shortcut: a 0,8 el botón queda en ~38 px físicos; se acepta para no recortar el panel.
+local escalaPanel = Instance.new("UIScale")
+escalaPanel.Parent = panel
+local function ajustarEscala()
+	local ancho = gui.AbsoluteSize.X
+	if ancho <= 0 then
+		return
+	end
+	escalaPanel.Scale = math.clamp(ancho / 360, 0.8, 1)
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
+ajustarEscala()
+
 local titulo = Instance.new("TextLabel")
 titulo.Size = UDim2.new(1, 0, 0, 22)
 titulo.Position = UDim2.fromOffset(0, 7)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
 titulo.TextSize = 19
-titulo.Text = "REANIMACIÓN PERSONAL"
+titulo.Text = L("reanimacion_personal")
 titulo.TextColor3 = CREMA
 titulo.Parent = panel
 
@@ -91,7 +111,7 @@ boton.BackgroundColor3 = VERDE
 boton.BorderSizePixel = 0
 boton.Font = Enum.Font.GothamBlack
 boton.TextSize = 20
-boton.Text = "REANIMARME"
+boton.Text = L("reanimarme")
 boton.TextColor3 = CREMA
 boton.TextWrapped = true -- el texto de Modo Puro ocupa dos líneas sin recortarse
 boton.Parent = panel
@@ -114,7 +134,7 @@ avisoTexto.Size = UDim2.fromScale(1, 1)
 avisoTexto.BackgroundTransparency = 1
 avisoTexto.Font = Enum.Font.GothamBlack
 avisoTexto.TextSize = 20
-avisoTexto.Text = "REANIMADO"
+avisoTexto.Text = L("reanimado")
 avisoTexto.TextColor3 = CREMA
 avisoTexto.Parent = aviso
 
@@ -131,6 +151,7 @@ local cooldownHasta = 0
 local tokenEnfriamiento = 0
 local tokenError = 0
 local mensajeError = nil
+local mensajeErrorClave = nil
 local tokenAviso = 0
 local ignorarCaidoHasta = 0
 local intento = 0
@@ -147,24 +168,24 @@ local function actualizarSubtitulo()
 		return
 	end
 	if stock > 0 then
-		subtitulo.Text = stock == 1 and "1 reanimación personal"
-			or ("%d reanimaciones personales"):format(stock)
+		subtitulo.Text = stock == 1 and L("una_reanimacion")
+			or (("%d "):format(stock) .. L("reanimaciones_personales"))
 	else
-		subtitulo.Text = ("%d Piñas"):format(COSTO)
+		subtitulo.Text = ("%d "):format(COSTO) .. L("pinas")
 	end
 end
 
 local function actualizarBoton()
 	local listo = caido and not modoPuro and not reanimando and os.clock() >= cooldownHasta
 	if modoPuro then
-		boton.Text = "Modo Puro: sin reanimación de pago"
+		boton.Text = L("modo_puro_sin_reanimacion")
 		boton.TextSize = 14
 		boton.BackgroundColor3 = MADERA_OSCURA
 		boton.TextColor3 = CREMA
 		boton.TextTransparency = 0
 	else
 		boton.TextSize = 20
-		boton.Text = reanimando and "REANIMANDO…" or "REANIMARME"
+		boton.Text = reanimando and L("reanimando") or L("reanimarme")
 		boton.BackgroundColor3 = listo and VERDE or MARRON_TARJETA
 		boton.TextColor3 = CREMA
 		boton.TextTransparency = listo and 0 or 0.4
@@ -179,14 +200,22 @@ local function refrescar()
 	actualizarBoton()
 end
 
-local function mostrarError(texto)
-	mensajeError = type(texto) == "string" and texto ~= "" and texto or "No se pudo reanimar"
+local function mostrarError(texto, clave)
+	local visible = type(texto) == "string" and texto ~= ""
+	if visible then
+		mensajeError = texto
+		mensajeErrorClave = clave -- nil si el texto viene del servidor (no se traduce)
+	else
+		mensajeError = L("no_reanimar")
+		mensajeErrorClave = "no_reanimar"
+	end
 	tokenError += 1
 	local token = tokenError
 	refrescar()
 	task.delay(2, function()
 		if token == tokenError then
 			mensajeError = nil
+			mensajeErrorClave = nil
 			refrescar()
 		end
 	end)
@@ -284,7 +313,7 @@ boton.Activated:Connect(function()
 			return
 		end
 		reanimando = false
-		mostrarError("Sin respuesta del servidor")
+		mostrarError(L("sin_respuesta_servidor"), "sin_respuesta_servidor")
 		enfriar(1)
 	end)
 end)
@@ -299,10 +328,12 @@ remoteReanimarResultado.OnClientEvent:Connect(function(datos)
 		caido = false
 		ignorarCaidoHasta = os.clock() + 1.5
 		mensajeError = nil
+		mensajeErrorClave = nil
 		tokenError += 1
-		mostrarAviso("REANIMADO")
+		mostrarAviso(L("reanimado"))
 	else
-		local texto = type(datos.mensaje) == "string" and datos.mensaje or "No se pudo reanimar"
+		-- Si el servidor no manda mensaje, el respaldo es nuestro (y traducible).
+		local texto = type(datos.mensaje) == "string" and datos.mensaje or nil
 		mostrarError(texto)
 		enfriar(1)
 	end
@@ -312,6 +343,21 @@ player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 	if player:GetAttribute("EnJuego") ~= true then
 		ocultarTodo()
 	end
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	titulo.Text = L("reanimacion_personal")
+	if aviso.Visible then
+		avisoTexto.Text = L("reanimado")
+	end
+	if mensajeErrorClave then
+		mensajeError = L(mensajeErrorClave)
+	end
+	refrescar()
 end)
 
 refrescar()

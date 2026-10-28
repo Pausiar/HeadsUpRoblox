@@ -7,6 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 -- Mini-tokens de la paleta (ADN: docs/design/design-dna.md)
 local MADERA_OSCURA = Color3.fromRGB(62, 42, 24) -- #3E2A18 (panel)
@@ -60,7 +65,8 @@ local function etiqueta(y, tamano, color)
 end
 
 local contador = etiqueta(6, 28, AMARILLO)
-contador.Text = "Puntos: 0"
+local totalActual = 0
+contador.Text = L("puntos") .. ": 0"
 
 -- Pool de popups: 4 TextLabels creados una vez; reutilizar en vez de crear/destruir por evento.
 local popups = {}
@@ -75,6 +81,7 @@ for i = 1, MAX_POPUPS do
 	p.TextSize = 22
 	p.TextXAlignment = Enum.TextXAlignment.Left
 	p.TextTransparency = 1
+	p.Text = "" -- sin texto por defecto: el UIStroke dibujaría «Label» en el cielo
 	p.ZIndex = 2
 	p.Parent = gui
 	-- P0 de la revisión apple-design: contorno marrón para que el premio sea
@@ -82,8 +89,9 @@ for i = 1, MAX_POPUPS do
 	local trazo = Instance.new("UIStroke")
 	trazo.Color = MADERA_OSCURA
 	trazo.Thickness = 2
+	trazo.Transparency = 1 -- oculto hasta el primer popup
 	trazo.Parent = p
-	popups[i] = { label = p, tween = nil }
+	popups[i] = { label = p, trazo = trazo, tween = nil, tweenTrazo = nil }
 end
 
 local siguiente = 1 -- round-robin: si hay más de 4, se reutiliza el slot más viejo
@@ -100,12 +108,21 @@ local function lanzarPopup(ganados, color)
 	label.Text = ("+%d"):format(ganados)
 	label.TextColor3 = color
 	label.TextTransparency = 0
+	if p.tweenTrazo then
+		p.tweenTrazo:Cancel()
+	end
+	p.trazo.Transparency = 0
 	label.Position = UDim2.new(1, POPUP_X, 0, base)
 	p.tween = TweenService:Create(label, TweenInfo.new(DURACION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Position = UDim2.new(1, POPUP_X, 0, base - SUBIDA),
 		TextTransparency = 1,
 	})
+	-- El trazo se desvanece con el texto: su Transparency es independiente.
+	p.tweenTrazo = TweenService:Create(p.trazo, TweenInfo.new(DURACION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+	})
 	p.tween:Play()
+	p.tweenTrazo:Play()
 end
 
 local totalAnterior = 0
@@ -114,12 +131,21 @@ Remotes.Esperar(Remotes.Nombres.Puntos).OnClientEvent:Connect(function(datos)
 	local total = datos.puntos or 0
 	local ganados = total - totalAnterior
 	totalAnterior = total
-	contador.Text = ("Puntos: %d"):format(total)
+	totalActual = total
+	contador.Text = L("puntos") .. ": " .. ("%d"):format(total)
 	if ganados <= 0 then
 		return -- sin puntos nuevos, sin popup
 	end
 	local color = (datos.motivo == "reanimar") and VERDE_LIMA or AMARILLO
 	lanzarPopup(ganados, color)
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	contador.Text = L("puntos") .. ": " .. ("%d"):format(totalActual)
 end)
 
 print("[HudPuntos] activo")

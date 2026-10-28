@@ -8,7 +8,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local RankingAmigosConfig = require(ReplicatedStorage.Shared.Config.RankingAmigosConfig)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -80,7 +85,7 @@ botonAmigos.BackgroundColor3 = MARRON_TARJETA
 botonAmigos.BorderSizePixel = 0
 botonAmigos.Font = Enum.Font.GothamBlack
 botonAmigos.TextSize = 20
-botonAmigos.Text = "AMIGOS"
+botonAmigos.Text = L("amigos"):upper()
 botonAmigos.TextColor3 = CREMA
 botonAmigos.Visible = player:GetAttribute("EnJuego") ~= true
 botonAmigos.Parent = botonGui
@@ -128,7 +133,7 @@ titulo.Position = UDim2.fromOffset(20, 12)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
 titulo.TextSize = 28
-titulo.Text = "RANKING DE AMIGOS"
+titulo.Text = L("ranking_amigos")
 titulo.TextColor3 = CREMA
 titulo.TextXAlignment = Enum.TextXAlignment.Left
 titulo.Parent = panel
@@ -140,7 +145,7 @@ subtitulo.Position = UDim2.fromOffset(20, 46)
 subtitulo.BackgroundTransparency = 1
 subtitulo.Font = Enum.Font.Gotham
 subtitulo.TextSize = 16
-subtitulo.Text = "Tu mejor distancia y la de tus amigos"
+subtitulo.Text = L("ranking_amigos_sub")
 subtitulo.TextColor3 = CREMA
 subtitulo.TextXAlignment = Enum.TextXAlignment.Left
 subtitulo.Parent = panel
@@ -153,7 +158,7 @@ nota.Position = UDim2.fromOffset(20, 68)
 nota.BackgroundTransparency = 1
 nota.Font = Enum.Font.GothamBold
 nota.TextSize = 16
-nota.Text = "Sin amigos disponibles: top global"
+nota.Text = L("ranking_global")
 nota.TextColor3 = AMARILLO
 nota.TextXAlignment = Enum.TextXAlignment.Left
 nota.TextTruncate = Enum.TextTruncate.AtEnd
@@ -229,7 +234,7 @@ for i = 1, MAX_FILAS do
 	tu.BorderSizePixel = 0
 	tu.Font = Enum.Font.GothamBlack
 	tu.TextSize = 16
-	tu.Text = "TÚ"
+	tu.Text = L("tu_etiqueta")
 	tu.TextColor3 = MARRON_OSCURO
 	tu.Visible = false
 	tu.Parent = fondo
@@ -265,43 +270,51 @@ cerrar.BackgroundColor3 = VERDE
 cerrar.BorderSizePixel = 0
 cerrar.Font = Enum.Font.GothamBlack
 cerrar.TextSize = 22
-cerrar.Text = "CERRAR"
+cerrar.Text = L("cerrar"):upper()
 cerrar.TextColor3 = CREMA
 cerrar.Parent = panel
 redondear(cerrar, 12)
 
 -- Estados de la lista. Un único TextLabel evita apilar mensajes y garantiza que
 -- «ninguna» no deje filas viejas visibles.
+local estadoClave = nil
+local ultimasFilas = nil
+local ultimoGlobal = false
+
 local function ocultarFilas()
 	for i = 1, MAX_FILAS do
 		filas[i].fondo.Visible = false
 	end
 end
 
-local function mostrarEstado(texto, color)
+local function mostrarEstado(texto, color, clave)
 	ocultarFilas()
 	nota.Visible = false
 	estado.Text = texto
 	estado.TextColor3 = color or CREMA
 	estado.Visible = true
+	estadoClave = clave
 end
 
 local function mostrarCargando()
-	mostrarEstado("Cargando…", CREMA)
+	mostrarEstado(L("cargando"), CREMA, "cargando")
 end
 
-local function mostrarError(texto)
-	mostrarEstado(texto, ROJO_AVISO)
+local function mostrarError(texto, clave)
+	mostrarEstado(texto, ROJO_AVISO, clave)
 end
 
 local function mostrarVacio(esGlobal)
-	mostrarEstado("Aún no hay marcas. ¡Juega una partida!", CREMA)
+	mostrarEstado(L("sin_marcas"), CREMA, "sin_marcas")
 	nota.Visible = esGlobal == true
 end
 
 local function pintarFilas(entradas, esGlobal)
 	estado.Visible = false
 	nota.Visible = esGlobal == true
+	estadoClave = nil
+	ultimasFilas = entradas
+	ultimoGlobal = esGlobal == true
 
 	for i = 1, MAX_FILAS do
 		local fila = filas[i]
@@ -375,7 +388,7 @@ local function pedirRanking(mostrarCargandoEstado)
 			tareaTimeout = nil
 			if pendiente and gui.Enabled then
 				pendiente = false
-				mostrarError("Sin respuesta del servidor. Inténtalo de nuevo.")
+				mostrarError(L("sin_respuesta"), "sin_respuesta")
 			end
 		end)
 	end
@@ -448,7 +461,7 @@ end
 
 local function aplicarPayload(payload)
 	if type(payload) ~= "table" then
-		mostrarError("No se pudo cargar el ranking. Inténtalo de nuevo.")
+		mostrarError(L("error_ranking"), "error_ranking")
 		return
 	end
 
@@ -456,20 +469,22 @@ local function aplicarPayload(payload)
 	if fuente == "ninguna" then
 		local mensaje = payload.mensaje
 		if type(mensaje) ~= "string" or mensaje == "" then
-			mensaje = "Ranking no disponible ahora mismo."
+			mensaje = L("ranking_no_disponible_ahora")
+			mostrarEstado(mensaje, CREMA, "ranking_no_disponible_ahora")
+		else
+			mostrarEstado(mensaje, CREMA) -- sin filas, como pide el contrato
 		end
-		mostrarEstado(mensaje, CREMA) -- sin filas, como pide el contrato
 		return
 	end
 
 	if fuente ~= "amigos" and fuente ~= "global" then
-		mostrarError("No se pudo cargar el ranking. Inténtalo de nuevo.")
+		mostrarError(L("error_ranking"), "error_ranking")
 		return
 	end
 
 	local entradas = payload.entradas
 	if type(entradas) ~= "table" then
-		mostrarError("No se pudo cargar el ranking. Inténtalo de nuevo.")
+		mostrarError(L("error_ranking"), "error_ranking")
 		return
 	end
 
@@ -513,7 +528,7 @@ local function aplicarPayload(payload)
 
 	if #validas == 0 then
 		if #entradas > 0 then
-			mostrarError("No se pudo cargar el ranking. Inténtalo de nuevo.")
+			mostrarError(L("error_ranking"), "error_ranking")
 		else
 			mostrarVacio(fuente == "global")
 		end
@@ -564,6 +579,26 @@ gui.Destroying:Connect(function()
 	detenerRefresco()
 	cancelarTareas()
 	botonGui:Destroy()
+end)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	botonAmigos.Text = L("amigos"):upper()
+	titulo.Text = L("ranking_amigos")
+	subtitulo.Text = L("ranking_amigos_sub")
+	nota.Text = L("ranking_global")
+	cerrar.Text = L("cerrar"):upper()
+	for i = 1, MAX_FILAS do
+		filas[i].tu.Text = L("tu_etiqueta")
+	end
+	if estado.Visible and estadoClave then
+		estado.Text = L(estadoClave)
+	elseif ultimasFilas and filas[1].fondo.Visible then
+		pintarFilas(ultimasFilas, ultimoGlobal)
+	end
 end)
 
 print("[RankingAmigosUI] activo")

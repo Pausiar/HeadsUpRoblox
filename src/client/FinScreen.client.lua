@@ -6,6 +6,11 @@ local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 -- Mini-tokens del ADN (docs/design/design-dna.md)
 local MADERA = Color3.fromRGB(62, 42, 24) -- panel oscuro #3E2A18
@@ -85,7 +90,7 @@ titulo.Size = UDim2.new(1, -20, 0, 48)
 titulo.Position = UDim2.new(0, 10, 0, 18)
 titulo.BackgroundTransparency = 1
 titulo.Font = Enum.Font.GothamBlack
-titulo.Text = "¡HAS CAÍDO!"
+titulo.Text = L("has_caido")
 titulo.TextSize = 40
 titulo.TextColor3 = ROJO
 titulo.Parent = panel
@@ -110,7 +115,7 @@ insignia.Size = UDim2.new(1, -40, 0, 32)
 insignia.Position = UDim2.new(0, 20, 0, 74)
 insignia.BackgroundTransparency = 1
 insignia.Font = Enum.Font.GothamBlack
-insignia.Text = "¡NUEVO RÉCORD!"
+insignia.Text = L("nuevo_record")
 insignia.TextSize = 26
 insignia.TextColor3 = AMARILLO
 insignia.Visible = false
@@ -130,7 +135,7 @@ boton.Size = UDim2.fromOffset(300, 56) -- objetivo de toque grande (≥44 px)
 boton.BackgroundColor3 = VERDE
 boton.BorderSizePixel = 0
 boton.Font = Enum.Font.GothamBold
-boton.Text = "REINTENTAR"
+boton.Text = L("reintentar")
 boton.TextSize = 26
 boton.TextColor3 = BLANCO
 boton.Parent = panel
@@ -140,8 +145,9 @@ esquinaBoton.CornerRadius = UDim.new(0, 12)
 esquinaBoton.Parent = boton
 
 local enEnfriamiento = false
+local ultimosDatos = nil
 
-local function mostrar(datos)
+local function pintarDatos(datos)
 	local distancia = math.max(0, math.floor(tonumber(datos and datos.distancia) or 0))
 	local tiempo = math.max(0, math.floor(tonumber(datos and datos.tiempo) or 0))
 	local checkpoint = math.floor(tonumber(datos and datos.checkpoint) or 0)
@@ -149,14 +155,18 @@ local function mostrar(datos)
 	local record = math.max(0, math.floor(tonumber(datos and datos.record) or 0))
 	local nuevoRecord = datos ~= nil and datos.nuevoRecord == true
 
-	textoDistancia.Text = ("Distancia: %d m"):format(distancia)
-	textoTiempo.Text = ("Tiempo: %02d:%02d"):format(tiempo / 60, tiempo % 60)
-	textoCheckpoint.Text = if checkpoint > 0
-		then ("Checkpoint: %d"):format(checkpoint)
-		else "Checkpoint: —"
-	textoRecord.Text = ("Récord: %d m"):format(record)
-	textoPuntos.Text = ("Puntos: %d"):format(puntos)
+	textoDistancia.Text = L("distancia") .. ": " .. ("%d m"):format(distancia)
+	textoTiempo.Text = L("tiempo") .. ": " .. ("%02d:%02d"):format(tiempo / 60, tiempo % 60)
+	textoCheckpoint.Text = L("checkpoint") .. ": "
+		.. (checkpoint > 0 and ("%d"):format(checkpoint) or "—")
+	textoRecord.Text = L("record") .. ": " .. ("%d m"):format(record)
+	textoPuntos.Text = L("puntos") .. ": " .. ("%d"):format(puntos)
 	insignia.Visible = nuevoRecord
+end
+
+local function mostrar(datos)
+	ultimosDatos = datos
+	pintarDatos(datos)
 
 	-- Entrada sutil: fundido del velo + panel sube unos píxeles (nunca cambia de tamaño)
 	velo.BackgroundTransparency = 1
@@ -173,19 +183,30 @@ boton.Activated:Connect(function()
 	enEnfriamiento = true
 	boton.Active = false
 	boton.AutoButtonColor = false
-	boton.Text = "REANUDANDO…" -- F2: feedback visible durante el enfriamiento
+	boton.Text = L("reanudando") -- F2: feedback visible durante el enfriamiento
 	boton.BackgroundColor3 = VERDE_APAGADO
 	reintentar:FireServer()
 	task.delay(ENFRIAMIENTO, function()
 		enEnfriamiento = false
 		boton.Active = true
 		boton.AutoButtonColor = true
-		boton.Text = "REINTENTAR"
+		boton.Text = L("reintentar")
 		boton.BackgroundColor3 = VERDE
 	end)
 end)
 
 finPartida.OnClientEvent:Connect(mostrar)
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	titulo.Text = L("has_caido")
+	insignia.Text = L("nuevo_record")
+	boton.Text = enEnfriamiento and L("reanudando") or L("reintentar")
+	pintarDatos(ultimosDatos)
+end)
 
 -- Al reaparecer, la pantalla desaparece (gui.Enabled cubre velo y panel de golpe)
 player.CharacterAdded:Connect(function()

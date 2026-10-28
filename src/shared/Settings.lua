@@ -9,6 +9,7 @@ Settings.Valores = {
 	volumenEfectos = 80, -- % (0-100)
 	subtitulos = true, -- accesibilidad §8: subtítulos de avisos sonoros
 	escalaTexto = 100, -- % (80-140), escala global de GUI para texto legible
+	idioma = "es", -- "es" | "en" (plan §8: localización desde el primer texto)
 }
 
 local cambiado = Instance.new("BindableEvent")
@@ -31,6 +32,8 @@ function Settings.Cambiar(clave, valor)
 	end
 	if type(Settings.Valores[clave]) == "boolean" then
 		valor = valor == true
+	elseif clave == "idioma" then
+		valor = valor == "en" and "en" or "es"
 	end
 	if Settings.Valores[clave] == valor then
 		return true

@@ -6,6 +6,11 @@ local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+
+Localization.Establecer(Settings.Obtener("idioma"))
+local L = Localization.L
 
 local COLOR_ETIQUETA = "#E0453A" -- rojo de peligro para la etiqueta [ElDoble]:
 local COLOR_CREMA = "#F5EBD8" -- ADN (docs/design/design-dna.md): texto neutro del aviso
@@ -24,7 +29,19 @@ end
 
 -- Aviso previo del plan §5.5: que imitar el chat sea un reto y no un engaño (una vez por sesión;
 -- este LocalScript corre una sola vez por unión en StarterPlayerScripts).
-canal:DisplaySystemMessage(('<font color="%s">Un imitador puede escribir en este chat. No confíes solo en los mensajes.</font>'):format(COLOR_CREMA))
+local function avisarImitador()
+	canal:DisplaySystemMessage(('<font color="%s">%s</font>'):format(COLOR_CREMA, L("chat_imitador")))
+end
+avisarImitador()
+
+-- El texto del jugador (nick y mensaje) llega del servidor y no se traduce; solo el aviso propio.
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave ~= "idioma" then
+		return
+	end
+	Localization.Establecer(valor)
+	avisarImitador()
+end)
 
 Remotes.Esperar(Remotes.Nombres.ChatFalso).OnClientEvent:Connect(function(mensaje)
 	-- Payload del servidor: { nick = "ElDoble", texto = <ya filtrado por receptor> }

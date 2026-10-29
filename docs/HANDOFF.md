@@ -56,6 +56,7 @@ rojo build default.project.json -o build/HeadsUp.rbxlx
 | 9+ | Noche cerrada, linterna ampliada, sustos ambientales, fin del teletransporte fuera de ruta | `f7bcbd6` |
 | 9-cierre | Auditoría y ledger; El Doble/ChatFalso por partida; tope de progreso; Modo Puro en ranking; rollback de recibos; guardas de reanimar/beber | `0cb38bc`, `02537b7` |
 | 10+ | Sendero desenterrado en ronda rápida y tienda de campamento compartida por Historia y Ronda Rápida | `20860c1`, `b3a3a9f` |
+| 10+ | Animación de beber: lata 3D en la mano que sube a la boca, con pose-lock sobre el rig R15 | `8390486` |
 
 ### Números y datos clave
 
@@ -98,6 +99,16 @@ Correcciones que salieron de la auditoría y del repaso de flujos:
 
 **Evidencia:** prueba sintética `QATestVelocidad` → `[QA] teleport: distancia antes=0 despues=0` y `[QA] paso corto de 20 studs: distancia=20`; `QATestDoble` → dos ciclos completos con `[Doble] retirada (raptos 1/1)` y `[Doble] fin: máximo de raptos (1/1) alcanzado`; `QATestBeber` → stock 3→2 de pie, y se queda en 2 caído o con `Terminado=true`; dos arranques limpios en Studio; compilación Luau 0.744 de los 16 archivos. `graphify update .`: 859 nodos, 1509 aristas, 42 comunidades.
 
+### Animación de beber (2026-10-29 · `8390486`)
+
+Pedido del usuario: «añade una animación simple al usar los objetos: que salga un objeto 3D en la mano y, por ejemplo, la bebida energética se acerque a la cara».
+
+- `AnimacionBeber.client.lua` (nuevo, cliente): al recibir `BebidaResult {ok=true}`, arma una lata de 3 cilindros (cuerpo verde, banda amarilla, tapa metálica) soldada a `RightHand`; desactiva `RightShoulder`/`RightElbow` y tweenea la pose con Welds (hombro 50°/60°/−70°, codo 135°; la mano queda a 1,26 studs de la boca). Subida 0,45 s, aguante 0,85 s y bajada 0,35 s a la pose de reposo; al terminar suelta los Welds y reactiva las juntas.
+- Guardas: `reducirEfectos` (accesibilidad §8), fuera de partida, segunda bebida durante la animación y rig sin `AnimationConstraint`; `CharacterRemoving` y fin de partida cancelan con token y limpian.
+- `shortcut:` la animación es solo local: los demás jugadores no ven la lata; en rigs R6/Motor6D se omite.
+
+**Evidencia:** capturas de ventana real con la lata en la boca de noche (cuerpo verde y banda amarilla) en 6 bebidas seguidas; observador `[QA-ANIM] lata visible` → `[QA-ANIM] lata retirada`; con la pose activa `hombroEnabled=false` y al acabar `hombroEnabled=true codoEnabled=true restos=ninguno`; `[QA] reducirEfectos=true stock 2->1 lata=false enJuego=true` (la bebida se consume y la animación se omite); artefacto final reconstruido y jugado; consola limpia (solo DataStore en memoria y asset 203785492).
+
 ### Camino de ronda rápida y tienda nueva (2026-10-29 · `20860c1`, `b3a3a9f`)
 
 Pedido del usuario: «en el modo ronda rápida el camino hay veces que desaparece y no hay tienda al principio; haz una mejor tienda, más grande, con estética de tienda de campamento».
@@ -138,7 +149,7 @@ Falta (bloqueado por hardware/personas/publicación):
 
 ### C. Deuda registrada (marcadores `shortcut:`)
 
-4 marcadores, todos con disparador de revisión:
+6 marcadores, todos con disparador de revisión:
 
 | Archivo | Qué queda pendiente |
 | --- | --- |
@@ -146,6 +157,7 @@ Falta (bloqueado por hardware/personas/publicación):
 | `src/client/Estamina.client.lua` | Estamina cliente (ventaja máxima ≈33 % sobre el sprint real) |
 | `src/server/AmigosRankingService.lua` | Una consulta lee hasta 50 claves por jugador; vigilar con grupos grandes |
 | `src/server/TiendaService.lua` | Mensajes de resultado en español; con idioma EN la tienda mezcla idiomas |
+| `src/client/AnimacionBeber.client.lua` | Animación solo local (otros jugadores no ven la lata) y omitida en rigs R6/Motor6D; migrar a una animación subida si la co-op lo pide |
 
 Cerrada en la fase 10: los paneles de LobbyUI, CustomizationUI, MenuInicio, MenuAjustes y TiendaUI ya escalan con suelo y scroll vertical donde hacía falta; el aviso de ReanimarPersonalUI ya está documentado y el botón AMIGOS esquiva el salto táctil.
 
@@ -180,7 +192,7 @@ src/
             RankingService, AmigosRankingService, RondaRapidaService, TelemetriaService
   client/   MenuInicio, LobbyUI, Hud, HudPuntos, HudPinas, HudRanking, FinScreen,
             CameraController, Estamina, Linterna, AudioService, Subtitulos, Acciones,
-            Accesibilidad, MenuAjustes, TiendaUI, ReanimarPersonalUI,
+            Accesibilidad, MenuAjustes, TiendaUI, ReanimarPersonalUI, AnimacionBeber,
             CustomizationUI, RankingAmigosUI, ChatMimicView
   shared/   Remotes.lua, Ruta.lua, Settings.lua, RopaArte.lua, Localization/, Util/, Types/
   shared/Config/  GameConfig, TerrenoConfig, LobbyConfig, TiendaConfig, AudioConfig,

@@ -110,6 +110,10 @@ local function aplicarPlazas(x, z, natural)
 end
 
 local function alturaConSendero(x, z, natural)
+	-- El sendero se recorta después de las plazas: si la plaza mandara sobre el
+	-- corredor, un tramo que llega más bajo que el inicio o la meta quedaría
+	-- enterrado bajo el terreno plano y el camino desaparecería.
+	local base = aplicarPlazas(x, z, natural)
 	local dist, _, punto = rutaActual:CercanoXZ(x, z)
 	local objetivo = punto.Y - 0.5
 	local media = CAMINO.Ancho / 2 + 2
@@ -119,12 +123,12 @@ local function alturaConSendero(x, z, natural)
 		altura = objetivo
 	elseif dist < CAMINO.Corredor then
 		local t = mezclaSuave((dist - media) / (CAMINO.Corredor - media))
-		altura = objetivo + (natural - objetivo) * t
+		altura = objetivo + (base - objetivo) * t
 	else
-		altura = natural
+		altura = base
 	end
 	-- Devuelve altura y distancia al sendero: escribirTile necesita las dos.
-	return aplicarPlazas(x, z, altura), dist
+	return altura, dist
 end
 
 local function nuevaParte(props)

@@ -55,12 +55,13 @@ rojo build default.project.json -o build/HeadsUp.rbxlx
 | 9 | Ruta de 4846 studs en teselas de 160 con streaming, meta con victoria (+100 Piñas), tienda del campamento, peligros diegéticos (árboles/piedras), Piñas en vivo | `b255370` |
 | 9+ | Noche cerrada, linterna ampliada, sustos ambientales, fin del teletransporte fuera de ruta | `f7bcbd6` |
 | 9-cierre | Auditoría y ledger; El Doble/ChatFalso por partida; tope de progreso; Modo Puro en ranking; rollback de recibos; guardas de reanimar/beber | `0cb38bc`, `02537b7` |
+| 10+ | Sendero desenterrado en ronda rápida y tienda de campamento compartida por Historia y Ronda Rápida | `20860c1`, `b3a3a9f` |
 
 ### Números y datos clave
 
 - Ruta historia: **4846 studs**, 18 checkpoints cada 260, ~5 min; meta a 10 studs del final.
 - Piñas: 1 por 20 studs caminados, +25 por récord, +100 por meta; se pagan en vivo a 1 Hz.
-- Tienda del campamento a 12 studs del spawn: 11 items (bebida 20 Piñas, mejoras de niveles).
+- Tienda de campamento compartida por Historia y Ronda Rápida (`TiendaCampamento` sobre `Escenario`), 11,8×8,8 studs con el centro a 13,5 del inicio: mostrador, toldo, cartel «TIENDA», guirnalda, dos faroles, hoguera, estanterías, cajas y barriles; 11 items.
 - Entrada en partida desde el lobby (mín. 1 para probar), cuenta atrás 5 s, resultados 12 s.
 - Peligros: cada 8–13 s, 55 % árbol / 45 % piedras, derribo instantáneo, sin aviso sonoro.
 - El Doble aparece a los 45 s de partida; el chat falso máx. 6 veces por partida.
@@ -96,6 +97,17 @@ Correcciones que salieron de la auditoría y del repaso de flujos:
 - Cliente: el chat imitado escapa RichText; el velo de `FinScreen` bloquea clics; botones táctiles ordenados 1–4; aviso de ranking Puro.
 
 **Evidencia:** prueba sintética `QATestVelocidad` → `[QA] teleport: distancia antes=0 despues=0` y `[QA] paso corto de 20 studs: distancia=20`; `QATestDoble` → dos ciclos completos con `[Doble] retirada (raptos 1/1)` y `[Doble] fin: máximo de raptos (1/1) alcanzado`; `QATestBeber` → stock 3→2 de pie, y se queda en 2 caído o con `Terminado=true`; dos arranques limpios en Studio; compilación Luau 0.744 de los 16 archivos. `graphify update .`: 859 nodos, 1509 aristas, 42 comunidades.
+
+### Camino de ronda rápida y tienda nueva (2026-10-29 · `20860c1`, `b3a3a9f`)
+
+Pedido del usuario: «en el modo ronda rápida el camino hay veces que desaparece y no hay tienda al principio; haz una mejor tienda, más grande, con estética de tienda de campamento».
+
+- `TerrenoService.alturaConSendero`: las plazas de inicio/meta/madriguera aplanaban el terreno **después** del corredor; donde la ruta llegaba más baja, la plaza tapaba el sendero y el camino desaparecía. Ahora la plaza se aplica antes y el corredor manda sobre ella.
+- `TiendaCampamento` (nuevo): puesto de campaña compartido por Historia (`StageService`) y Ronda Rápida (`RondaRapidaService`), con toldo a dos aguas, faldón y cartel «TIENDA», guirnalda de bombillas, dos faroles con luz, mostrador, estanterías con mercancía y botellas, cajas, barriles, hoguera con bancos y banderín. Sustituye la tienda pequeña de Historia (6 studs) y cubre el hueco de Ronda Rápida, que no tenía ninguna.
+- `Escenario` (nuevo): `pieza` y `cartelTexto` compartidos; ambos escenarios dejan de duplicar helpers y colores.
+- Revisión: los cuatro postes medían 8,8 y atravesaban la lona (a su altura el toldo baja a ~7,24) → 7,2; verificado en vivo y en el artefacto final.
+
+**Evidencia:** auditoría `ReadVoxels` en 10 semillas con el techo de la cinta a 0,49–0,50 studs sobre el terreno y 0 muestras < 0,2; `[Stage] etapa 0: 4846 studs, 18 checkpoints, tienda ok, meta ok`; dos rondas rápidas con `[RondaRapida] camino con semilla … tienda ok` (280 y 309 studs); capturas de ventana real en ambos modos con cartel, faroles y prompt «ABRIR TIENDA» que abre `TiendaUI`; artefacto final reconstruido y jugado (tienda de 63 piezas, 4 postes de 7,2); consola limpia (solo DataStore en memoria y el asset 203785492 de siempre); los 5 archivos compilan y `rojo build` limpio.
 
 ---
 

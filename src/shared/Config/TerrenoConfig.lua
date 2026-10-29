@@ -111,28 +111,31 @@ TerrenoConfig.Claros = {
 	Madriguera = { X = -60, Z = -60, Radio = 14, RadioBosque = 20, Transicion = 6 },
 }
 
+-- Noche cerrada (fase 9): luna azulada, niebla baja y linterna (F) como guía.
+-- "Se ve relativamente poco" sin quedar ilegible: el sendero, los postes y la
+-- meta (antorchas/neón) siguen recortándose en la oscuridad.
 TerrenoConfig.Ambiente = {
-	ClockTime = 16.8,
-	Brillo = 2.4,
-	Ambiente = Color3.fromRGB(105, 115, 118),
-	AmbienteExterior = Color3.fromRGB(142, 152, 138),
-	Exposicion = 0.1,
+	ClockTime = 0.3,
+	Brillo = 1.15,
+	Ambiente = Color3.fromRGB(40, 48, 64),
+	AmbienteExterior = Color3.fromRGB(80, 92, 118),
+	Exposicion = 0,
 	Atmosfera = {
-		Densidad = 0.35,
-		Bruma = 4,
-		Color = Color3.fromRGB(188, 202, 204),
-		Decaimiento = Color3.fromRGB(96, 108, 110),
-		Deslumbramiento = 0.15,
+		Densidad = 0.28,
+		Bruma = 2.2,
+		Color = Color3.fromRGB(34, 40, 56),
+		Decaimiento = Color3.fromRGB(16, 20, 30),
+		Deslumbramiento = 0.05,
 	},
 	ColorCorreccion = {
-		Saturacion = 1,
-		Contraste = 1.06,
-		Tinte = Color3.fromRGB(255, 248, 236),
+		Saturacion = 0.82,
+		Contraste = 1.12,
+		Tinte = Color3.fromRGB(190, 205, 230),
 	},
 	Bloom = {
-		Intensidad = 0.25,
-		Tamano = 24,
-		Umbral = 0.95,
+		Intensidad = 0.55,
+		Tamano = 30,
+		Umbral = 0.85,
 	},
 }
 

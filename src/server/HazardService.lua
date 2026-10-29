@@ -5,12 +5,15 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TerrenoService = require(script.Parent.TerrenoService)
 
 local HazardService = {}
 local rng = Random.new()
 local playerState
+local sonido
 -- Caché defensiva: un build intermedio de TerrenoService puede no tener ArbolesCerca.
 local buscarArboles = TerrenoService.ArbolesCerca
 local MAX_PIEDRAS = 30
@@ -282,6 +285,7 @@ end
 
 function HazardService.Iniciar()
 	playerState = require(script.Parent.PlayerStateService)
+	sonido = Remotes.Crear(Remotes.Nombres.Sonido)
 	local cfg = Config.Etapa0.ArbolesQueCaen
 
 	task.spawn(function()
@@ -305,8 +309,29 @@ function HazardService.Iniciar()
 		end
 	end)
 
+	-- Susto ambiental: cada 18–40 s suena algo entre los árboles para todos los
+	-- que están en partida (elegir a uno al azar dejaría a cada jugador con un
+	-- susto cada varios minutos). Sin subtítulo: el texto delataría el susto.
+	task.spawn(function()
+		local banco = AudioConfig.Sustos
+		while true do
+			task.wait(rng:NextNumber(18, 40))
+			local cual = banco[rng:NextInteger(1, #banco)]
+			local oyentes = 0
+			for _, player in Players:GetPlayers() do
+				if participanteVivo(player) then
+					sonido:FireClient(player, { id = cual })
+					oyentes += 1
+				end
+			end
+			if oyentes > 0 then
+				print("[Susto] " .. cual .. " a " .. oyentes .. " jugador(es)")
+			end
+		end
+	end)
+
 	print(string.format(
-		"[Peligros] modo árboles que caen / lluvia de piedras (%.0f%% / %.0f%%), sin aviso sonoro",
+		"[Peligros] modo árboles que caen / lluvia de piedras (%.0f%% / %.0f%%), sin aviso sonoro; sustos cada 18–40 s",
 		cfg.Probabilidad * 100,
 		(1 - cfg.Probabilidad) * 100
 	))

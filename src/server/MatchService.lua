@@ -32,7 +32,6 @@ local totalCheckpoints = 0 -- checkpoints lógicos de la ruta actual (solo Histo
 local cerrados = {} -- [player] = true al alcanzar la meta; no se vuelve a cerrar ni a cobrar
 local ultimoRescate = {} -- [player] = os.clock() del último rescate anti-vacío
 
-local DISTANCIA_RESCATE = 90 -- studs fuera del corredor: el mundo por teselas aún no tiene suelo
 local ENFRIAMIENTO_RESCATE = 2 -- s entre rescates del mismo jugador
 
 -- Señal interna para otros servicios del servidor (plan §4.5: checkpoint da puntos)
@@ -336,10 +335,10 @@ function MatchService.Iniciar()
 					local raiz = char and char:FindFirstChild("HumanoidRootPart")
 					if raiz and rutaActual and player:GetAttribute("EnJuego") and not cerrados[player] then
 						local distanciaRuta = rutaActual:CercanoXZ(raiz.Position.X, raiz.Position.Z)
-						-- Mundo por teselas: sin suelo bajo los pies, volver a la ruta antes de
-						-- descartar el tick por estar fuera del corredor (gate de progreso).
+						-- Salirse del sendero es libre: no se teletransporta. Solo se rescata
+						-- al caer al vacío entre teselas, para no perder la partida.
 						local ahora = os.clock()
-						if (distanciaRuta > DISTANCIA_RESCATE or raiz.Position.Y < -10)
+						if raiz.Position.Y < -10
 							and not recargando[player]
 							and ahora - (ultimoRescate[player] or 0) >= ENFRIAMIENTO_RESCATE then
 							ultimoRescate[player] = ahora

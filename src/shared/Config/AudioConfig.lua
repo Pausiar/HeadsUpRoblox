@@ -17,7 +17,15 @@ AudioConfig.Efectos = {
 	Compra = { id = "rbxasset://sounds/electronicpingshort.wav", volumen = 0.45, subtitulo = "Compra realizada", velocidad = 1.3 },
 	Fin = { id = "rbxasset://sounds/action_falling.mp3", volumen = 0.7, subtitulo = "Fin de la partida" },
 	UI = { id = "rbxasset://sounds/switch3.wav", volumen = 0.35 },
+	-- Sustos ambientales (fase 9): nativos de Roblox a tono bajo, sin subtítulo
+	-- (el texto delataría el susto). Los elige al azar HazardService.
+	Susurro = { id = "rbxasset://sounds/bass.wav", volumen = 0.55, velocidad = 0.32 },
+	Crujido = { id = "rbxasset://sounds/switch3.wav", volumen = 0.32, velocidad = 0.35 },
+	Lamento = { id = "rbxasset://sounds/action_falling.mp3", volumen = 0.3, velocidad = 0.4 },
+	Rama = { id = "rbxasset://sounds/impact_water.mp3", volumen = 0.34, velocidad = 0.45 },
 }
+
+AudioConfig.Sustos = { "Susurro", "Crujido", "Lamento", "Rama" }
 
 function AudioConfig.PorId(id)
 	return AudioConfig.Efectos[id]

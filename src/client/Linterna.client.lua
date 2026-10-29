@@ -13,9 +13,12 @@ local L = Localization.L
 
 local player = Players.LocalPlayer
 local TECLA = Enum.KeyCode.F
-local ANGULO_BASE = 35
-local ANGULO_PRO = 40.25 -- +15 % de cono con el pase (plan §7.2)
-local RANGO = 40
+-- Noche cerrada (fase 9): el haz es la guía principal, así que abre más que el
+-- 35º original y llega más lejos; con el pase gana el mismo +15 % de cono.
+local ANGULO_BASE = 46
+local ANGULO_PRO = 52.9 -- +15 % de cono con el pase (plan §7.2)
+local RANGO = 60
+local BRILLO = 4
 local COLOR_BASE = Color3.fromRGB(255, 243, 214) -- blanco cálido #FFF3D6
 local COLOR_PRO = Color3.fromRGB(63, 127, 191) -- azul del ADN #3F7FBF (información/selección)
 
@@ -72,7 +75,7 @@ local function crearLuz()
 	local luz = Instance.new("SpotLight")
 	luz.Name = "Linterna"
 	luz.Range = RANGO
-	luz.Brightness = 2
+	luz.Brightness = BRILLO
 	luz.Face = Enum.NormalId.Front -- la Head mira por su LookVector: el haz sigue la mirada
 	luz.Shadows = true
 	aplicarPerfil(luz)

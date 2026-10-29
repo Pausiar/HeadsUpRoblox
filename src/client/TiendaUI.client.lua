@@ -18,6 +18,7 @@ local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -50,6 +51,7 @@ gui.DisplayOrder = 58
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- Safe area móvil: respetar notch y barras del sistema en los cuatro lados.
 local insetSuperior, insetInferior = GuiService:GetGuiInset()

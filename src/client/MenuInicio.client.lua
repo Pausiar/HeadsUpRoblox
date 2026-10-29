@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -30,6 +31,7 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 local velo = Instance.new("Frame")
 velo.Name = "Velo"

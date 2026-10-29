@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -40,6 +41,7 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 100
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- F4 (revisión apple-design): safe area móvil — el velo no cubre la notch.
 local insetSuperior = GuiService:GetGuiInset() -- primer Vector2 = inset superior

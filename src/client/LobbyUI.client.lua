@@ -10,6 +10,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local LobbyConfig = require(ReplicatedStorage.Shared.Config.LobbyConfig)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -37,6 +38,7 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 55 -- MenuInicio 50, tienda 58
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- Safe area móvil: mismo patrón que TiendaUI/MenuAjustes/FinScreen.
 local insetSup, insetInf = GuiService:GetGuiInset()

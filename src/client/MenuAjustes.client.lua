@@ -8,6 +8,7 @@ local GuiService = game:GetService("GuiService")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -29,6 +30,7 @@ gui.DisplayOrder = 60
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- Safe area móvil en los cuatro lados. UIPadding solo aplica a GuiObject, así que el
 -- relleno va en un contenedor a pantalla completa y no directamente en el ScreenGui.

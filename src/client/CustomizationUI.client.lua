@@ -15,6 +15,7 @@ local RopaConfig = require(ReplicatedStorage.Shared.Config.RopaConfig)
 local RopaArte = require(ReplicatedStorage.Shared.RopaArte)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -47,6 +48,7 @@ gui.DisplayOrder = 55
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- Safe area: inset superior-izquierdo para no quedar bajo la notch en móviles (patrón HudRanking).
 local inset = GuiService:GetGuiInset()

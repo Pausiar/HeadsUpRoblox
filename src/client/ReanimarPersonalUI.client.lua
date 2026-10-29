@@ -10,6 +10,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -38,6 +39,7 @@ gui.DisplayOrder = 57
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+MenuCamara.Vincular(gui)
 
 -- Safe area: el panel vive abajo, así que el inset inferior es el que manda.
 local insetSuperior, insetInferior = GuiService:GetGuiInset()

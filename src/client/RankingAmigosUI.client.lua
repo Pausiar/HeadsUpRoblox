@@ -12,6 +12,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local RankingAmigosConfig = require(ReplicatedStorage.Shared.Config.RankingAmigosConfig)
+local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
@@ -44,6 +45,7 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 57 -- tienda 58: este panel no debe taparla
 gui.Parent = playerGui
+MenuCamara.Vincular(gui)
 
 -- Safe area (notch): GetGuiInset devuelve el inset superior-izquierdo y el inferior-derecho.
 local insetSup, insetInf = GuiService:GetGuiInset()

@@ -120,15 +120,40 @@ local function destruirViewmodel()
 end
 
 local primeraPersona = false
-local function cambiarModo(primera)
-	primeraPersona = primera
-	player.CameraMode = primera and PRIMERA or TERCERA
-	if primera then
+local menuAbierto = (tonumber(player:GetAttribute("MenusAbiertos")) or 0) > 0
+local zoomMinGuardado = nil
+
+-- Primera persona + panel abierto = ratón centrado y botones muertos. Mientras haya un
+-- panel (tienda, reanimar, resultados…) se sale a 3.ª persona y se fuerza el zoom fuera
+-- del umbral de 1.ª persona; al cerrarlo se restaura el modo elegido.
+local function aplicarModo()
+	local suspendido = primeraPersona and menuAbierto
+	if suspendido then
+		if not zoomMinGuardado then
+			zoomMinGuardado = player.CameraMinZoomDistance
+		end
+		player.CameraMinZoomDistance = 8
+	elseif zoomMinGuardado then
+		player.CameraMinZoomDistance = zoomMinGuardado
+		zoomMinGuardado = nil
+	end
+	player.CameraMode = (primeraPersona and not menuAbierto) and PRIMERA or TERCERA
+	if primeraPersona and not menuAbierto then
 		crearViewmodel()
 	else
 		destruirViewmodel()
 	end
 end
+
+local function cambiarModo(primera)
+	primeraPersona = primera
+	aplicarModo()
+end
+
+player:GetAttributeChangedSignal("MenusAbiertos"):Connect(function()
+	menuAbierto = (tonumber(player:GetAttribute("MenusAbiertos")) or 0) > 0
+	aplicarModo()
+end)
 
 UserInputService.InputBegan:Connect(function(entrada, procesado)
 	if procesado then
@@ -150,12 +175,8 @@ if UserInputService.TouchEnabled then
 	end)
 end
 
--- La cámara se recrea al respawn: si seguimos en 1ª persona, reconstruir el viewmodel
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	if primeraPersona then
-		crearViewmodel()
-	end
-end)
+-- La cámara se recrea al respawn: reaplicar el modo (viewmodel y suspensión incluidos)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(aplicarModo)
 
 -- Balanceo sutil: se mueve solo el ancla (los brazos van soldados a ella)
 local fase = 0

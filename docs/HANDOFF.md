@@ -1,6 +1,6 @@
 # Handoff — Heads Up! Mountain Mayhem
 
-Estado a **2026-10-29** · rama `main` en `f7bcbd6` · repo `github.com/Pausiar/HeadsUpRoblox`.
+Estado a **2026-10-29** · rama `main` en `02537b7` · repo `github.com/Pausiar/HeadsUpRoblox`.
 
 Documento para retomar el trabajo en otro chat. Fuente de verdad del diseño: [`docs/PLAN.md`](PLAN.md).
 Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
@@ -12,7 +12,7 @@ Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
 - Juego cooperativo de Roblox para 2–8 jugadores: subir una montaña siguiendo un sendero, esquivar peligros diegéticos, reanimar compañeros y sobrevivir a El Doble.
 - **Estado:** jugable de principio a fin en Studio (lobby → partida → meta → resultados), en español e inglés.
 - **No publicado.** Sin DataStore real, sin IDs de monetización, sin audio definitivo.
-- Fases cerradas: 0 (prep/spikes), 1 (vertical slice), 2 (lobby + ranking), 3 (El Doble + chat imitado), 4 (ropa y personalización), 5 (Robux), 6 (audio, móvil, accesibilidad, telemetría, i18n), 7 (docs de lanzamiento), 8 (terreno voxel y rutas), 9 (mundo largo por teselas, meta, tienda, peligros) + última tanda de noche/sustos.
+- Fases cerradas: 0 (prep/spikes), 1 (vertical slice), 2 (lobby + ranking), 3 (El Doble + chat imitado), 4 (ropa y personalización), 5 (Robux), 6 (audio, móvil, accesibilidad, telemetría, i18n), 7 (docs de lanzamiento), 8 (terreno voxel y rutas), 9 (mundo largo por teselas, meta, tienda, peligros, noche/sustos) y el cierre formal de la 9 (auditoría, ledger, graphify).
 
 ---
 
@@ -53,6 +53,7 @@ rojo build default.project.json -o build/HeadsUp.rbxlx
 | 8 | Terreno voxel determinista + rutas Catmull-Rom, StageService/RondaRapida sobre rutas, progreso por altura | `e04a788` |
 | 9 | Ruta de 4846 studs en teselas de 160 con streaming, meta con victoria (+100 Piñas), tienda del campamento, peligros diegéticos (árboles/piedras), Piñas en vivo | `b255370` |
 | 9+ | Noche cerrada, linterna ampliada, sustos ambientales, fin del teletransporte fuera de ruta | `f7bcbd6` |
+| 9-cierre | Auditoría y ledger; El Doble/ChatFalso por partida; tope de progreso; Modo Puro en ranking; rollback de recibos; guardas de reanimar/beber | `0cb38bc`, `02537b7` |
 
 ### Números y datos clave
 
@@ -80,43 +81,63 @@ Pedido del usuario: «si te sales del camino te tepee → quítalo; noche con po
 
 **Evidencia de playtest:** captura `Fase9_NochePartida2` (noche + cono visible); `[Susto]` de los 4 tipos en consola; HRP anclado 60 studs fuera de la ruta 3,5 s sin `[Match] rescate` y `Distancia=0`; a `Y=-50` el rescate devuelve al jugador a la ruta; build limpio con `[Susto] Rama a 1 jugador(es)`. Consola sin errores nuevos.
 
+### Cierre de fase 9 (2026-10-29 · `0cb38bc`, `02537b7`)
+
+Correcciones que salieron de la auditoría y del repaso de flujos:
+
+- `MonsterService`: un token de partida (`generacion`) mata el hilo anterior; El Doble vuelve a aparecer en cada partida (antes solo una vez por servidor).
+- `ChatMimicService`: el tope de 6 mensajes se reinicia en `AlEmpezar`, no con la heurística de «hubo caídos».
+- `MatchService`: tope de progreso de 32 studs/s + 4 de holgura; un teletransporte de cientos de studs no cobra checkpoints, Piñas ni meta.
+- `AmigosRankingService`: solo guarda marcas si `MonetizacionService.EsModoPuro(player)` (PLAN §7.3); la tienda avisa «Ranking: solo en Modo Puro».
+- `MonetizacionService`: si la entrega de un recibo falla, se desmarca para que Roblox reintente; `ReanimarPersonal` rechaza partidas cerradas.
+- `TiendaService`: beber exige `EnJuego`, no `Terminado` y no estar caído.
+- `RateLimiter`: claves débiles para no retener jugadores que abandonan.
+- Cliente: el chat imitado escapa RichText; el velo de `FinScreen` bloquea clics; botones táctiles ordenados 1–4; aviso de ranking Puro.
+
+**Evidencia:** prueba sintética `QATestVelocidad` → `[QA] teleport: distancia antes=0 despues=0` y `[QA] paso corto de 20 studs: distancia=20`; `QATestDoble` → dos ciclos completos con `[Doble] retirada (raptos 1/1)` y `[Doble] fin: máximo de raptos (1/1) alcanzado`; `QATestBeber` → stock 3→2 de pie, y se queda en 2 caído o con `Terminado=true`; dos arranques limpios en Studio; compilación Luau 0.744 de los 16 archivos. `graphify update .`: 859 nodos, 1509 aristas, 42 comunidades.
+
 ---
 
 ## 5. Lo que falta
 
-### A. Cierre formal de la fase 9 (siguiente paso natural)
+### A. Cierre formal de la fase 9 — hecho (2026-10-29)
 
-Según `AGENTS.md`, una fase no está cerrada sin:
-1. `/ponytail-audit` del repo.
-2. `/ponytail-debt` (y actualizar el ledger de `shortcut:`).
-3. `/graphify . --update`.
-4. Fila de cierre en `docs/skill-log.md`.
+- `/ponytail-audit`: sin «must fix» abiertos; los hallazgos de servidor y cliente se corrigieron en `0cb38bc` y `02537b7`. Los abiertos pasan a la fase 10.
+- `/ponytail-debt`: 11 marcadores `shortcut:`, todos con disparador; tabla C actualizada.
+- `graphify update .`: 859 nodos, 1509 aristas, 42 comunidades (AST de código; los docs conservan sus nodos previos, sin reextracción semántica por falta de `GEMINI_API_KEY`).
+- Fila de cierre en `docs/skill-log.md` con la evidencia de `QATestVelocidad`, `QATestDoble` y `QATestBeber`.
 
 ### B. Verificación que nunca se ha hecho (riesgo real)
 
-- **2–8 jugadores simultáneos** en la misma partida (todos los playtests han sido 1 jugador).
+- **2–8 jugadores simultáneos**: hay una partida de 2 en Studio; faltan 3–8 en la misma partida y la prueba con amigos reales.
 - **Móvil real** (la UI táctil y el escalado solo se han mirado en Studio).
 - **Mando** y cámara en 1.ª persona.
 - **Rendimiento con 8 jugadores** y streaming de teselas a la vez (el tirón de 0,33–0,44 s al reconstruir el mapa sigue sin medir en carga).
-- **Modo Puro** sin ventajas de pase en partida real.
+- **Modo Puro** sin ventajas de pase en partida real (el filtro del ranking ya está implementado y probado en código, no en una partida de 8).
 
 ### C. Deuda registrada (marcadores `shortcut:`)
+
+11 marcadores en 10 archivos, todos con disparador de revisión:
 
 | Archivo | Qué queda pendiente |
 | --- | --- |
 | `src/client/Acciones.lua` | En pantallas muy estrechas la fila táctil roza el thumbstick |
 | `src/client/Accesibilidad.client.lua` | 140 % no refluye alturas fijas; algunos rótulos se recortan |
+| `src/client/CameraController.client.lua` | La sensibilidad de Ajustes no se aplica en 1.ª persona; el ajuste se muestra y no hace nada |
+| `src/client/CustomizationUI.client.lua` | Panel fijo sin scroll; a 568×320 las filas inferiores pueden quedar fuera del área táctil |
+| `src/client/Estamina.client.lua` | Estamina cliente (ventaja máxima ≈33 % sobre el sprint real); sin bindings de gamepad |
 | `src/client/LobbyUI.client.lua` | Botones de 44 px base quedan por debajo de 40 px físicos a 0,68 |
 | `src/client/ReanimarPersonalUI.client.lua` | Escalado sin validar en hardware real |
 | `src/client/TiendaUI.client.lua` | Por debajo de ~360 px el texto ROBUX vuelve a ~10 px |
-| `src/server/AmigosRankingService.lua` | Una consulta por jugador (hasta 50 claves); vigilar con grupos grandes |
-| `src/server/MonetizacionService.lua` | Modo Puro aún no separa récords del ranking |
+| `src/server/AmigosRankingService.lua` | Una consulta lee hasta 50 claves por jugador; vigilar con grupos grandes |
+| `src/shared/Config/TiendaConfig.lua` | Los nombres del catálogo están en español fijo; en EN la tienda mezcla idiomas |
 
-Hallazgos de la fase 7 que siguen abiertos:
-- `ProcessReceipt` **no comprueba `Activo`**: si se retira un producto hay que desactivarlo, no solo despublicarlo.
-- El recibo se marca **antes** del guardado asíncrono (riesgo residual si cae el servidor entre medias).
-- 3 de 5 pases no tienen efecto y están desactivados a propósito (`botas_agarre`, `mochila_pro`, `club_montanero`).
+Hallazgos de la fase 7 y su estado:
+- `ProcessReceipt` **no comprueba `Activo`**: decisión consciente. Un recibo real debe entregarse aunque el catálogo esté desactivado; para retirar un producto, no reutilizar su ID.
+- El recibo se marca **antes** del guardado asíncrono: riesgo residual solo si el servidor cae entre la caché y el DataStore; el rollback cubre el fallo de entrega.
+- 3 de 5 pases no tienen efecto y están desactivados a propósito (`botas_agarre`, `mochila_pro`, `club_montanero`); no activarlos hasta implementarlos.
 - Sin DataStore, el ranking de amigos cae a «no disponible» (en Studio es lo normal).
+- Modo Puro ya separa los récords del ranking de amigos (`AmigosRankingService`); falta la prueba con una partida real de 8.
 
 ### D. Bloqueado por el usuario
 
@@ -164,6 +185,6 @@ src/
 
 ## 8. Siguiente paso sugerido
 
-1. **Cerrar la fase 9** con la auditoría, el ledger de deuda y `graphify --update` (barato y deja el repo limpio).
-2. **Fase 10 propuesta: QA multijugador y rendimiento** — partida de 2–8 jugadores, móvil real y medición del streaming; definir su «Hecho cuando» en `docs/PLAN.md`.
+1. **Fase 10: QA multijugador y rendimiento** — ejecutar la matriz de 2–8 jugadores, móvil real, mando + 1.ª persona, perfilado del streaming y Modo Puro en partida. «Hecho cuando» en `docs/PLAN.md` §9.
+2. **Cerrar la fase 10** con `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
 3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer la prueba de compra real y el smoke de soft launch de `docs/launch/soft-launch.md`.

@@ -203,8 +203,11 @@ Compras y entrega siempre en el servidor (ProcessReceipt para productos; comprob
 | 5. Monetización | Tienda, pases, productos, cosméticos, privados y ranking Puro | Compras probadas en entorno de prueba, entrega desde servidor |
 | 6. Pulido | Rendimiento, móvil y mando, accesibilidad, localización, audio, VFX, revisión de moderación y telemetría | Presupuestos cumplidos y beta cerrada sin bloqueantes |
 | 7. Lanzamiento y vivo | Soft launch, métricas, nuevos biomas y eventos | Retención y tasa de reintento medidas |
+| 8. Terreno y rutas | Terreno voxel determinista, rutas Catmull-Rom, etapas y ronda rápida sobre rutas, progreso por altura | Ruta completa jugable con spawn y checkpoints estables |
+| 9. Mundo largo y economía | Ruta de 4846 studs por teselas con streaming, meta con victoria, tienda del campamento, peligros diegéticos y Piñas en vivo | Partida completa hasta la meta con compras y economía funcionando |
+| 10. QA multijugador y rendimiento | Partidas de 2–8 en servidor real, móvil real, mando + 1.ª persona, perfilado del streaming de teselas con 8 jugadores y Modo Puro sin ventajas | 8 jugadores completan Historia sin errores; el streaming se mantiene ≥30 FPS en móvil de gama media y el tirón por tesela ≤0,15 s o sale del hilo principal; móvil y mando jugables; récords solo en Puro |
 
-Estimación orientativa, a validar tras los spikes: la v1 jugable (fases 0–3) en unas 6–8 semanas a ritmo constante y el lanzamiento completo en 3–4 meses.
+Estimación orientativa, a validar tras los spikes: la v1 jugable (fases 0–3) en unas 6–8 semanas a ritmo constante y el lanzamiento completo en 3–4 meses. A 2026-10-29 las fases 0–9 están cerradas en Studio; la 10 depende de hardware real y de una partida de 8.
 
 ### Spikes de la fase 0
 
@@ -214,6 +217,15 @@ Estimación orientativa, a validar tras los spikes: la v1 jugable (fases 0–3) 
 - **S4:** físicas de rocas con 8 jugadores (red y rendimiento).
 - **S5:** límites de escalado del cuerpo R15.
 - **S6:** graphify leyendo Luau.
+
+### Criterios de la fase 10
+
+- **Multijugador:** 2, 4 y 8 jugadores en la misma partida; sin desincronización de checkpoints, Piñas, reanimaciones ni raptos de El Doble.
+- **Móvil real:** gama media y gama baja; UI táctil sin solaparse con el thumbstick y texto legible al escalar.
+- **Mando:** sprint, beber, linterna, cámara 1.ª/3.ª y reanimar sin teclado.
+- **Rendimiento:** perfilar `TerrenoService` con 8 jugadores; una tesela por tick no puede bloquear el servidor más de 150 ms. Si lo supera, generar por presupuesto de tiempo o mover la construcción a un hilo aparte.
+- **Modo Puro:** partida sin ventajas de pase; el ranking de amigos no registra marcas con ventajas.
+- **Regresión:** la matriz `docs/launch/qa-matrix.md` se amplía con estos casos y se marca cada uno con evidencia.
 
 ## 10. Reparto de trabajo entre GLM-5.3 y Flash
 

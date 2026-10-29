@@ -28,6 +28,7 @@ local pinasService
 local accesorios
 local personalizacion
 local telemetriaService
+local playerState
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
 local cargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
 
@@ -257,6 +258,7 @@ function TiendaService.Iniciar()
 	accesorios = require(script.Parent.AccesoriosService)
 	personalizacion = require(script.Parent.CustomizationService)
 	telemetriaService = require(script.Parent.TelemetriaService)
+	playerState = require(script.Parent.PlayerStateService)
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)
@@ -274,6 +276,13 @@ function TiendaService.Iniciar()
 		end
 		if not cargados[player] then
 			return -- aún cargando: no tocar el stock persistido
+		end
+		-- Beber solo sirve en partida, de pie y sin haber cerrado: el servidor
+		-- no gasta stock en un estado donde la estamina no se usa.
+		if player:GetAttribute("EnJuego") ~= true
+			or player:GetAttribute("Terminado") == true
+			or playerState.EstaCaido(player) then
+			return
 		end
 		local datos = datosJugador(player)
 		if datos.bebidas <= 0 then

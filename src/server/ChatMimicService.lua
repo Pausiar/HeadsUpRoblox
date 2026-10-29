@@ -37,7 +37,6 @@ local BANCO = {
 local remote
 local memoria = {} -- [player] = { frase, ... } últimas N; solo sesión, sin DataStore
 local mensajesPartida = 0
-local huboCaidos = false
 
 local function guardarFrase(player, frase)
 	frase = frase and frase:match("^%s*(.-)%s*$")
@@ -138,28 +137,12 @@ local function conErrata(texto)
 	return texto:sub(1, pos) .. texto:sub(pos, pos) .. texto:sub(pos + 1)
 end
 
-local function hablar(playerState)
+local function hablar()
 	local jugadores = enJuego()
 	if #jugadores == 0 then
 		return
 	end
 
-	-- Máximo por partida (simplificación): contador global que se reinicia
-	-- cuando todos vuelven a estar no caídos tras haber habido caídos
-	-- (aprox. el reinicio de MatchService).
-	local hayCaido = false
-	for _, o in jugadores do
-		if playerState.EstaCaido(o.player) then
-			hayCaido = true
-		end
-	end
-	if hayCaido then
-		huboCaidos = true
-	elseif huboCaidos then
-		huboCaidos = false
-		mensajesPartida = 0
-		print("[ChatFalso] contador reiniciado (nadie caído tras haber caídos)")
-	end
 	if mensajesPartida >= cfg.MaxMensajesPorPartida then
 		return
 	end
@@ -227,7 +210,11 @@ end
 
 function ChatMimicService.Iniciar()
 	remote = Remotes.Crear(Remotes.Nombres.ChatFalso)
-	local playerState = require(script.Parent.PlayerStateService)
+	local matchService = require(script.Parent.MatchService)
+	-- El tope es por partida; la partida lo marca el inicio real del match.
+	matchService.AlEmpezar.Event:Connect(function()
+		mensajesPartida = 0
+	end)
 
 	-- Memoria de chat real (plan §5.5). Chatted también dispara con TextChatService.
 	local function escuchar(player)
@@ -246,7 +233,7 @@ function ChatMimicService.Iniciar()
 	task.spawn(function()
 		while true do
 			task.wait(rng:NextNumber(cfg.IntervaloMin, cfg.IntervaloMax))
-			hablar(playerState)
+			hablar()
 		end
 	end)
 

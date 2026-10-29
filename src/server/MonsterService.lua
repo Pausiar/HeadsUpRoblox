@@ -33,6 +33,7 @@ local ultimaVictima -- NUNCA la misma dos veces seguidas (§5.2)
 local raptos = 0 -- raptos COMPLETADOS (ventana de rescate expirada)
 local promptRescate
 local iniciado = false
+local generacion = 0 -- token de partida: al cambiar, los bucles y esperas viejos mueren
 
 ---------------------------------------------------------------- Líquidos ----
 
@@ -85,18 +86,23 @@ local function abortoFase()
 	return not clonVivo() or not hayAlguienEnJuego()
 end
 
-local function esperar(segundos, aborto, cadaTick)
+-- Espera cancelable por partida. Devuelve (completo, cancelado): cancelado es
+-- true cuando otra partida arrancó; el llamador debe salir sin tocar `fase`.
+local function esperar(gen, segundos, aborto, cadaTick)
 	local t = 0
 	while t < segundos do
 		t += task.wait(TICK)
+		if gen ~= generacion then
+			return false, true
+		end
 		if cadaTick then
 			cadaTick()
 		end
 		if aborto and aborto() then
-			return false
+			return false, false
 		end
 	end
-	return true
+	return true, false
 end
 
 local function caminarHacia(pos)
@@ -216,10 +222,13 @@ local function clonarComo(jugador)
 	return nuevo
 end
 
-local function observacion()
+local function observacion(gen)
 	-- Víctima: EnJuego, viva y distinta de la anterior; si no hay, siguiente tick.
 	victima = nil
 	while not victima do
+		if gen ~= generacion then
+			return
+		end
 		local candidatos = {}
 		for _, o in enJuego() do
 			if o.player ~= ultimaVictima then
@@ -242,11 +251,11 @@ local function observacion()
 	ultimaVictima = victima
 	clon.Parent = workspace
 	clon:PivotTo(cercaDelGrupo())
-	if not esperar(cfg.DuracionObservacion, abortoFase) then
-		fase = 5
+	local completo, cancelado = esperar(gen, cfg.DuracionObservacion, abortoFase)
+	if cancelado then
 		return
 	end
-	fase = 2
+	fase = completo and 2 or 5
 end
 
 local function seguirGrupo()
@@ -261,13 +270,13 @@ local function seguirGrupo()
 	caminarHacia(suma / #grupo)
 end
 
-local function infiltracion()
+local function infiltracion(gen)
 	print("[Doble] fase 2: infiltración en el grupo")
-	if not esperar(cfg.DuracionInfiltracion, abortoFase, seguirGrupo) then
-		fase = 5
+	local completo, cancelado = esperar(gen, cfg.DuracionInfiltracion, abortoFase, seguirGrupo)
+	if cancelado then
 		return
 	end
-	fase = 3
+	fase = completo and 3 or 5
 end
 
 local function acercarseAVictima()
@@ -280,19 +289,19 @@ local function acercarseAVictima()
 	end
 end
 
-local function acecho()
+local function acecho(gen)
 	print("[Doble] fase 3: acechando a " .. (victima and victima.Name or "?"))
 	senuelo()
-	if not esperar(cfg.DuracionAcecho, abortoFase, acercarseAVictima) then
-		fase = 5
+	local completo, cancelado = esperar(gen, cfg.DuracionAcecho, abortoFase, acercarseAVictima)
+	if cancelado then
 		return
 	end
-	fase = 4
+	fase = completo and 4 or 5
 end
 
 -- §5.2 fase 4 + §5.4: revela su forma, arrastra a la víctima a la madriguera
 -- (simplificado con PivotTo de ambos) y abre la ventana de rescate.
-local function rapto()
+local function rapto(gen)
 	local charV = victima and victima.Character
 	local humV = charV and charV:FindFirstChildOfClass("Humanoid")
 	if not charV or not humV or humV.Health <= 0 or playerState.EstaCaido(victima) then
@@ -319,9 +328,8 @@ local function rapto()
 	charV:PivotTo(CFrame.new(MADRIGUERA_POS + Vector3.new(3, 3, 3)))
 	clon:PivotTo(CFrame.new(MADRIGUERA_POS + Vector3.new(-2, 3, -2)))
 	senuelo()
-	if not clonVivo() then
-		fase = 5
-		return
+	if gen ~= generacion or not clonVivo() then
+		return -- la partida terminó durante el filtro del señuelo
 	end
 
 	-- Rescate: "Liberar" (HoldDuration 1) en el clon, activado por OTRO jugador.
@@ -340,10 +348,13 @@ local function rapto()
 		end
 	end)
 
-	local expiro = esperar(cfg.VentanaRescate, function()
+	local expiro, cancelado = esperar(gen, cfg.VentanaRescate, function()
 		return liberador ~= nil or not clonVivo() or not hayAlguienEnJuego()
 			or not victima or not victima.Parent
 	end)
+	if cancelado then
+		return -- limpiarClon ya destruyó el prompt y el clon
+	end
 	if promptRescate then
 		promptRescate:Destroy()
 		promptRescate = nil
@@ -361,10 +372,13 @@ local function rapto()
 	fase = 5
 end
 
-local function retirada()
+local function retirada(gen)
 	limpiarClon()
 	print("[Doble] retirada (raptos " .. raptos .. "/" .. cfg.MaxRaptos .. ")")
-	esperar(cfg.EnfriamientoRetirada)
+	local _, cancelado = esperar(gen, cfg.EnfriamientoRetirada)
+	if cancelado then
+		return
+	end
 	if raptos >= cfg.MaxRaptos then
 		fase = 6
 	else
@@ -372,30 +386,39 @@ local function retirada()
 	end
 end
 
-local function bucle()
+local function bucle(gen)
 	-- Fase 0 (Latente): no existe; el retardo solo cuenta con jugadores EnJuego (§5.1).
 	local acumulado = 0
 	while acumulado < cfg.RetardoAparicion and fase == 0 do
 		task.wait(1)
+		if gen ~= generacion then
+			return
+		end
 		if #enJuego() > 0 then
 			acumulado += 1
 		end
+	end
+	if gen ~= generacion then
+		return
 	end
 	if fase == 0 then
 		fase = 1
 	end
 
 	while fase >= 1 and fase <= 5 do
+		if gen ~= generacion then
+			return
+		end
 		if fase == 1 then
-			observacion()
+			observacion(gen)
 		elseif fase == 2 then
-			infiltracion()
+			infiltracion(gen)
 		elseif fase == 3 then
-			acecho()
+			acecho(gen)
 		elseif fase == 4 then
-			rapto()
+			rapto(gen)
 		elseif fase == 5 then
-			retirada()
+			retirada(gen)
 		end
 	end
 
@@ -426,7 +449,26 @@ function MonsterService.Iniciar()
 		end
 	end)
 
-	task.spawn(bucle) -- único hilo de la máquina de estados
+	-- Una partida = un hilo. Al empezar otra, el token invalida el hilo anterior
+	-- (antes el Doble aparecía una sola vez por servidor, no por partida).
+	local matchService = require(script.Parent.MatchService)
+	matchService.AlEmpezar.Event:Connect(function()
+		generacion += 1
+		limpiarClon()
+		fase = 0
+		raptos = 0
+		ultimaVictima = nil
+		local gen = generacion
+		task.spawn(function()
+			bucle(gen)
+		end)
+	end)
+	matchService.AlTerminarPartida.Event:Connect(function()
+		generacion += 1
+		limpiarClon()
+		fase = 0
+	end)
+
 	print("[Doble] servicio iniciado (aparece tras " .. cfg.RetardoAparicion .. " s de partida)")
 end
 

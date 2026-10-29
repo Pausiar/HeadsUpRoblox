@@ -170,7 +170,15 @@ local function procesarRecibo(player, purchaseId, item)
 		table.remove(recibos, 1)
 	end
 	dataService.Guardar(player, "recibos", recibos)
-	entregarProducto(player, item)
+	if not entregarProducto(player, item) then
+		-- Sin entrega no hay consumo: se deshace la marca para que Roblox reintente.
+		local i = table.find(recibos, purchaseId)
+		if i then
+			table.remove(recibos, i)
+			dataService.Guardar(player, "recibos", recibos)
+		end
+		return false
+	end
 	return true
 end
 
@@ -287,6 +295,12 @@ local function reanimarPersonal(player)
 		responder(false, "No estás caído")
 		return
 	end
+	-- Con la carrera cerrada no hay dónde reanimar: evita gastar Piñas/stock
+	-- detrás del FinScreen (el velo ya bloquea clics, esto cubre al servidor).
+	if not matchService.EstaEnPartida() or player:GetAttribute("Terminado") == true then
+		responder(false, "La partida terminó")
+		return
+	end
 	local item = MonetizacionConfig.PorId("reanimacion_personal")
 	local limite = item and tonumber(item.limitePorPartida) or 1
 	if (reanimacionesPartida[player] or 0) >= limite then
@@ -325,8 +339,7 @@ local function cambiarModoPuro(player, valor)
 	if not permitirModoPuro(player) or type(valor) ~= "boolean" then
 		return
 	end
-	-- shortcut: el Modo Puro aún no separa récords; revisar cuando exista el ranking
-	-- de Modo Puro (plan §7.3) o al publicar la primera temporada.
+	-- El ranking de amigos solo acepta marcas en Modo Puro (AmigosRankingService).
 	dataService.Guardar(player, "modoPuro", valor)
 	publicar(player)
 	print("[Monetizacion] Modo Puro " .. (valor and "on" or "off") .. " para " .. player.Name)

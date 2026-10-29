@@ -4,7 +4,8 @@ local RateLimiter = {}
 
 function RateLimiter.nuevo(enfriamientoSeg)
 	assert(type(enfriamientoSeg) == "number" and enfriamientoSeg > 0, "enfriamientoSeg debe ser > 0")
-	local ultima = {}
+	-- Claves débiles: un jugador que se va no queda retenido por la tabla.
+	local ultima = setmetatable({}, { __mode = "k" })
 	return function(clave)
 		local ahora = os.clock()
 		local t = ultima[clave]

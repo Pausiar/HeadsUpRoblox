@@ -330,12 +330,17 @@ function AmigosRankingService.Iniciar()
 		end)
 	end)
 
-	-- Mejor marca al cerrar partida (stats.distancia es entera y autoritativa)
+	-- Mejor marca al cerrar partida (stats.distancia es entera y autoritativa).
+	-- Plan §7.3: solo las partidas en Modo Puro cuentan para el ranking de récords.
 	local matchService = require(script.Parent.MatchService)
+	local okMonetizacion, monetizacion = pcall(require, script.Parent.MonetizacionService)
 	matchService.AlTerminar.Event:Connect(function(player, stats)
 		local distancia = tonumber(stats and stats.distancia)
 		if not distancia or distancia <= 0 then
 			return
+		end
+		if not okMonetizacion or not monetizacion.EsModoPuro(player) then
+			return -- con ventajas o reanimaciones de pago la marca no cuenta
 		end
 		task.spawn(guardarMarca, player, distancia)
 	end)

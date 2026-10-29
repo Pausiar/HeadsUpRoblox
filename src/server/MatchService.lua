@@ -31,8 +31,10 @@ local rutaActual -- ruta del escenario construido (nil si no hay terreno)
 local totalCheckpoints = 0 -- checkpoints lógicos de la ruta actual (solo Historia)
 local cerrados = {} -- [player] = true al alcanzar la meta; no se vuelve a cerrar ni a cobrar
 local ultimoRescate = {} -- [player] = os.clock() del último rescate anti-vacío
+local ultimoTick = {} -- [player] = os.clock() del último tick con posición válida
 
 local ENFRIAMIENTO_RESCATE = 2 -- s entre rescates del mismo jugador
+local VELOCIDAD_MAXIMA = 32 -- studs/s: sprint real 24 + margen; fija el tope de avance
 
 -- Señal interna para otros servicios del servidor (plan §4.5: checkpoint da puntos)
 local checkpointAlcanzado = Instance.new("BindableEvent")
@@ -202,6 +204,7 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	table.clear(distancia)
 	table.clear(cerrados)
 	table.clear(ultimoRescate)
+	table.clear(ultimoTick)
 	for _, player in ipairs(Players:GetPlayers()) do
 		player:SetAttribute("Distancia", 0)
 		player:SetAttribute("Terminado", false)
@@ -297,6 +300,7 @@ function MatchService.Iniciar()
 		viajes[player] = nil
 		cerrados[player] = nil
 		ultimoRescate[player] = nil
+		ultimoTick[player] = nil
 		for i, p in ipairs(participantesPartida) do
 			if p == player then
 				table.remove(participantesPartida, i)
@@ -338,6 +342,8 @@ function MatchService.Iniciar()
 						-- Salirse del sendero es libre: no se teletransporta. Solo se rescata
 						-- al caer al vacío entre teselas, para no perder la partida.
 						local ahora = os.clock()
+						local dt = math.min(ahora - (ultimoTick[player] or ahora), 2)
+						ultimoTick[player] = ahora
 						if raiz.Position.Y < -10
 							and not recargando[player]
 							and ahora - (ultimoRescate[player] or 0) >= ENFRIAMIENTO_RESCATE then
@@ -352,6 +358,11 @@ function MatchService.Iniciar()
 							continue
 						end
 						local progreso = rutaActual:Progreso(raiz.Position)
+						-- Tope de avance por tiempo (32 studs/s + 4 de holgura): un teleport
+						-- de cientos de studs no entra nunca; caminar o esprintar (24) sí.
+						if progreso > (distancia[player] or 0) + VELOCIDAD_MAXIMA * dt + 4 then
+							continue
+						end
 						distancia[player] = math.max(
 							distancia[player] or 0,
 							math.min(progreso, rutaActual.Longitud)

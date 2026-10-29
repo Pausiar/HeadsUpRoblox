@@ -57,6 +57,7 @@ rojo build default.project.json -o build/HeadsUp.rbxlx
 | 9-cierre | Auditoría y ledger; El Doble/ChatFalso por partida; tope de progreso; Modo Puro en ranking; rollback de recibos; guardas de reanimar/beber | `0cb38bc`, `02537b7` |
 | 10+ | Sendero desenterrado en ronda rápida y tienda de campamento compartida por Historia y Ronda Rápida | `20860c1`, `b3a3a9f` |
 | 10+ | Animación de beber: lata 3D en la mano que sube a la boca, con pose-lock sobre el rig R15 | `8390486` |
+| 10+ | Ratón libre con paneles en 1.ª persona: `MenuCamara` avisa en `MenusAbiertos` y la cámara sale a Classic con zoom 8; al cerrar el último panel vuelve el modo elegido | `74047e9` |
 
 ### Números y datos clave
 
@@ -119,6 +120,17 @@ Pedido del usuario: «en el modo ronda rápida el camino hay veces que desaparec
 - Revisión: los cuatro postes medían 8,8 y atravesaban la lona (a su altura el toldo baja a ~7,24) → 7,2; verificado en vivo y en el artefacto final.
 
 **Evidencia:** auditoría `ReadVoxels` en 10 semillas con el techo de la cinta a 0,49–0,50 studs sobre el terreno y 0 muestras < 0,2; `[Stage] etapa 0: 4846 studs, 18 checkpoints, tienda ok, meta ok`; dos rondas rápidas con `[RondaRapida] camino con semilla … tienda ok` (280 y 309 studs); capturas de ventana real en ambos modos con cartel, faroles y prompt «ABRIR TIENDA» que abre `TiendaUI`; artefacto final reconstruido y jugado (tienda de 63 piezas, 4 postes de 7,2); consola limpia (solo DataStore en memoria y el asset 203785492 de siempre); los 5 archivos compilan y `rojo build` limpio.
+
+### Paneles en primera persona (2026-10-29 · `74047e9`)
+
+Pedido del usuario: «si entras al menú de la tienda en primera persona se queda bugueado porque no te deja menear el ratón y no te puedes salir».
+
+- Causa: `CameraMode = LockFirstPerson` hace que el motor reimponga `MouseBehavior = LockCenter` cada frame; ningún mecanismo de modal (ni `GuiButton.Modal` ni un `MouseBehavior = Default` puntual) lo libera.
+- `MenuCamara` (nuevo, cliente): cada ScreenGui bloqueante lo engancha con `MenuCamara.Vincular(gui)`; mantiene el atributo local `MenusAbiertos` con ±1 por panel (con `math.max` para no bajar de 0), así los paneles anidados no se pisan.
+- `CameraController`: con cualquier panel abierto y primera persona activa sale a `Classic` y fuerza `CameraMinZoomDistance = 8` (con el zoom 0,5 actual, Classic seguiría en primera persona), destruye el viewmodel y, al cerrar el último panel, restaura el zoom guardado y el modo elegido. El respawn reaplica lo mismo vía `CurrentCamera`.
+- Enganchados: TiendaUI, ReanimarPersonalUI, FinScreen, MenuInicio, LobbyUI, MenuAjustes, CustomizationUI y RankingAmigosUI. El resto de ScreenGui son HUD no bloqueante.
+
+**Evidencia:** en 1.ª persona (`camara=LockFirstPerson mouse=LockCenter dist=0.51`) abrir la tienda deja `menus=1 camara=Classic mouse=Default dist=8.51`; clic real en VOLVER → `tienda=false menus=0 camara=LockFirstPerson mouse=LockCenter`; en tercera persona abrir/cerrar no toca cámara ni zoom (`Classic`, `0.50/400.00`) y los paneles anidados cuentan bien (`menus=2→3→2`); al volver al lobby `menus=0` con solo HUD activo; consola sin errores.
 
 ---
 

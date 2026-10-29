@@ -1,7 +1,8 @@
 -- CameraController (plan §3.5): tercera persona por defecto, tecla V alterna a primera
 -- persona con viewmodel mínimo de brazos (madera #5C3A21) y balanceo sutil al caminar.
--- NOTA honesta: la sensibilidad de Settings se aplicará cuando el modo 1ª persona pase a
--- CameraType Scriptable (pendiente); hoy LockFirstPerson usa la sensibilidad del motor.
+-- shortcut: la sensibilidad de Settings (10-100 %) aún no se aplica: LockFirstPerson usa la
+-- del motor. Aplicarla al pasar la 1ª persona a CameraType Scriptable; revisar antes de
+-- publicar, porque el ajuste ya se muestra en MenuAjustes y hoy no hace nada.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -134,7 +135,7 @@ end)
 if UserInputService.TouchEnabled then
 	aviso.Visible = false
 	local Acciones = require(script.Parent:WaitForChild("Acciones"))
-	local boton = Acciones.CrearBoton("camara", 3)
+	local boton = Acciones.CrearBoton("camara", 4)
 	boton.Activated:Connect(function()
 		cambiarModo(not primeraPersona)
 	end)

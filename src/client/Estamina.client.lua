@@ -1,10 +1,14 @@
 -- Sprint (LeftShift) + barra de estamina abajo-izquierda (plan §3.5; concepto: docs/concept/, ADN: docs/design/design-dna.md)
 -- Paleta del ADN: barra verde lima #8BC34A, fondo marrón oscuro #3E2A18, texto crema #F5EBD8.
 --
--- NOTA DE AUTORIDAD (honestidad del slice): la WalkSpeed se cambia desde el CLIENTE porque Roblox
--- no permite validarla en el servidor sin reemplazar el movimiento (control custom / propiedad del
--- movimiento). Aquí la estamina es cliente: un exploit puede esprintar sin gastarla. Queda
--- documentado y se mitiga en la fase 2 moviendo el movimiento a servidor (plan §3.5).
+-- NOTA DE AUTORIDAD: la WalkSpeed se cambia desde el CLIENTE; el servidor no controla el
+-- movimiento. Mitigación actual: MatchService limita el progreso de ruta a 32 studs/s
+-- (sprint real 24), así que teletransportarse ya no cobra checkpoints, Piñas ni meta.
+-- shortcut: la estamina sigue siendo cliente (ventaja máxima ≈33 % sobre el sprint real);
+-- mover el movimiento a servidor (control custom, plan §3.5) si el sprint se vuelve
+-- ventaja de pago o si aparece un exploit de movimiento en producción.
+-- shortcut: sin bindings de gamepad (sprint/beber/linterna/cámara solo teclado y táctil);
+-- revisar antes del lanzamiento en consola, donde no hay teclado ni pantalla táctil.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -180,11 +184,20 @@ local function detenerSprint()
 	esprintando = false
 end
 
+local function puedeBeber()
+	local humanoid = obtenerHumanoid()
+	return player:GetAttribute("EnJuego") == true
+		and player:GetAttribute("Terminado") ~= true
+		and humanoid ~= nil
+		and humanoid.Health > 0
+		and not humanoid.PlatformStand
+end
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end -- un TextBox u otro sistema se quedó la tecla
 	if input.KeyCode == Enum.KeyCode.Q then
-		-- Solo en partida: fuera de ella beber gastaría stock sin reponer nada útil.
-		if player:GetAttribute("EnJuego") == true then
+		-- Solo en partida y en pie: el servidor lo revalida igualmente.
+		if puedeBeber() then
 			remotoBeber:FireServer() -- el servidor valida stock y limita a 1/s
 		end
 		return
@@ -223,7 +236,9 @@ if UserInputService.TouchEnabled then
 		end
 	end)
 	botonBeber.Activated:Connect(function()
-		remotoBeber:FireServer()
+		if puedeBeber() then
+			remotoBeber:FireServer()
+		end
 	end)
 end
 

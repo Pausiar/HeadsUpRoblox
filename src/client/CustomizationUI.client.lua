@@ -70,6 +70,9 @@ esquinaPanel.Parent = panel
 
 -- El panel nominal es 560x600; en pantallas estrechas se escala el conjunto para no recortar
 -- (patrón LobbyUI). Texto base dimensionado para que a 0,68 siga siendo legible en móvil.
+-- shortcut: panel fijo sin scroll; a 568x320 la escala llega a 0,68 y las filas inferiores
+-- (guardar/volver) pueden quedar fuera del área táctil. Revisar en móvil apaisado real;
+-- si se recortan botones, pasar el contenido a ScrollingFrame.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()

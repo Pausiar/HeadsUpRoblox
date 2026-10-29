@@ -43,6 +43,12 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 	avisarImitador()
 end)
 
+-- El texto llega filtrado, pero el filtro no escapa marcado: sin esto, un jugador
+-- podría inyectar etiquetas RichText en la línea del chat.
+local function escapar(texto)
+	return (tostring(texto):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+end
+
 Remotes.Esperar(Remotes.Nombres.ChatFalso).OnClientEvent:Connect(function(mensaje)
 	-- Payload del servidor: { nick = "ElDoble", texto = <ya filtrado por receptor> }
 	if typeof(mensaje) ~= "table" or mensaje.texto == nil or mensaje.texto == "" then
@@ -50,7 +56,9 @@ Remotes.Esperar(Remotes.Nombres.ChatFalso).OnClientEvent:Connect(function(mensaj
 	end
 	local nick = mensaje.nick or "ElDoble"
 
-	canal:DisplaySystemMessage(('<font color="%s"><b>[%s]:</b></font> %s'):format(COLOR_ETIQUETA, nick, mensaje.texto))
+	canal:DisplaySystemMessage(('<font color="%s"><b>[%s]:</b></font> %s'):format(
+		COLOR_ETIQUETA, escapar(nick), escapar(mensaje.texto)
+	))
 
 	-- Burbuja sobre el clon (lección S3: pasar HumanoidRootPart, no el Model).
 	local doble = workspace:FindFirstChild(nick)

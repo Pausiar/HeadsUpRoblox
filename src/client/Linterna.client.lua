@@ -116,7 +116,7 @@ end)
 if UserInputService.TouchEnabled then
 	aviso.Visible = false
 	local Acciones = require(script.Parent:WaitForChild("Acciones"))
-	local boton = Acciones.CrearBoton("linterna", 2)
+	local boton = Acciones.CrearBoton("linterna", 3)
 	local function actualizarVisibilidad()
 		boton.Visible = player:GetAttribute("EnJuego") == true
 	end

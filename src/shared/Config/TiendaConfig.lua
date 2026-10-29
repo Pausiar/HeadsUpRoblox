@@ -4,6 +4,8 @@
 -- Fase 9: la tienda del campamento añade consumibles ("bebida", stock en "bebidas")
 -- y mejoras por niveles ("mejora", nivel en "mejoras"); ni unos ni otros se aplican
 -- como cosmético: solo cambian atributos del Player.
+-- shortcut: los "nombre" del catálogo están en español fijo; con idioma EN la tienda
+-- mezcla idiomas. Mover los nombres a Localization.Strings antes de publicar en inglés.
 local TiendaConfig = {}
 
 TiendaConfig.Moneda = "Piñas"

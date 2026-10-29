@@ -53,6 +53,7 @@ velo.Size = UDim2.fromScale(1, 1)
 velo.BackgroundColor3 = VELO
 velo.BackgroundTransparency = 0.45
 velo.BorderSizePixel = 0
+velo.Active = true -- bloquea clics a la UI de detrás (p. ej. reanimar tras cerrar la carrera)
 velo.Parent = gui
 
 local panel = Instance.new("Frame")

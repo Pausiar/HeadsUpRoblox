@@ -601,6 +601,7 @@ modoPuroBoton.Activated:Connect(function()
 		return
 	end
 	ultimoModoPuro = os.clock()
+	mostrarAviso(L("ranking_solo_puro"), AMARILLO)
 	remoteModoPuro:FireServer(not estadoPases.modoPuro)
 end)
 

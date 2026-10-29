@@ -5,76 +5,22 @@ local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local TerrenoConfig = require(ReplicatedStorage.Shared.Config.TerrenoConfig)
 local TerrenoService = require(script.Parent.TerrenoService)
+local Escenario = require(script.Parent.Escenario)
+local TiendaCampamento = require(script.Parent.TiendaCampamento)
 
 local StageService = {}
 StageService.TotalCheckpoints = 0 -- postes construidos; MatchService cobra exactamente estos
 
 local ANCHO = TerrenoConfig.Camino.Ancho
-local COLOR_MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21
-local COLOR_POSTE = Color3.fromRGB(255, 201, 60) -- #FFC93C
-local COLOR_CARTEL = Color3.fromRGB(245, 235, 216) -- #F5EBD8
-local COLOR_ROCA = Color3.fromRGB(110, 106, 100)
-local COLOR_VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A
-local COLOR_ROJO = Color3.fromRGB(224, 69, 58) -- #E0453A
+local COLOR_MADERA = Escenario.Colores.Madera
+local COLOR_POSTE = Escenario.Colores.Poste
+local COLOR_CARTEL = Escenario.Colores.Cartel
+local COLOR_ROCA = Escenario.Colores.Roca
+local COLOR_VERDE = Escenario.Colores.Verde
+local COLOR_ROJO = Escenario.Colores.Rojo
+local pieza = Escenario.pieza
+local cartelTexto = Escenario.cartelTexto
 
-local function pieza(props)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.CanCollide = props.colision ~= false
-	p.CanQuery = props.consulta ~= false
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.Name = props.nombre
-	p.Size = props.tamano
-	p.CFrame = props.cf
-	p.Color = props.color
-	p.Material = props.material
-	p.Shape = props.forma or Enum.PartType.Block
-	p.Parent = props.padre
-	return p
-end
-
--- Cartel de madera con texto fijo del mundo (el servidor no cambia de idioma).
-local function cartelTexto(props)
-	local tablero = pieza({
-		nombre = props.nombre,
-		tamano = props.tamano,
-		cf = props.cf,
-		color = props.colorTablero or COLOR_MADERA,
-		material = props.material or Enum.Material.Wood,
-		padre = props.padre,
-		colision = false,
-		consulta = false,
-	})
-
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Texto"
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 60
-	gui.Adornee = tablero
-	gui.Parent = tablero
-
-	local texto = Instance.new("TextLabel")
-	texto.Name = "Texto"
-	texto.Size = UDim2.fromScale(1, 1)
-	texto.BackgroundColor3 = props.fondo
-	texto.BorderSizePixel = 0
-	texto.Font = Enum.Font.GothamBlack
-	texto.Text = props.texto
-	texto.TextColor3 = props.colorTexto
-	texto.TextScaled = true
-	texto.TextWrapped = true
-	texto.Parent = gui
-
-	local relleno = Instance.new("UIPadding")
-	relleno.PaddingTop = UDim.new(0.08, 0)
-	relleno.PaddingBottom = UDim.new(0.08, 0)
-	relleno.PaddingLeft = UDim.new(0.06, 0)
-	relleno.PaddingRight = UDim.new(0.06, 0)
-	relleno.Parent = texto
-	return tablero
-end
 
 -- Arco de madera, pancarta, banderines, círculo de piedras y dos antorchas.
 local function construirMeta(carpeta, ruta)
@@ -191,116 +137,6 @@ local function construirMeta(carpeta, ruta)
 	return true
 end
 
--- Puesto del campamento a 12 studs del spawn, dentro de ProteccionInicio.
-local function construirTienda(carpeta, puntoInicio, tangenteInicio)
-	local normal = tangenteInicio:Cross(Vector3.yAxis).Unit
-	local base = puntoInicio.Y - 0.5
-	local centro = Vector3.new(puntoInicio.X, base, puntoInicio.Z) + normal * 12
-	local cfTienda = CFrame.lookAt(centro, centro - normal) -- la cara frontal mira al sendero
-
-	local tienda = Instance.new("Folder")
-	tienda.Name = "TiendaCampamento"
-	tienda.Parent = carpeta
-
-	local mostrador = pieza({
-		nombre = "MostradorTienda",
-		tamano = Vector3.new(6, 1.2, 2.4),
-		cf = cfTienda * CFrame.new(0, 0.6, 0),
-		color = COLOR_MADERA,
-		material = Enum.Material.WoodPlanks,
-		padre = tienda,
-	})
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "TiendaInicio"
-	prompt.ActionText = "ABRIR TIENDA"
-	prompt.ObjectText = "Tienda del campamento"
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 14
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = mostrador
-
-	for _, x in ipairs({ -3.1, 3.1 }) do
-		for _, z in ipairs({ -2.2, 2.2 }) do
-			pieza({
-				nombre = "PosteTienda",
-				tamano = Vector3.new(0.45, 7.2, 0.45),
-				cf = cfTienda * CFrame.new(x, 3.6, z),
-				color = COLOR_MADERA,
-				material = Enum.Material.Wood,
-				padre = tienda,
-				consulta = false,
-			})
-		end
-	end
-
-	pieza({
-		nombre = "CumbreraTienda",
-		tamano = Vector3.new(7, 0.35, 0.35),
-		cf = cfTienda * CFrame.new(0, 7.8, 0),
-		color = COLOR_MADERA,
-		material = Enum.Material.Wood,
-		padre = tienda,
-		consulta = false,
-	})
-
-	-- Toldo a dos aguas: dos paneles inclinados desde la cumbrera hasta el alero.
-	local inclinacion = math.atan2(1.4, 2.8)
-	for _, lado in ipairs({ -1, 1 }) do
-		pieza({
-			nombre = "ToldoTienda",
-			tamano = Vector3.new(7, 0.2, 3.2),
-			cf = cfTienda * CFrame.new(0, 7.3, lado * 1.4) * CFrame.Angles(lado * inclinacion, 0, 0),
-			color = COLOR_CARTEL,
-			material = Enum.Material.Fabric,
-			padre = tienda,
-			colision = false,
-			consulta = false,
-		})
-	end
-
-	cartelTexto({
-		nombre = "CartelTienda",
-		tamano = Vector3.new(4.2, 1.5, 0.25),
-		cf = cfTienda * CFrame.new(0, 5.9, -1.55),
-		texto = string.upper(Localization.L("tienda")),
-		fondo = COLOR_VERDE,
-		colorTablero = COLOR_MADERA,
-		colorTexto = COLOR_CARTEL,
-		padre = tienda,
-	})
-
-	for i, x in ipairs({ -4.3, 4.3 }) do
-		pieza({
-			nombre = "CajaTienda",
-			tamano = Vector3.new(1.2, 1.2, 1.2),
-			cf = cfTienda * CFrame.new(x, 0.6, 1.2 + (i - 1) * 0.35) * CFrame.Angles(0, math.rad(8), 0),
-			color = COLOR_MADERA,
-			material = Enum.Material.WoodPlanks,
-			padre = tienda,
-		})
-	end
-
-	local farolillo = pieza({
-		nombre = "FarolilloTienda",
-		tamano = Vector3.new(0.5, 0.6, 0.5),
-		cf = cfTienda * CFrame.new(0, 7.15, -0.9),
-		color = COLOR_POSTE,
-		material = Enum.Material.Neon,
-		padre = tienda,
-		colision = false,
-		consulta = false,
-	})
-	local luz = Instance.new("PointLight")
-	luz.Color = Color3.fromRGB(255, 214, 120)
-	luz.Brightness = 1
-	luz.Range = 10
-	luz.Shadows = false
-	luz.Parent = farolillo
-
-	return true
-end
-
 -- Idempotente: quita la etapa anterior sin tocar el terreno ni la ruta.
 function StageService.Limpiar()
 	local anterior = workspace:FindFirstChild("Etapa0")
@@ -369,7 +205,7 @@ function StageService.Construir()
 	if not okMeta then
 		warn("[Stage] meta no construida: " .. tostring(errMeta))
 	end
-	local okTienda, errTienda = pcall(construirTienda, carpeta, puntoInicio, tangenteInicio)
+	local okTienda, errTienda = pcall(TiendaCampamento.Construir, carpeta, puntoInicio, tangenteInicio)
 	if not okTienda then
 		warn("[Stage] tienda no construida: " .. tostring(errTienda))
 	end

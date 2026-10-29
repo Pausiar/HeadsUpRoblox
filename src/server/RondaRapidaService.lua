@@ -4,30 +4,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TerrenoConfig = require(ReplicatedStorage.Shared.Config.TerrenoConfig)
 local TerrenoService = require(script.Parent.TerrenoService)
+local Escenario = require(script.Parent.Escenario)
+local TiendaCampamento = require(script.Parent.TiendaCampamento)
 
 local RondaRapidaService = {}
 
 local ANCHO = TerrenoConfig.Camino.Ancho
-local COLOR_MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21
-local COLOR_CARTEL = Color3.fromRGB(245, 235, 216) -- #F5EBD8
-local COLOR_ROCA = Color3.fromRGB(110, 106, 100)
-
-local function pieza(props)
-	local p = Instance.new("Part")
-	p.Anchored = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.Name = props.nombre
-	p.Size = props.tamano
-	p.CFrame = props.cf
-	p.Color = props.color
-	p.Material = props.material
-	if props.forma then
-		p.Shape = props.forma
-	end
-	p.Parent = props.padre
-	return p
-end
+local COLOR_MADERA = Escenario.Colores.Madera
+local COLOR_CARTEL = Escenario.Colores.Cartel
+local COLOR_ROCA = Escenario.Colores.Roca
+local pieza = Escenario.pieza
 
 local function crearSpawn(punto, tangente, padre)
 	local centro = Vector3.new(punto.X, punto.Y - 0.5, punto.Z)
@@ -58,6 +44,12 @@ function RondaRapidaService.ConstruirConSemilla(semilla)
 
 	local puntoInicio, tangenteInicio = ruta:PuntoEnDistancia(0)
 	crearSpawn(puntoInicio, tangenteInicio, carpeta)
+
+	-- La tienda no es crítica para la carrera: un fallo se avisa y no tumba el mapa.
+	local okTienda, errTienda = pcall(TiendaCampamento.Construir, carpeta, puntoInicio, tangenteInicio)
+	if not okTienda then
+		warn("[RondaRapida] tienda no construida: " .. tostring(errTienda))
+	end
 
 	-- Grupos de rocas junto a los bordes, alternando de lado y sin invadir el centro
 	local grupos = rng:NextInteger(6, 9)
@@ -127,7 +119,12 @@ function RondaRapidaService.ConstruirConSemilla(semilla)
 		d += rng:NextNumber(40, 60)
 	end
 
-	print(("[RondaRapida] camino con semilla %d: %d studs, %d grupos de rocas"):format(semilla, ruta.Longitud, grupos))
+	print(("[RondaRapida] camino con semilla %d: %d studs, %d grupos de rocas, tienda %s"):format(
+		semilla,
+		ruta.Longitud,
+		grupos,
+		okTienda and "ok" or "error"
+	))
 	return carpeta
 end
 

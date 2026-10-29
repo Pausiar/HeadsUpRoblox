@@ -13,6 +13,7 @@ local L = Localization.L
 
 local player = Players.LocalPlayer
 local TECLA = Enum.KeyCode.F
+local BOTON_MANDO = Enum.KeyCode.ButtonB
 -- Noche cerrada (fase 9): el haz es la guía principal, así que abre más que el
 -- 35º original y llega más lejos; con el pase gana el mismo +15 % de cono.
 local ANGULO_BASE = 46
@@ -106,7 +107,7 @@ UserInputService.InputBegan:Connect(function(entrada, procesado)
 	if procesado then
 		return
 	end
-	if entrada.KeyCode == TECLA then
+	if entrada.KeyCode == TECLA or entrada.KeyCode == BOTON_MANDO then
 		alternar()
 	end
 end)

@@ -55,32 +55,50 @@ safeArea.PaddingTop = UDim.new(0, inset.Y)
 safeArea.PaddingLeft = UDim.new(0, inset.X)
 safeArea.Parent = gui
 
+-- El panel nominal es 560x600; en pantallas estrechas se escala el conjunto y, si aun así
+-- no cabe (móvil apaisado), el marco lo desplaza en vertical: guardar/volver siempre quedan
+-- al alcance del dedo. El scroll es solo Y para no robar el arrastre horizontal de los sliders.
+-- El suelo 0,9 mantiene los botones de 44 px en ~40 px.
+local marco = Instance.new("ScrollingFrame")
+marco.Name = "MarcoScroll"
+marco.AnchorPoint = Vector2.new(0.5, 0.5)
+marco.Position = UDim2.fromScale(0.5, 0.5)
+marco.BackgroundTransparency = 1
+marco.BorderSizePixel = 0
+marco.ScrollBarThickness = 4
+marco.ScrollBarImageColor3 = CREMA
+marco.ScrollingDirection = Enum.ScrollingDirection.Y
+marco.CanvasSize = UDim2.fromOffset(0, 0)
+marco.Parent = gui
+
 local panel = Instance.new("Frame")
 panel.Name = "Panel"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.AnchorPoint = Vector2.new(0, 0)
+panel.Position = UDim2.fromOffset(0, 0)
 panel.Size = UDim2.fromOffset(560, 600)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
-panel.Parent = gui
+panel.Parent = marco
 
 local esquinaPanel = Instance.new("UICorner")
 esquinaPanel.CornerRadius = UDim.new(0, 16)
 esquinaPanel.Parent = panel
 
--- El panel nominal es 560x600; en pantallas estrechas se escala el conjunto para no recortar
--- (patrón LobbyUI). Texto base dimensionado para que a 0,68 siga siendo legible en móvil.
--- shortcut: panel fijo sin scroll; a 568x320 la escala llega a 0,68 y las filas inferiores
--- (guardar/volver) pueden quedar fuera del área táctil. Revisar en móvil apaisado real;
--- si se recortan botones, pasar el contenido a ScrollingFrame.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()
-	local ancho, alto = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+	-- safeArea solo añade inset superior e izquierdo, así que el área útil es la del gui menos eso.
+	local ancho = gui.AbsoluteSize.X - inset.X
+	local alto = gui.AbsoluteSize.Y - inset.Y
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 600, alto / 640), 0.68, 1)
+	escala.Scale = math.clamp(math.min(ancho / 600, alto / 640), 0.9, 1)
+	local anchoPanel = 560 * escala.Scale
+	local altoPanel = 600 * escala.Scale
+	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
+	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
+	marco.ScrollingEnabled = altoPanel > alto
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()

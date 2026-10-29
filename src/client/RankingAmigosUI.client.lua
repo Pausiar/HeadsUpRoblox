@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
@@ -75,11 +76,15 @@ local botonAmigos = Instance.new("TextButton")
 botonAmigos.Name = "BotonAmigos"
 botonAmigos.Size = UDim2.fromOffset(140, 48)
 botonAmigos.AnchorPoint = Vector2.new(1, 1)
+-- En móvil el salto de Roblox ocupa la esquina inferior derecha (70x70 + margen):
+-- el botón sube por encima para no taparlo (iPhone 17 Pro: 586-726 x 251-299
+-- solapaba el salto en 655-725 x 233-303).
+local margenInferior = 24 + insetInf.Y + (UserInputService.TouchEnabled and 96 or 0)
 botonAmigos.Position = UDim2.new(
 	1,
 	-(24 + insetInf.X),
 	1,
-	-(24 + insetInf.Y)
+	-margenInferior
 )
 botonAmigos.BackgroundColor3 = MARRON_TARJETA
 botonAmigos.BorderSizePixel = 0

@@ -13,6 +13,7 @@ MonetizacionConfig.Pases = {
 	{
 		id = "ranuras_ropa",
 		nombre = "Ranuras de camiseta (3 → 9)",
+		nombreClave = "item_ranuras_ropa",
 		tipo = "pase",
 		paseId = 0,
 		precioRobux = 149,
@@ -23,6 +24,7 @@ MonetizacionConfig.Pases = {
 	{
 		id = "linterna_pro",
 		nombre = "Linterna Pro (+15% de cono)",
+		nombreClave = "item_linterna_pro",
 		tipo = "pase",
 		paseId = 0,
 		precioRobux = 149,
@@ -32,6 +34,7 @@ MonetizacionConfig.Pases = {
 	{
 		id = "botas_agarre",
 		nombre = "Botas de agarre (+8% de adherencia)",
+		nombreClave = "item_botas_agarre",
 		tipo = "pase",
 		paseId = 0,
 		precioRobux = 149,
@@ -41,17 +44,19 @@ MonetizacionConfig.Pases = {
 	},
 	{
 		id = "mochila_pro",
-		nombre = "Mochila Pro (+1 espacio de inventario)",
+		nombre = "Mochila Pro (+1 bebida)",
+		nombreClave = "item_mochila_pro",
 		tipo = "pase",
 		paseId = 0,
 		precioRobux = 199,
 		efecto = "mochilaPro",
-		-- No hay sistema de inventario en la v1: no se vende algo sin efecto.
-		disponible = false,
+		-- +1 al tope de bebidas (5 → 6); TiendaService lo aplica y Modo Puro lo anula.
+		disponible = true,
 	},
 	{
 		id = "club_montanero",
 		nombre = "Club Montañero (suscripción)",
+		nombreClave = "item_club_montanero",
 		tipo = "suscripcion",
 		paseId = 0,
 		precioRobux = 0,
@@ -64,6 +69,7 @@ MonetizacionConfig.Productos = {
 	{
 		id = "pinas_x2",
 		nombre = "Doble de Piñas (30 min)",
+		nombreClave = "item_pinas_x2",
 		tipo = "producto",
 		productoId = 0,
 		precioRobux = 49,
@@ -74,6 +80,7 @@ MonetizacionConfig.Productos = {
 	{
 		id = "reanimacion_personal",
 		nombre = "Reanimación personal",
+		nombreClave = "item_reanimacion_personal",
 		tipo = "producto",
 		productoId = 0,
 		precioRobux = 25,
@@ -86,6 +93,7 @@ MonetizacionConfig.Productos = {
 	{
 		id = "pack_sombreros",
 		nombre = "Pack de sombreros",
+		nombreClave = "item_pack_sombreros",
 		tipo = "producto",
 		productoId = 0,
 		precioRobux = 199,

@@ -236,6 +236,17 @@ Antes de publicar, el responsable de QA firma: smoke pasado, P0 = 0, P1 = 0 o co
 
 Lo que consta en `docs/skill-log.md` como verificado en Studio: lobby 2–8 y ranking con fallback, partida completa y reintento, checkpoints, reanimación, tienda de Piñas, personalización y ropa, pases/productos por seams, reanimación personal, Modo Puro, telemetría activa y cambio ES/EN en varias pantallas. No consta una partida completa con rapto y rescate de El Doble, ni 8 jugadores reales, ni móvil real, ni DataStore real, ni compra real de Robux, ni amigos reales, ni telemetría agregada en producción. Esos casos quedan como pendientes de ejecución, no como aprobados.
 
+Evidencia nueva de la fase 10 (2026-10-29, Studio):
+
+| Prueba | Resultado | Evidencia |
+| --- | --- | --- |
+| Hitch de tesela (rampa sintética a 500 studs/s) | **115 ms** máximo, 54–62 ms típico, 6–7 teselas/s; dentro del presupuesto de 150 ms | Consola de la sesión; `docs/skill-log.md` |
+| 3 clientes simultáneos (Servidor y clientes) | Los 3 entran al lobby, marcan listo, arranca la cuenta atrás y la partida; HUD por jugador y ranking con 3 a 0; sin errores | Capturas de la sesión; `docs/skill-log.md` |
+| UI en Samsung Galaxy A06 (705×338) | Menú completo con SALIR sin scroll (escala 0,7); lobby, personalización y ajustes con scroll vertical; botones alcanzables | Capturas `A06_menu_final`, `A06_personalizacion_bottom` |
+| UI en iPhone 17 Pro (750×381) | Menú completo; AMIGOS movido a y=155 y sin solape con el salto (655,233 70×70) | Capturas `iPhone17_menu`, `iPhone17_menu_amigos_fix`; `[TOUCH] overlapJump=false` |
+
+Sigue pendiente de ejecución real: partida de 8 por Historia, FPS en móvil de gama media, mando, 1.ª persona, Modo Puro en producción, DataStore/ranking/telemetría reales y compra real. Instrucciones en `docs/pendiente-usuario.md`.
+
 ## 14. Enlaces de referencia
 
 - AnalyticsService: https://create.roblox.com/docs/reference/engine/classes/AnalyticsService

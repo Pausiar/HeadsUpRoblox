@@ -39,18 +39,52 @@ velo.BackgroundTransparency = 1 -- funde hasta 0.25 al entrar
 velo.BorderSizePixel = 0
 velo.Parent = gui
 
+-- El panel nominal es 480x470; en pantallas estrechas se escala el conjunto y, si aun así
+-- no cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza: SALIR nunca
+-- queda fuera del área táctil. Los botones miden 56 px, así que el suelo 0,7 los deja en
+-- ~39 px y permite que el panel entero quepa en el A06 sin scroll.
+local marco = Instance.new("ScrollingFrame")
+marco.Name = "MarcoScroll"
+marco.AnchorPoint = Vector2.new(0.5, 0.5)
+marco.Position = UDim2.fromScale(0.5, 0.5)
+marco.BackgroundTransparency = 1
+marco.BorderSizePixel = 0
+marco.ScrollBarThickness = 4
+marco.ScrollBarImageColor3 = CREMA
+marco.ScrollingDirection = Enum.ScrollingDirection.Y
+marco.CanvasSize = UDim2.fromOffset(0, 0)
+marco.Parent = velo
+
 local panel = Instance.new("Frame")
 panel.Name = "PanelMenu"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.AnchorPoint = Vector2.new(0, 0)
+panel.Position = UDim2.fromOffset(0, 0)
 panel.Size = UDim2.fromOffset(480, 470)
 panel.BackgroundColor3 = MADERA_PANEL
 panel.BorderSizePixel = 0
-panel.Parent = velo
+panel.Parent = marco
 
 local esquina = Instance.new("UICorner")
 esquina.CornerRadius = UDim.new(0, 18)
 esquina.Parent = panel
+
+local escala = Instance.new("UIScale")
+escala.Parent = panel
+local function ajustarEscala()
+	local ancho = gui.AbsoluteSize.X
+	local alto = gui.AbsoluteSize.Y
+	if ancho <= 0 or alto <= 0 then
+		return
+	end
+	escala.Scale = math.clamp(math.min(ancho / 520, alto / 510), 0.7, 1)
+	local anchoPanel = 480 * escala.Scale
+	local altoPanel = 470 * escala.Scale
+	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
+	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
+	marco.ScrollingEnabled = altoPanel > alto
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
+ajustarEscala()
 
 local function etiqueta(pos, altura, texto, tamano, fuente, color)
 	local t = Instance.new("TextLabel")

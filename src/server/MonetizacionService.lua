@@ -80,6 +80,7 @@ local function estadoDe(player)
 		pases = {
 			ranurasRopa = poseidos.ranurasRopa == true,
 			linternaPro = poseidos.linternaPro == true,
+			mochilaPro = poseidos.mochilaPro == true,
 		},
 		reanimaciones = math.max(0, math.floor(tonumber(datos.reanimacionesPersonales) or 0)),
 		pinasX2Hasta = tonumber(datos.pinasX2Hasta) or 0,

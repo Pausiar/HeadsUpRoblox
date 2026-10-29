@@ -29,13 +29,25 @@ local accesorios
 local personalizacion
 local telemetriaService
 local playerState
+local monetizacion
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
 local cargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
 
 -- Topes del catálogo, para sanear lo persistido (un DataStore manipulado no puede
--- dar más stock ni niveles que los máximos de TiendaConfig).
-local TOPE_BEBIDAS = 5
+-- dar más stock ni niveles que los máximos de TiendaConfig). El tope absoluto de
+-- bebidas incluye la Mochila Pro (+1), que Modo Puro anula.
+local bebidaCatalogo = TiendaConfig.PorId("bebida_energetica")
+local BEBIDAS_BASE = bebidaCatalogo and bebidaCatalogo.maximo or 5
+local TOPE_BEBIDAS = BEBIDAS_BASE + 1
 local TOPE_MEJORAS = 3
+
+local function limiteBebidas(player)
+	if monetizacion and player and not monetizacion.EsModoPuro(player)
+		and monetizacion.TienePase(player, "mochilaPro") then
+		return TOPE_BEBIDAS
+	end
+	return BEBIDAS_BASE
+end
 
 -- Fuente única de compras: DataService.Obtener(player).comprados (lista de ids).
 -- Sin caché aparte (plan §3.3: todo por datos). Inicializa la lista si es nil.
@@ -49,8 +61,8 @@ end
 
 -- Lectura pura del progreso de consumo: no escribe en la caché (publicar corre
 -- antes de que DataService termine de cargar y escribir ahí bloquearía el merge).
-local function estadoConsumo(datos)
-	local bebidas = math.clamp(math.floor(tonumber(datos.bebidas) or 0), 0, TOPE_BEBIDAS)
+local function estadoConsumo(datos, player)
+	local bebidas = math.clamp(math.floor(tonumber(datos.bebidas) or 0), 0, limiteBebidas(player))
 	local mejoras = type(datos.mejoras) == "table" and datos.mejoras or {}
 	local monedas = math.clamp(math.floor(tonumber(mejoras.monedas) or 0), 0, TOPE_MEJORAS)
 	local aguante = math.clamp(math.floor(tonumber(mejoras.aguante) or 0), 0, TOPE_MEJORAS)
@@ -61,7 +73,7 @@ end
 -- a partir de aquí "bebidas" y "mejoras" existen siempre y en rango.
 local function datosJugador(player)
 	local datos = dataService.Obtener(player)
-	local bebidas, monedas, aguante = estadoConsumo(datos)
+	local bebidas, monedas, aguante = estadoConsumo(datos, player)
 	if type(datos.mejoras) ~= "table" then
 		datos.mejoras = {}
 	end
@@ -74,7 +86,7 @@ end
 -- Atributos que leen la TiendaUI y Estamina: stock de bebidas, factor de cansancio
 -- (1 = normal, 0,55 con las Botas ligeras al máximo) y multiplicador de Piñas.
 local function publicar(player)
-	local bebidas, monedas, aguante = estadoConsumo(dataService.Obtener(player))
+	local bebidas, monedas, aguante = estadoConsumo(dataService.Obtener(player), player)
 	player:SetAttribute("Bebidas", bebidas)
 	player:SetAttribute("Cansancio", math.clamp(1 - 0.15 * aguante, 0.4, 1))
 	player:SetAttribute("MonedasMult", 1 + 0.25 * monedas)
@@ -159,6 +171,9 @@ end
 
 -- Flujo de compra (plan §7): rate limit → validar → consumible/mejora → cosmético
 -- (¿ya comprado? re-equipar gratis → cobrar → guardar → aplicar) → responder.
+-- shortcut: los mensajes de resultado van en español y la UI los enseña tal cual; con
+-- idioma EN la tienda mezcla idiomas. Enviar un código estable y traducirlo en el
+-- cliente (L(codigo)) antes del lanzamiento en inglés.
 local function procesarCompra(player, payload)
 	if not permitirCompra(player) then
 		return
@@ -182,7 +197,7 @@ local function procesarCompra(player, payload)
 	-- Consumible: stock acotado por item.maximo; no entra en "comprados".
 	if item.tipo == "bebida" then
 		local datos = datosJugador(player)
-		if datos.bebidas >= item.maximo then
+		if datos.bebidas >= limiteBebidas(player) then
 			remotoResultado:FireClient(player, { ok = false, mensaje = "Máximo", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
 			return
 		end
@@ -259,6 +274,7 @@ function TiendaService.Iniciar()
 	personalizacion = require(script.Parent.CustomizationService)
 	telemetriaService = require(script.Parent.TelemetriaService)
 	playerState = require(script.Parent.PlayerStateService)
+	monetizacion = require(script.Parent.MonetizacionService)
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)

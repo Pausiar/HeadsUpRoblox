@@ -47,15 +47,31 @@ pad.PaddingBottom = UDim.new(0, insetInf.Y)
 pad.Parent = contenedor
 
 -- Panel nominal 460x480 (bajo el tope de ~520 px): 4 sliders y 2 toggles con
--- objetivos de 44 px. En pantallas cortas el UIScale encoge el conjunto.
+-- objetivos de 44 px. En pantallas cortas se escala el conjunto y, si aun así no
+-- cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza en
+-- vertical para que VOLVER siga al alcance. El scroll es solo Y para no robar
+-- el arrastre horizontal de los sliders. El suelo 0,9 mantiene los controles de
+-- 44 px en ~40 px.
+local marco = Instance.new("ScrollingFrame")
+marco.Name = "MarcoScroll"
+marco.AnchorPoint = Vector2.new(0.5, 0.5)
+marco.Position = UDim2.fromScale(0.5, 0.5)
+marco.BackgroundTransparency = 1
+marco.BorderSizePixel = 0
+marco.ScrollBarThickness = 4
+marco.ScrollBarImageColor3 = CREMA
+marco.ScrollingDirection = Enum.ScrollingDirection.Y
+marco.CanvasSize = UDim2.fromOffset(0, 0)
+marco.Parent = contenedor
+
 local panel = Instance.new("Frame")
 panel.Name = "Panel"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.AnchorPoint = Vector2.new(0, 0)
+panel.Position = UDim2.fromOffset(0, 0)
 panel.Size = UDim2.fromOffset(460, 480)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
-panel.Parent = contenedor
+panel.Parent = marco
 
 local esquinaPanel = Instance.new("UICorner")
 esquinaPanel.CornerRadius = UDim.new(0, 16)
@@ -68,7 +84,12 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 500, alto / 540), 0.7, 1)
+	escala.Scale = math.clamp(math.min(ancho / 500, alto / 540), 0.9, 1)
+	local anchoPanel = 460 * escala.Scale
+	local altoPanel = 480 * escala.Scale
+	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
+	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
+	marco.ScrollingEnabled = altoPanel > alto
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()

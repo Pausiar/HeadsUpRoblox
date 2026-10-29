@@ -54,29 +54,45 @@ local function redondear(objeto, radio)
 	return esquina
 end
 
+-- El panel nominal es 560x540; en pantallas estrechas se escala el conjunto para no recortar.
+-- Si aun así no cabe (móvil apaisado), un ScrollingFrame lo desplaza: los botones nunca
+-- quedan fuera del área táctil. El suelo 0,9 mantiene los botones de 44 px en ~40 px.
+local marco = Instance.new("ScrollingFrame")
+marco.Name = "MarcoScroll"
+marco.AnchorPoint = Vector2.new(0.5, 0.5)
+marco.Position = UDim2.fromScale(0.5, 0.5)
+marco.BackgroundTransparency = 1
+marco.BorderSizePixel = 0
+marco.ScrollBarThickness = 4
+marco.ScrollBarImageColor3 = CREMA
+marco.ScrollingDirection = Enum.ScrollingDirection.XY
+marco.CanvasSize = UDim2.fromOffset(0, 0)
+marco.Parent = gui
+
 local panel = Instance.new("Frame")
 panel.Name = "PanelLobby"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.AnchorPoint = Vector2.new(0, 0)
+panel.Position = UDim2.fromOffset(0, 0)
 panel.Size = UDim2.fromOffset(560, 540)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
-panel.Parent = gui
+panel.Parent = marco
 redondear(panel, 16)
 
--- El panel nominal es 560x540; en pantallas estrechas se escala el conjunto para no recortar.
--- Texto base dimensionado para que a 0,68 (móvil apaisado) siga por encima de 11 px.
--- shortcut: a 0,68 los botones (44 px base) quedan por debajo de 40 px físicos; el reflujo
--- táctil completo (panel compacto) no cabe sin rediseñar: validar en móvil apaisado real
--- antes del soft launch y, si el toque falla, rehacer el panel en versión compacta.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()
-	local ancho, alto = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+	local ancho = gui.AbsoluteSize.X - insetSup.X - insetInf.X
+	local alto = gui.AbsoluteSize.Y - insetSup.Y - insetInf.Y
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 600, alto / 580), 0.68, 1)
+	escala.Scale = math.clamp(math.min(ancho / 600, alto / 580), 0.9, 1)
+	local anchoPanel = 560 * escala.Scale
+	local altoPanel = 540 * escala.Scale
+	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
+	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
+	marco.ScrollingEnabled = anchoPanel > ancho or altoPanel > alto
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()

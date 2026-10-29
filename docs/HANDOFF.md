@@ -1,6 +1,6 @@
 # Handoff — Heads Up! Mountain Mayhem
 
-Estado a **2026-10-29** · rama `main` en `02537b7` · repo `github.com/Pausiar/HeadsUpRoblox`.
+Estado a **2026-10-29** · rama `main` · repo `github.com/Pausiar/HeadsUpRoblox`.
 
 Documento para retomar el trabajo en otro chat. Fuente de verdad del diseño: [`docs/PLAN.md`](PLAN.md).
 Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
@@ -13,6 +13,7 @@ Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
 - **Estado:** jugable de principio a fin en Studio (lobby → partida → meta → resultados), en español e inglés.
 - **No publicado.** Sin DataStore real, sin IDs de monetización, sin audio definitivo.
 - Fases cerradas: 0 (prep/spikes), 1 (vertical slice), 2 (lobby + ranking), 3 (El Doble + chat imitado), 4 (ropa y personalización), 5 (Robux), 6 (audio, móvil, accesibilidad, telemetría, i18n), 7 (docs de lanzamiento), 8 (terreno voxel y rutas), 9 (mundo largo por teselas, meta, tienda, peligros, noche/sustos) y el cierre formal de la 9 (auditoría, ledger, graphify).
+- **Fase 10 en curso:** el QA que no depende de publicar ya está hecho (hitch de teselas, 3 clientes en Studio, UI en A06/iPhone con Device Simulator). Lo que falta necesita tu cuenta o hardware: `docs/pendiente-usuario.md`.
 
 ---
 
@@ -107,48 +108,52 @@ Correcciones que salieron de la auditoría y del repaso de flujos:
 - `graphify update .`: 859 nodos, 1509 aristas, 42 comunidades (AST de código; los docs conservan sus nodos previos, sin reextracción semántica por falta de `GEMINI_API_KEY`).
 - Fila de cierre en `docs/skill-log.md` con la evidencia de `QATestVelocidad`, `QATestDoble` y `QATestBeber`.
 
-### B. Verificación que nunca se ha hecho (riesgo real)
+### B. Verificación de la fase 10 (estado real)
 
-- **2–8 jugadores simultáneos**: hay una partida de 2 en Studio; faltan 3–8 en la misma partida y la prueba con amigos reales.
-- **Móvil real** (la UI táctil y el escalado solo se han mirado en Studio).
+Hecho en Studio:
+
+- **Hitch de teselas:** rampa sintética de distancia a 500 studs/s → frame máximo del servidor **115 ms**, típico 54–62 ms, 6–7 teselas/s. Dentro del presupuesto de 150 ms; no hizo falta bajar `TilesPorTick` ni mover la generación de hilo.
+- **3 clientes en la misma sesión** (Studio «Servidor y clientes»): los tres entran al lobby, listo, cuenta atrás y partida con HUD por jugador (Distancia, Tiempo, Sanos, Puntos, Piñas, Bebidas) y ranking con 3 jugadores a 0. Sin errores en consola. Los checkpoints, Piñas en vivo, rescate de El Doble y reanimación entre clientes siguen sin validar (hace falta playtest real).
+- **UI en móvil simulado:** Samsung Galaxy A06 (705×338) e iPhone 17 Pro (750×381). Menú, lobby, ajustes y personalización caben o se desplazan con `ScrollingFrame`; el botón AMIGOS se movió por encima del salto (antes lo tapaba: 586–726×251–299 contra 655–725×233–303) y ya no se solapa. Menú de inicio baja a escala 0,7 en pantallas cortas y muestra SALIR sin scroll.
+
+Falta (bloqueado por hardware/personas/publicación):
+
+- **4–8 jugadores simultáneos** y partida completa de 8 por Historia.
+- **Móvil real** y **FPS ≥30** en gama media (el Device Simulator no mide rendimiento real).
 - **Mando** y cámara en 1.ª persona.
-- **Rendimiento con 8 jugadores** y streaming de teselas a la vez (el tirón de 0,33–0,44 s al reconstruir el mapa sigue sin medir en carga).
-- **Modo Puro** sin ventajas de pase en partida real (el filtro del ranking ya está implementado y probado en código, no en una partida de 8).
+- **Modo Puro** en una partida real: el filtro del ranking está implementado y verificado en código, no en producción.
+- **DataStore, ranking de amigos y telemetría** reales tras publicar.
 
 ### C. Deuda registrada (marcadores `shortcut:`)
 
-11 marcadores en 10 archivos, todos con disparador de revisión:
+4 marcadores, todos con disparador de revisión:
 
 | Archivo | Qué queda pendiente |
 | --- | --- |
-| `src/client/Acciones.lua` | En pantallas muy estrechas la fila táctil roza el thumbstick |
 | `src/client/Accesibilidad.client.lua` | 140 % no refluye alturas fijas; algunos rótulos se recortan |
-| `src/client/CameraController.client.lua` | La sensibilidad de Ajustes no se aplica en 1.ª persona; el ajuste se muestra y no hace nada |
-| `src/client/CustomizationUI.client.lua` | Panel fijo sin scroll; a 568×320 las filas inferiores pueden quedar fuera del área táctil |
-| `src/client/Estamina.client.lua` | Estamina cliente (ventaja máxima ≈33 % sobre el sprint real); sin bindings de gamepad |
-| `src/client/LobbyUI.client.lua` | Botones de 44 px base quedan por debajo de 40 px físicos a 0,68 |
-| `src/client/ReanimarPersonalUI.client.lua` | Escalado sin validar en hardware real |
-| `src/client/TiendaUI.client.lua` | Por debajo de ~360 px el texto ROBUX vuelve a ~10 px |
+| `src/client/Estamina.client.lua` | Estamina cliente (ventaja máxima ≈33 % sobre el sprint real) |
 | `src/server/AmigosRankingService.lua` | Una consulta lee hasta 50 claves por jugador; vigilar con grupos grandes |
-| `src/shared/Config/TiendaConfig.lua` | Los nombres del catálogo están en español fijo; en EN la tienda mezcla idiomas |
+| `src/server/TiendaService.lua` | Mensajes de resultado en español; con idioma EN la tienda mezcla idiomas |
+
+Cerrada en la fase 10: los paneles de LobbyUI, CustomizationUI, MenuInicio, MenuAjustes y TiendaUI ya escalan con suelo y scroll vertical donde hacía falta; el aviso de ReanimarPersonalUI ya está documentado y el botón AMIGOS esquiva el salto táctil.
 
 Hallazgos de la fase 7 y su estado:
 - `ProcessReceipt` **no comprueba `Activo`**: decisión consciente. Un recibo real debe entregarse aunque el catálogo esté desactivado; para retirar un producto, no reutilizar su ID.
 - El recibo se marca **antes** del guardado asíncrono: riesgo residual solo si el servidor cae entre la caché y el DataStore; el rollback cubre el fallo de entrega.
-- 3 de 5 pases no tienen efecto y están desactivados a propósito (`botas_agarre`, `mochila_pro`, `club_montanero`); no activarlos hasta implementarlos.
+- 2 de 5 pases están desactivados a propósito (`botas_agarre`, `club_montanero`): la v1 no tiene sistema de adherencia y la API de suscripciones no está validada. `mochila_pro`, `ranuras_ropa` y `linterna_pro` sí tienen efecto implementado.
 - Sin DataStore, el ranking de amigos cae a «no disponible» (en Studio es lo normal).
 - Modo Puro ya separa los récords del ranking de amigos (`AmigosRankingService`); falta la prueba con una partida real de 8.
 
 ### D. Bloqueado por el usuario
 
-- Publicar el juego y activar **API Services** (sin eso no hay DataStore real ni telemetría).
-- Crear en el Creator Dashboard los **IDs de 5 pases y 3 productos**, rellenarlos en `MonetizacionConfig` y poner `Activo = true`.
-- Probar una **compra real** (los productos de prueba del dashboard).
-- **Música definitiva** (`AudioConfig.Musica.id = 0`; los efectos usan sonidos nativos de Roblox).
-- **Iconos y thumbnails** de la ficha del juego.
-- Decidir **cuenta personal o de grupo** (afecta a ingresos y servidores privados).
-- Lista de **.obj de Sketchfab con licencia** (spike S2, sin usar aún).
-- 4–8 amigos para el playtest real (el criterio «Hecho cuando» de la fase 3 lo pide).
+Todo el detalle accionable, con pasos y verificaciones esperadas, está en **[`docs/pendiente-usuario.md`](pendiente-usuario.md)**. Resumen:
+
+- Publicar el juego y activar **API Services**.
+- Crear en el Creator Dashboard los **IDs de 3 pases vendibles y 3 productos**, rellenarlos en `MonetizacionConfig` y poner `Activo = true` (las Botas y el Club siguen fuera de la v1).
+- Probar una **compra real** y comprobar el guardado tras rejoin.
+- **Música definitiva**, **iconos/thumbnails** y ficha del juego.
+- Decidir **cuenta personal o de grupo** y si se usan los modelos CC-BY de `assets-source/`.
+- Playtest real de **8 jugadores**, **móvil físico**, **mando** y **Modo Puro** en producción.
 
 ---
 
@@ -185,6 +190,6 @@ src/
 
 ## 8. Siguiente paso sugerido
 
-1. **Fase 10: QA multijugador y rendimiento** — ejecutar la matriz de 2–8 jugadores, móvil real, mando + 1.ª persona, perfilado del streaming y Modo Puro en partida. «Hecho cuando» en `docs/PLAN.md` §9.
-2. **Cerrar la fase 10** con `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
-3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer la prueba de compra real y el smoke de soft launch de `docs/launch/soft-launch.md`.
+1. **Fase 10: cerrar lo que depende de ti** — sigue `docs/pendiente-usuario.md`: publicar + API Services, IDs de monetización, compra real, playtest de 8, móvil físico, mando y Modo Puro en producción. El QA de Studio (hitch, 3 clientes, UI A06/iPhone) ya está hecho y registrado.
+2. **Cerrar la fase 10** cuando A–E del documento estén verdes: `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
+3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer el smoke de soft launch de `docs/launch/soft-launch.md`.

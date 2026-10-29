@@ -1,8 +1,6 @@
--- CameraController (plan §3.5): tercera persona por defecto, tecla V alterna a primera
--- persona con viewmodel mínimo de brazos (madera #5C3A21) y balanceo sutil al caminar.
--- shortcut: la sensibilidad de Settings (10-100 %) aún no se aplica: LockFirstPerson usa la
--- del motor. Aplicarla al pasar la 1ª persona a CameraType Scriptable; revisar antes de
--- publicar, porque el ajuste ya se muestra en MenuAjustes y hoy no hace nada.
+-- CameraController (plan §3.5): tercera persona por defecto, tecla V (o R3) alterna a
+-- primera persona con viewmodel mínimo de brazos (madera #5C3A21) y balanceo sutil al
+-- caminar. La sensibilidad de Ajustes se aplica al ratón con MouseDeltaSensitivity.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -18,6 +16,14 @@ local player = Players.LocalPlayer
 local TERCERA = Enum.CameraMode.Classic
 local PRIMERA = Enum.CameraMode.LockFirstPerson
 local TECLA = Enum.KeyCode.V
+local BOTON_MANDO = Enum.KeyCode.ButtonR3
+
+-- Ajustes 10-100 %: 50 % es la sensibilidad por defecto del motor (1.0).
+local sensibilidad = tonumber(Settings.Obtener("sensibilidad")) or 50
+local function aplicarSensibilidad()
+	UserInputService.MouseDeltaSensitivity = math.clamp(sensibilidad / 50, 0.2, 2)
+end
+aplicarSensibilidad()
 
 -- Etiqueta discreta del atajo (esquina inferior derecha, crema #F5EBD8)
 local gui = Instance.new("ScreenGui")
@@ -44,6 +50,9 @@ local reducirEfectos = Settings.Obtener("reducirEfectos") == true
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave == "reducirEfectos" then
 		reducirEfectos = valor == true
+	elseif clave == "sensibilidad" then
+		sensibilidad = tonumber(valor) or sensibilidad
+		aplicarSensibilidad()
 	elseif clave == "idioma" then
 		Localization.Establecer(valor)
 		aviso.Text = L("v_camara")
@@ -125,7 +134,7 @@ UserInputService.InputBegan:Connect(function(entrada, procesado)
 	if procesado then
 		return
 	end
-	if entrada.KeyCode == TECLA then
+	if entrada.KeyCode == TECLA or entrada.KeyCode == BOTON_MANDO then
 		cambiarModo(not primeraPersona)
 	end
 end)

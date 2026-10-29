@@ -78,10 +78,8 @@ redondear(panel, 16)
 
 -- El panel nominal es 500x440; en pantallas estrechas se escala el conjunto
 -- (mismo patrón que LobbyUI/CustomizationUI) para no recortar el VOLVER.
--- Suelo 0,72 cuando el ancho lo permite: a 0,62 el texto de las tarjetas ROBUX
--- quedaba por debajo de 10 px. En pantallas más estrechas se baja lo justo.
--- shortcut: por debajo de ~360 px de ancho el texto ROBUX vuelve a ~10 px;
--- validar en un dispositivo de 320 px.
+-- Suelo 0,62 cuando el ancho lo permite: a ese tamaño el precio ROBUX (18 px base)
+-- sigue por encima de 11 px físicos incluso en un móvil de 320 px.
 local escala = Instance.new("UIScale")
 escala.Parent = panel
 local function ajustarEscala()
@@ -251,14 +249,32 @@ end
 -- Estado de bebida/mejora: stock o nivel, precio del siguiente nivel y si COMPRAR
 -- está disponible (saldo suficiente y no estar al máximo). Los cosméticos no pasan
 -- por aquí: conservan su flujo EQUIPAR.
+local function nombreItem(item)
+	return item.nombreClave and L(item.nombreClave) or item.nombre
+end
+
+-- Tope de bebidas: 5 base + 1 con Mochila Pro; Modo Puro anula la ventaja.
+local function maxBebidas(item)
+	if estadoPases.pases and estadoPases.pases.mochilaPro == true and estadoPases.modoPuro ~= true then
+		return (item.maximo or 5) + 1
+	end
+	return item.maximo or 5
+end
+
 local function refrescarTarjeta(registro)
 	local item = registro.item
+	if registro.nombre then
+		registro.nombre.Text = nombreItem(item)
+	end
 	if item.tipo == "bebida" then
-		local stock = tonumber(player:GetAttribute("Bebidas")) or 0
-		local alMaximo = stock >= item.maximo
+		local tope = maxBebidas(item)
+		-- Modo Puro recorta el tope sin borrar la 6.ª bebida de Mochila Pro: se acota
+		-- también el número para no enseñar «6/5».
+		local stock = math.min(tonumber(player:GetAttribute("Bebidas")) or 0, tope)
+		local alMaximo = stock >= tope
 		registro.descripcion.Text = L(item.descripcionClave)
-		registro.estado.Text = L("bebidas") .. ": " .. stock .. "/" .. item.maximo
-		registro.precio.Text = alMaximo and L("maximo"):upper() or ("%d %s"):format(item.precio, TiendaConfig.Moneda)
+		registro.estado.Text = L("bebidas") .. ": " .. stock .. "/" .. tope
+		registro.precio.Text = alMaximo and L("maximo"):upper() or ("%d %s"):format(item.precio, L(TiendaConfig.MonedaClave))
 		registro.habilitado = not alMaximo and pinasActuales >= item.precio
 	elseif item.tipo == "mejora" then
 		local nivel = nivelMejora(item)
@@ -269,7 +285,7 @@ local function refrescarTarjeta(registro)
 			registro.precio.Text = L("maximo"):upper()
 			registro.habilitado = false
 		else
-			registro.precio.Text = ("%d %s"):format(siguiente, TiendaConfig.Moneda)
+			registro.precio.Text = ("%d %s"):format(siguiente, L(TiendaConfig.MonedaClave))
 			registro.habilitado = pinasActuales >= siguiente
 		end
 	else
@@ -307,7 +323,7 @@ local function crearTarjetaPinas(item, columna, fila)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
 	nombre.TextSize = 17
-	nombre.Text = item.nombre
+	nombre.Text = nombreItem(item)
 	nombre.TextColor3 = CREMA
 	nombre.TextXAlignment = Enum.TextXAlignment.Left
 	nombre.TextTruncate = Enum.TextTruncate.AtEnd
@@ -345,7 +361,7 @@ local function crearTarjetaPinas(item, columna, fila)
 	boton.Parent = tarjeta
 	redondear(boton, 8)
 
-	local registro = { item = item, boton = boton, comprado = false, precio = precio }
+	local registro = { item = item, nombre = nombre, boton = boton, comprado = false, precio = precio }
 	table.insert(registrosPinas, registro)
 	boton.Activated:Connect(function()
 		if registro.habilitado == false then
@@ -385,7 +401,7 @@ local function crearTarjetaPinas(item, columna, fila)
 
 		refrescarTarjeta(registro)
 	else
-		precio.Text = ("%d %s"):format(item.precio, TiendaConfig.Moneda)
+		precio.Text = ("%d %s"):format(item.precio, L(TiendaConfig.MonedaClave))
 	end
 end
 
@@ -470,6 +486,9 @@ local ultimaCompraRobux = 0
 local function actualizarBotonRobux(registro)
 	local item = registro.item
 	local boton = registro.boton
+	if registro.nombre then
+		registro.nombre.Text = nombreItem(item)
+	end
 	local poseido = item.tipo == "pase"
 		and type(estadoPases.pases) == "table"
 		and estadoPases.pases[item.efecto] == true
@@ -515,7 +534,7 @@ local function crearTarjetaRobux(item, orden)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
 	nombre.TextSize = 16
-	nombre.Text = item.nombre
+	nombre.Text = nombreItem(item)
 	nombre.TextColor3 = CREMA
 	nombre.TextXAlignment = Enum.TextXAlignment.Left
 	nombre.TextYAlignment = Enum.TextYAlignment.Top
@@ -527,7 +546,7 @@ local function crearTarjetaRobux(item, orden)
 	precio.Position = UDim2.fromOffset(10, 42)
 	precio.BackgroundTransparency = 1
 	precio.Font = Enum.Font.GothamBold
-	precio.TextSize = 17
+	precio.TextSize = 18
 	local precioRobux = tonumber(item.precioRobux) or 0
 	if precioRobux > 0 then
 		precio.Text = ("%d %s"):format(precioRobux, MonetizacionConfig.Moneda or "Robux")
@@ -549,7 +568,7 @@ local function crearTarjetaRobux(item, orden)
 	boton.Parent = tarjeta
 	redondear(boton, 8)
 
-	local registro = { item = item, boton = boton, habilitado = false }
+	local registro = { item = item, nombre = nombre, boton = boton, habilitado = false }
 	boton.Activated:Connect(function()
 		if not registro.habilitado then
 			return
@@ -721,6 +740,7 @@ remotePaseEstado.OnClientEvent:Connect(function(datos)
 	for _, registro in pairs(registrosRobux) do
 		actualizarBotonRobux(registro)
 	end
+	refrescarTarjetas()
 	refrescarEstadoRobux()
 end)
 

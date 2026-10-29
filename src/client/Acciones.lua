@@ -1,8 +1,6 @@
 -- Botones táctiles compartidos por Estamina, Linterna y CameraController.
 -- Una sola fila abajo-centro (56x56, fuera del thumbstick y del salto por defecto).
 -- Solo se requiere desde clientes con TouchEnabled; el estilo sigue el ADN visual.
--- shortcut: en pantallas muy estrechas la fila puede rozar la zona del thumbstick;
--- validar en móvil real (pantalla de 320 px) antes del soft launch.
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34,6 +32,18 @@ fila.Size = UDim2.fromOffset(0, 56)
 fila.AutomaticSize = Enum.AutomaticSize.X
 fila.BackgroundTransparency = 1
 fila.Parent = gui
+
+-- En pantallas estrechas la fila se sube por encima de la zona del thumbstick
+-- (móvil de 320 px); en el resto se queda abajo-centro.
+local ANCHO_ESTRECHO = 480
+local ALTURA_SOBRE_MANDO = 150
+local function ajustarPosicion()
+	local ancho = gui.AbsoluteSize.X
+	local margen = ancho > 0 and ancho < ANCHO_ESTRECHO and ALTURA_SOBRE_MANDO or 16
+	fila.Position = UDim2.new(0.5, 0, 1, -(margen + insetInf.Y))
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarPosicion)
+ajustarPosicion()
 
 local lista = Instance.new("UIListLayout")
 lista.FillDirection = Enum.FillDirection.Horizontal

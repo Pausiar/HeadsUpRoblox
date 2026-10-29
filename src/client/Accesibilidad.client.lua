@@ -1,8 +1,9 @@
 -- Accesibilidad (plan §8): escala de texto global sobre toda la PlayerGui.
 -- La escala se aplica sobre el TextSize base guardado UNA vez por etiqueta, así cambiar
 -- el ajuste varias veces nunca acumula. Las etiquetas con TextScaled=true se ignoran.
--- shortcut: escala TextSize sin reflujo de alturas fijas; a 140 % algunos rótulos de
--- 18–22 px pueden recortarse. Validar a 140 % en móvil real antes del soft launch.
+-- El tamaño se recorta al mayor que cabe en su caja: a 140 % nada queda cortado.
+-- shortcut: el tope evita recortes, pero no refluye alturas fijas; validar a 140 % en
+-- móvil real antes del soft launch.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,7 +30,13 @@ local function aplicar(objeto)
 		base = objeto.TextSize
 		objeto:SetAttribute(ATRIBUTO_BASE, base)
 	end
-	objeto.TextSize = math.max(1, math.floor(base * escala / 100 + 0.5))
+	local objetivo = math.max(1, math.floor(base * escala / 100 + 0.5))
+	objeto.TextSize = objetivo
+	-- Si el texto no cabe en su caja, baja hasta el tamaño base: mejor texto base
+	-- que un rótulo cortado. TextFits se actualiza al escribir TextSize.
+	while objeto.TextSize > base and not objeto.TextFits do
+		objeto.TextSize -= 1
+	end
 end
 
 local function aplicarTodo()

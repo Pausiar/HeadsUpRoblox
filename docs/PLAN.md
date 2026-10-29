@@ -165,11 +165,13 @@ Cosméticos primero. La comodidad es ayuda para disfrutar, no para saltarse el j
 | Comodidad | Reanimación personal (1 por partida) | Producto de desarrollador, consumible | 25 / pack de 5 a 99 |
 | Comodidad | Baliza personal de checkpoint en Historia | Pase | 149 |
 | Comodidad | Doble de Piñas durante 30 min | Producto | 49 |
-| Ventaja ligera | Mochila Pro: +1 espacio de inventario (4→5) | Pase | 199 |
+| Ventaja ligera | Mochila Pro: +1 bebida (5→6) | Pase | 199 |
 | Ventaja ligera | Botas de agarre: +8% de adherencia en pendientes | Pase | 149 |
 | Ventaja ligera | Linterna Pro: cono hasta +15% y color propio | Pase | 149 |
 | Social | Servidores privados de pago (ideal para grupos de amigos) | Función de Roblox | A decidir |
 | Recurrente | Club Montañero (suscripción): cosméticos mensuales y etiqueta VIP | Suscripción | A validar |
+
+Nota de la v1: **Botas de agarre** y **Club Montañero** quedan fuera de la tienda (`disponible = false`). Las botas necesitan un sistema de adherencia en pendientes que la v1 no tiene, y vender un pase sin efecto sería engañoso; el club exige validar la API de suscripciones en el Creator Dashboard antes de publicarlo. Ranuras de camiseta, Linterna Pro y Mochila Pro sí tienen efecto implementado y Modo Puro los anula.
 
 ### 7.3 Guardarraíles de equilibrio
 
@@ -226,6 +228,8 @@ Estimación orientativa, a validar tras los spikes: la v1 jugable (fases 0–3) 
 - **Rendimiento:** perfilar `TerrenoService` con 8 jugadores; una tesela por tick no puede bloquear el servidor más de 150 ms. Si lo supera, generar por presupuesto de tiempo o mover la construcción a un hilo aparte.
 - **Modo Puro:** partida sin ventajas de pase; el ranking de amigos no registra marcas con ventajas.
 - **Regresión:** la matriz `docs/launch/qa-matrix.md` se amplía con estos casos y se marca cada uno con evidencia.
+
+**Estado (2026-10-29):** en curso. Hecho en Studio: tesela ≤115 ms, 3 clientes simultáneos y UI en A06/iPhone (con el solape AMIGOS/salto corregido); evidencia en `docs/launch/qa-matrix.md` §13. Pendiente de hardware/publicación: partida de 8, móvil físico y FPS, mando, 1.ª persona y Modo Puro real; pasos en `docs/pendiente-usuario.md`.
 
 ## 10. Reparto de trabajo entre GLM-5.3 y Flash
 

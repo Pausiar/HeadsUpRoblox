@@ -15,9 +15,10 @@ local AmigosRankingService = {}
 local MAX_REINTENTOS = 3 -- intentos extra de escritura (backoff 1-2-4 s)
 -- shortcut: una consulta lee hasta MaxAmigos claves (50) por jugador; si varios jugadores
 -- refrescan a la vez se agota el cupo por minuto y la lista sale parcial (sin error).
--- La caché de marcas por userId amortigua el caso normal: el grupo suele compartir amigos.
--- Revisar si un servidor pasa de ~8 jugadores o si el ranking tarda >60 s en refrescar.
-local ESPERA_LECTURA = 0.05 -- s entre GetAsync de amigos (presupuesto de DataStore)
+-- La caché de marcas y la cola con espaciado global evitan lecturas duplicadas; el grupo
+-- suele compartir amigos. Revisar si un servidor pasa de ~8 jugadores o si el ranking
+-- tarda >60 s en refrescar.
+local ESPERA_LECTURA = 0.05 -- s entre GetAsync, compartido por todos los jugadores
 local MSG_SIN_API = "Ranking no disponible en Studio"
 local MSG_ERROR = "No se pudo cargar el ranking; inténtalo más tarde"
 
@@ -27,11 +28,24 @@ local mejores = {} -- [player] = mejor distancia de la sesión (optimista)
 local cache = {} -- [player] = { t = os.clock(), payload = ... }
 local enVuelo = {} -- [player] = true mientras se construye su ranking
 local marcas = {} -- [userId] = { t, valor } compartida entre jugadores del servidor
+local leyendo = {} -- [userId] = true mientras un GetAsync de esa clave está en curso
+local siguienteLectura = 0 -- os.clock() del próximo hueco de la cola global
 
 local remotoRanking
 
 local function claveDe(userId)
 	return Config.PrefijoClave .. tostring(userId)
+end
+
+-- Espacia las lecturas de todos los jugadores, no una cola por jugador: así una
+-- partida de 8 no multiplica por 8 el ritmo contra el DataStore.
+local function turnoLectura()
+	local ahora = os.clock()
+	local cuando = math.max(ahora, siguienteLectura)
+	siguienteLectura = cuando + ESPERA_LECTURA
+	if cuando > ahora then
+		task.wait(cuando - ahora)
+	end
 end
 
 -- Mismos mensajes que DataService: Studio sin API o servidor sin DataStore.
@@ -57,9 +71,21 @@ local function leerMarca(userId)
 	if guardada and os.clock() - guardada.t < Config.CacheSegundos then
 		return guardada.valor or nil
 	end
+	-- Otra petición ya está leyendo esta clave: esperar a que la caché se llene
+	-- evita un GetAsync duplicado (varios jugadores comparten amigos).
+	while leyendo[userId] do
+		task.wait(ESPERA_LECTURA)
+		guardada = marcas[userId]
+		if guardada and os.clock() - guardada.t < Config.CacheSegundos then
+			return guardada.valor or nil
+		end
+	end
+	leyendo[userId] = true
+	turnoLectura()
 	local ok, res = pcall(function()
 		return tienda:GetAsync(claveDe(userId))
 	end)
+	leyendo[userId] = nil
 	if ok then
 		local valor = tonumber(res)
 		marcas[userId] = { t = os.clock(), valor = valor or false }
@@ -201,7 +227,6 @@ local function construirAmigos(player, propia)
 			if marca and marca > 0 then
 				entradas[#entradas + 1] = entrada(amigo.nombre, marca, false)
 			end
-			task.wait(ESPERA_LECTURA) -- presupuesto de DataStore
 		end
 	end
 	return topConJugador(entradas, propia)

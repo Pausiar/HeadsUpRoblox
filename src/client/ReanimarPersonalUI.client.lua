@@ -65,9 +65,9 @@ panel.Parent = gui
 redondear(panel, 14)
 
 -- El panel nominal es 320 de ancho: en pantallas más estrechas se encoge para no
--- recortarse. Suelo 0,84 = 48 px de botón x 0,84 ≈ 40 px físicos (mínimo táctil).
--- shortcut: el escalado no se ha mirado en hardware real; validar en dispositivo
--- (pantalla de 320 px) antes del soft launch.
+-- recortarse. Suelo 0,84 = 48 px de botón x 0,84 ≈ 40 px físicos (mínimo táctil);
+-- a 320 px de ancho el panel queda en 269 px, así que cabe. La comprobación en un
+-- dispositivo real está listada en docs/pendiente-usuario.md (QA de hardware).
 local escalaPanel = Instance.new("UIScale")
 escalaPanel.Parent = panel
 local function ajustarEscala()

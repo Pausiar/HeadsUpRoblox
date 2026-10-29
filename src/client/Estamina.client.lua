@@ -7,8 +7,6 @@
 -- shortcut: la estamina sigue siendo cliente (ventaja máxima ≈33 % sobre el sprint real);
 -- mover el movimiento a servidor (control custom, plan §3.5) si el sprint se vuelve
 -- ventaja de pago o si aparece un exploit de movimiento en producción.
--- shortcut: sin bindings de gamepad (sprint/beber/linterna/cámara solo teclado y táctil);
--- revisar antes del lanzamiento en consola, donde no hay teclado ni pantalla táctil.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,6 +21,8 @@ Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
 
 local player = Players.LocalPlayer
+local BOTON_SPRINT = Enum.KeyCode.ButtonL3
+local BOTON_BEBER = Enum.KeyCode.ButtonY
 local remotoBeber = Remotes.Esperar(Remotes.Nombres.BeberBebida)
 local remotoBebidaResultado = Remotes.Esperar(Remotes.Nombres.BebidaResult)
 
@@ -195,19 +195,19 @@ end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end -- un TextBox u otro sistema se quedó la tecla
-	if input.KeyCode == Enum.KeyCode.Q then
+	if input.KeyCode == Enum.KeyCode.Q or input.KeyCode == BOTON_BEBER then
 		-- Solo en partida y en pie: el servidor lo revalida igualmente.
 		if puedeBeber() then
 			remotoBeber:FireServer() -- el servidor valida stock y limita a 1/s
 		end
 		return
 	end
-	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
+	if input.KeyCode ~= Enum.KeyCode.LeftShift and input.KeyCode ~= BOTON_SPRINT then return end
 	iniciarSprint()
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode ~= Enum.KeyCode.LeftShift then return end
+	if input.KeyCode ~= Enum.KeyCode.LeftShift and input.KeyCode ~= BOTON_SPRINT then return end
 	detenerSprint()
 end)
 

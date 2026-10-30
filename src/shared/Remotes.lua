@@ -48,6 +48,9 @@ Remotes.Nombres = {
 	-- Fase 11 · E43: estamina autoritativa en el servidor
 	Sprint = "Sprint", -- client -> server: boolean, intención de esprintar (limitado)
 	EstaminaEstado = "EstaminaEstado", -- server -> client: { estamina, max, esprintando, bloqueado }
+
+	-- Fase 11 · E46: eventos de UI que solo el cliente conoce (validados contra la lista)
+	TelemetriaUI = "TelemetriaUI", -- client -> server: nombre de evento declarado en EventosUI
 }
 
 function Remotes.Crear(nombre)

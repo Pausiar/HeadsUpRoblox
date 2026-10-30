@@ -299,11 +299,11 @@ Creator Dashboard > Creations > experiencia > **Analytics**. Secciones: Overview
 
 | Tipo | Nombres |
 | --- | --- |
-| Eventos personalizados | `PartidaInicio`, `PartidaFin`, `Reanimacion`, `Checkpoint`, `Rapto`, `Compra`, `ReanimacionPersonal` |
+| Eventos personalizados | `PartidaInicio`, `PartidaFinHistoria`, `PartidaFinRapida`, `PartidaFin` (respaldo), `Reanimacion`, `Checkpoint`, `Rapto`, `Compra`, `ReanimacionPersonal`, `TiendaAbierta`, `TiendaPestanaPinas`, `TiendaPestanaRobux`, `DatosFallo` |
 | Embudo | `PrimeraPartida`: `Lobby` → `PrimeraEtapa` → `PrimerCheckpoint` → `PartidaCompletada` |
 | Economía | Moneda `Pinas`; fuente `Partida`; sumidero `Tienda` |
 
-`src/server/TelemetriaService.lua` los envía con `AnalyticsService` desde el servidor, en `pcall`, sin nombres de jugador ni texto libre. `PartidaInicio`, `PartidaFin`, `Checkpoint`, `Reanimacion`, `Rapto`, `Compra` y `ReanimacionPersonal` se emiten desde los servicios correspondientes.
+`src/server/TelemetriaService.lua` los envía con `AnalyticsService` desde el servidor, en `pcall`, sin nombres de jugador ni texto libre. Todos los eventos se emiten desde el servidor: los de tienda llegan por el remoto `TelemetriaUI` con una lista blanca de `TelemetriaConfig.EventosUI` y límite de frecuencia; el cliente no puede inventar nombres ni disparar eventos de partida.
 
 ### 9.3 Reglas de la plataforma
 

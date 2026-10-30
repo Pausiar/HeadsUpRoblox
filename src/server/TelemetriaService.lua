@@ -6,7 +6,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AnalyticsService = game:GetService("AnalyticsService")
+local RunService = game:GetService("RunService")
 
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 
 local TelemetriaService = {}
@@ -28,6 +31,12 @@ end
 local eventosValidos = {}
 for _, nombre in pairs(TelemetriaConfig.Eventos) do
 	eventosValidos[nombre] = true
+end
+
+-- El remoto del cliente solo admite el subconjunto de UI (E46).
+local eventosUIValidos = {}
+for nombre in pairs(TelemetriaConfig.EventosUI) do
+	eventosUIValidos[nombre] = true
 end
 
 local function jugadorValido(player)
@@ -78,6 +87,10 @@ local function evento(player, nombre)
 	if type(nombre) ~= "string" or not eventosValidos[nombre] then
 		return
 	end
+	-- En Studio Analytics no siempre acepta eventos: la consola deja la evidencia del QA.
+	if RunService:IsStudio() then
+		print("[Telemetria] " .. nombre .. " · " .. player.Name)
+	end
 	llamar("LogCustomEvent", player, nombre, 1)
 end
 
@@ -96,6 +109,9 @@ local function pasoEmbudo(player, nombre)
 		return
 	end
 	pasos[player] = paso -- se registra antes de enviar: nunca se duplica el paso
+	if RunService:IsStudio() then
+		print("[Telemetria] embudo " .. paso .. " · " .. nombre .. " · " .. player.Name)
+	end
 
 	local sesion = sesiones[player]
 	if not sesion then
@@ -154,6 +170,7 @@ function TelemetriaService.Iniciar()
 	-- Main llama a Iniciar() de los demás servicios antes que a este.
 	local matchService = require(script.Parent.MatchService)
 	local playerState = require(script.Parent.PlayerStateService)
+	local dataService = require(script.Parent.DataService)
 
 	-- Entrar al servidor ya es el primer paso del embudo; los que ya estaban, también.
 	local function alEntrar(player)
@@ -174,8 +191,15 @@ function TelemetriaService.Iniciar()
 		end
 	end)
 
-	matchService.AlTerminar.Event:Connect(function(player)
-		evento(player, TelemetriaConfig.Eventos.PartidaFin)
+	matchService.AlTerminar.Event:Connect(function(player, _stats, modo)
+		-- E46: el cierre se separa por modo; sin modo (llamada antigua) queda el genérico.
+		local nombre = TelemetriaConfig.Eventos.PartidaFin
+		if modo == "historia" then
+			nombre = TelemetriaConfig.Eventos.PartidaFinHistoria
+		elseif modo == "rapida" then
+			nombre = TelemetriaConfig.Eventos.PartidaFinRapida
+		end
+		evento(player, nombre)
 		pasoEmbudo(player, "PartidaCompletada")
 	end)
 
@@ -189,6 +213,24 @@ function TelemetriaService.Iniciar()
 		if jugadorValido(reanimador) then
 			evento(player, TelemetriaConfig.Eventos.Reanimacion)
 		end
+	end)
+
+	-- E46: fallo de lectura del perfil (la sesión no persistirá); uno por jugador.
+	dataService.AlFallar.Event:Connect(function(player)
+		evento(player, TelemetriaConfig.Eventos.DatosFallo)
+	end)
+
+	-- E46: apertura de tienda y pestaña desde el cliente, con lista blanca y límite.
+	local permitirUI = RateLimiter.nuevo(0.25)
+	local remotoUI = Remotes.Crear(Remotes.Nombres.TelemetriaUI)
+	remotoUI.OnServerEvent:Connect(function(player, nombre)
+		if type(nombre) ~= "string" or not eventosUIValidos[nombre] then
+			return
+		end
+		if not permitirUI(player) then
+			return
+		end
+		evento(player, nombre)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

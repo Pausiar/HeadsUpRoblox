@@ -40,7 +40,7 @@ local VELOCIDAD_MAXIMA = 32 -- studs/s: sprint real 24 + margen; fija el tope de
 local checkpointAlcanzado = Instance.new("BindableEvent")
 MatchService.CheckpointAlcanzado = checkpointAlcanzado -- (player, indice)
 
--- Señal de fin de partida por jugador (Piñas, telemetría): (player, stats)
+-- Señal de fin de partida por jugador (Piñas, telemetría): (player, stats, modo)
 local alTerminar = Instance.new("BindableEvent")
 MatchService.AlTerminar = alTerminar
 
@@ -407,7 +407,7 @@ function MatchService.Iniciar()
 									victoria = true,
 								}
 								finPartida:FireClient(player, stats)
-								alTerminar:Fire(player, stats)
+								alTerminar:Fire(player, stats, modoActual)
 								sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
 								print("[Match] meta alcanzada por", player.Name)
 							end
@@ -461,7 +461,7 @@ function MatchService.Iniciar()
 									nuevoRecord = nuevoRecord,
 								}
 								finPartida:FireClient(player, stats)
-								alTerminar:Fire(player, stats)
+								alTerminar:Fire(player, stats, modoActual)
 								-- Solo los que cierran sin meta: los ganadores ya oyeron el suyo.
 								sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
 							end

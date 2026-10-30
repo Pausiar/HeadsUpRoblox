@@ -18,6 +18,7 @@ local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
+local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
@@ -43,6 +44,7 @@ local remoteRobuxResultado = Remotes.Esperar(Remotes.Nombres.RobuxResult)
 local remotePaseEstado = Remotes.Esperar(Remotes.Nombres.PaseEstado)
 local remoteReclamarPase = Remotes.Esperar(Remotes.Nombres.ReclamarPase)
 local remoteModoPuro = Remotes.Esperar(Remotes.Nombres.ModoPuro)
+local remoteTelemetria = Remotes.Esperar(Remotes.Nombres.TelemetriaUI)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "TiendaUI"
@@ -217,6 +219,19 @@ local function seleccionar(cual)
 	pintarPestana(pestanaRobux, not pinas)
 	if not pinas and refrescarEstadoRobux then
 		refrescarEstadoRobux()
+	end
+end
+
+-- Telemetría (E46): el servidor solo acepta los nombres de TelemetriaConfig.EventosUI.
+local function anunciarEvento(nombre)
+	remoteTelemetria:FireServer(nombre)
+end
+
+local function anunciarPestana()
+	if paginaRobux.Visible then
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaRobux)
+	else
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaPinas)
 	end
 end
 
@@ -627,12 +642,31 @@ modoPuroBoton.Activated:Connect(function()
 end)
 
 pestanaPinas.Activated:Connect(function()
+	local eraRobux = paginaRobux.Visible
 	seleccionar("pinas")
+	if eraRobux then
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaPinas)
+	end
 end)
 pestanaRobux.Activated:Connect(function()
+	local eraPinas = paginaPinas.Visible
 	seleccionar("robux")
+	if eraPinas then
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaRobux)
+	end
 end)
 seleccionar("pinas")
+
+-- Apertura (E46): vale el botón del menú y el ProximityPrompt del campamento;
+-- se anuncia la pestaña visible para saber en qué página entra el jugador.
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if gui.Enabled then
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaAbierta)
+		-- 0,3 s después: el servidor limita a un evento de UI cada 0,25 s y dos
+		-- mensajes en el mismo frame perderían el segundo (la pestaña de entrada).
+		task.delay(0.3, anunciarPestana)
+	end
+end)
 
 -- ===== Volver (contrato con MenuInicio) =====
 local volver = Instance.new("TextButton")

@@ -21,6 +21,8 @@ local SUFIJO_RESPALDO = "_respaldo_v1"
 
 local DataService = {}
 DataService.AlCargar = Instance.new("BindableEvent") -- (player, datos)
+-- (player, motivo): la lectura falló y la sesión no persistirá (E46, telemetría).
+DataService.AlFallar = Instance.new("BindableEvent")
 
 local tiendaV2 -- DataStore del esquema actual (nil = modo memoria)
 local tiendaV1 -- DataStore antiguo, solo para migrar y respaldar
@@ -208,6 +210,7 @@ local function cargarJugador(player)
 		-- Sin saber qué había guardado, escribir al salir lo pisaría con la caché vacía.
 		sinPersistir[player] = true
 		warn("[Datos] carga falló para " .. nombre .. ": sesión sin guardar")
+		DataService.AlFallar:Fire(player, "carga")
 	end
 
 	-- Migración v1 → v2 solo si v2 aún no existe; así dos cargas seguidas no
@@ -226,6 +229,7 @@ local function cargarJugador(player)
 			-- Sin saber qué había en v1, escribir v2 taparía el perfil antiguo.
 			sinPersistir[player] = true
 			warn("[Datos] lectura v1 falló para " .. nombre .. ": sesión sin guardar")
+			DataService.AlFallar:Fire(player, "carga_v1")
 		end
 	end
 

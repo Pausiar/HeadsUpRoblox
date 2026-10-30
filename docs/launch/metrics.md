@@ -21,12 +21,18 @@ La API de Analytics asocia el evento al `Player` que se pasa como argumento, per
 | Evento | Cuándo se emite | Unidad | Qué mide | Qué no mide |
 | --- | --- | --- | --- | --- |
 | `PartidaInicio` | `MatchService.AlEmpezar`, al arrancar una partida o un reintento | 1 por jugador y partida | Inicios de jugador-partida | No lleva modo, roster ni si es la primera partida |
-| `PartidaFin` | `MatchService.AlTerminar`, cuando cae todo el grupo | 1 por jugador y partida cerrada | Cierres por derrota total | No se emite si todos abandonan; no lleva duración, modo ni motivo |
+| `PartidaFinHistoria` | `MatchService.AlTerminar` con modo `historia` | 1 por jugador y partida cerrada | Cierres en Historia | No se emite si todos abandonan; no lleva duración ni motivo |
+| `PartidaFinRapida` | `MatchService.AlTerminar` con modo `rapida` | 1 por jugador y partida cerrada | Cierres en Ronda rápida | Lo mismo que Historia |
+| `PartidaFin` | `MatchService.AlTerminar` sin modo reconocible (respaldo) | 1 por jugador y partida cerrada | Cierres que no encajan en los dos eventos anteriores | No debería aparecer con el código actual |
 | `Reanimacion` | `PlayerStateService.Reanimado` con un reanimador válido | 1 por reanimación | Reanimaciones cooperativas, incluido el rescate de El Doble | No incluye la reanimación personal de monetización |
 | `Checkpoint` | `MatchService.CheckpointAlcanzado` | 1 por jugador y checkpoint | Checkpoints alcanzados en Historia | No lleva índice; no ocurre en Ronda rápida |
 | `Rapto` | `MonsterService` al agarrar a la víctima, antes de la ventana de rescate | 1 por intento de rapto | Intentos de rapto | No confirma que el rapto se completara; un rescate posterior también deja el evento |
 | `Compra` | `TiendaService` tras una compra exitosa con Piñas | 1 por compra | Compras del catálogo de Piñas | No cubre compras de Robux; no identifica compradores únicos |
 | `ReanimacionPersonal` | `MonetizacionService` tras una reanimación personal exitosa, con stock o Piñas | 1 por uso | Uso de la reanimación de comodidad | No incluye reanimaciones cooperativas ni rescates |
+| `TiendaAbierta` | `TiendaUI` al habilitarse la gui (botón del menú o ProximityPrompt del campamento), por el remoto `TelemetriaUI` | 1 por apertura (el servidor limita a 4 eventos de UI/s) | Aperturas de tienda | No mide el tiempo dentro ni si hubo compra |
+| `TiendaPestanaPinas` | `TiendaUI` al entrar en la pestaña PIÑAS (clic real o pestaña de entrada 0,3 s tras abrir) | 1 por cambio | Interés por el catálogo de Piñas | Un clic en la pestaña ya activa no cuenta; clics a menos de 0,25 s pueden perderse |
+| `TiendaPestanaRobux` | Igual que la anterior, pestaña ROBUX | 1 por cambio | Interés por la oferta de Robux | Igual que la anterior |
+| `DatosFallo` | `DataService.AlFallar` cuando la lectura del perfil agota los reintentos | 1 por jugador y sesión | Sesiones que no persistirán | No cubre fallos de escritura ni el modo memoria de Studio |
 
 `TelemetriaService` también expone `Economia` para Piñas; no hay un evento `CompraRobux` en el código actual.
 
@@ -72,7 +78,7 @@ Según la documentación oficial de Analytics:
 
 ### 2.1 Unidad de medida
 
-`PartidaInicio` y `PartidaFin` son eventos **por jugador y partida**, no por servidor. Por eso:
+`PartidaInicio` y los cierres (`PartidaFinHistoria`, `PartidaFinRapida` y el respaldo `PartidaFin`) son eventos **por jugador y partida**, no por servidor. Por eso:
 
 - «por jugador-partida» = denominador `PartidaInicio`.
 - Para estimar «por partida de servidor» haría falta el tamaño del roster, que hoy no se instrumenta. No se debe dividir por 8 ni por el aforo máximo.
@@ -86,8 +92,8 @@ Los objetivos marcados **H** son hipótesis iniciales. Se inspiran en la intenci
 | --- | --- | --- | --- | --- | --- |
 | Retención D1 | Usuarios nuevos de una cohorte que vuelven al día siguiente / usuarios nuevos de esa cohorte | Creator Dashboard → Analytics → Retention | ≥ 8–10 % | < 5 % con ≥200 usuarios nuevos y 7 días de cohorte | Revisar onboarding, lobby y primera partida; mirar embudo 1→2 |
 | Retención D7 | Usuarios nuevos que vuelven a los 7 días / usuarios nuevos de esa cohorte | Creator Dashboard → Retention | ≥ 2–3 % | < 1,5 % | Revisar contenido, rejugabilidad y rondas rápidas |
-| Tasa de cierre | `PartidaFin / PartidaInicio` | Eventos personalizados | ≥ 0,80 | < 0,60 | Investigar desconexiones, abandonos y bloqueos; revisar consola y duración |
-| Tasa de reintento | `max(0, PartidaInicio / PartidaFin − 1)`; si cada partida cerrada se reintenta una vez, vale 1 | Eventos personalizados | ≥ 0,25 | < 0,10 | Revisar dificultad, FinScreen y tiempo hasta REINTENTAR; no hay evento dedicado de REINTENTAR |
+| Tasa de cierre | `(PartidaFinHistoria + PartidaFinRapida + PartidaFin) / PartidaInicio` | Eventos personalizados | ≥ 0,80 | < 0,60 | Investigar desconexiones, abandonos y bloqueos; revisar consola y duración |
+| Tasa de reintento | `max(0, PartidaInicio / cierres − 1)`; si cada partida cerrada se reintenta una vez, vale 1 | Eventos personalizados | ≥ 0,25 | < 0,10 | Revisar dificultad, FinScreen y tiempo hasta REINTENTAR; no hay evento dedicado de REINTENTAR |
 | Tasa de finalización (embudo) | Usuarios con paso 4 / usuarios con paso 2 del embudo `PrimeraPartida` | Creator Dashboard → Funnel | ≥ 0,70 | < 0,50 | Revisar estabilidad y duración; recordar que el paso 4 es «partida cerrada», no victoria |
 | Checkpoints por jugador-partida | `Checkpoint / PartidaInicio` | Eventos personalizados | ≥ 1,0 | < 0,5 | Revisar longitud de etapa, frecuencia de peligros y posición de checkpoints |
 | Reanimaciones cooperativas por jugador-partida | `Reanimacion / PartidaInicio` | Eventos personalizados | ≥ 0,8 | < 0,3 | Revisar visibilidad del prompt, cooperación y dificultad de los peligros |
@@ -97,7 +103,7 @@ Los objetivos marcados **H** son hipótesis iniciales. Se inspiran en la intenci
 | Piñas ganadas por jugador | Suma de `amount` fuente / DAU | Creator Dashboard → Economy | Referencia inicial: 20–60 Piñas por jugador activo al día | Caída > 50 % respecto a la media de 7 días | Revisar fórmula de ganancia, récord y multiplicador |
 | Piñas gastadas por jugador | Suma de `amount` sumidero / DAU | Creator Dashboard → Economy | Ratio sumidero/fuente 0,3–0,8 | Ratio < 0,15 (inflación) o > 1,0 (drenaje) | Añadir sumideros, ajustar precios o dar más fuentes |
 | Sesiones por jugador | Sesiones / DAU si el panel las expone; proxy actual: `PartidaInicio / DAU` | Creator Dashboard → Engagement y eventos | ≥ 1,3 | < 1,05 | Revisar fricción de primera sesión y tiempo hasta la primera partida |
-| Tiempo medio de partida | `suma(stats.tiempo) / PartidaFin`; hoy no se envía la duración | Proxy: Average session time del dashboard | 5–12 min | < 3 min o > 18 min | Revisar dificultad, ritmo de etapa y duración de la ronda rápida |
+| Tiempo medio de partida | `suma(stats.tiempo) / cierres`; hoy no se envía la duración | Proxy: Average session time del dashboard | 5–12 min | < 3 min o > 18 min | Revisar dificultad, ritmo de etapa y duración de la ronda rápida |
 
 Notas de lectura:
 
@@ -106,7 +112,9 @@ Notas de lectura:
 - **Checkpoints, reanimaciones y raptos** se expresan por jugador-partida. Un valor de 1,0 en checkpoints significa que, en promedio, cada jugador-partida alcanza un checkpoint; no significa que cada servidor haya alcanzado uno.
 - **Rapto** se emite al agarrar, antes del rescate; si hay muchos rescates, la métrica parece más alta que los raptos completados. El código no tiene un evento de rescate exitoso.
 - **Compra** es solo Piñas. Las compras de Robux se leen en Monetization, no en el evento `Compra`; no se deben sumar ambos como si fueran la misma moneda.
-- **Tiempo medio de partida** no es calculable con los eventos actuales porque `PartidaFin` envía valor 1, sin duración. El promedio de sesión del dashboard es un proxy, no la duración de la partida.
+- Los **cierres** llegan separados por modo (`PartidaFinHistoria` / `PartidaFinRapida`). `PartidaFin` queda como respaldo si falta el modo: no sumar los tres como si fueran eventos distintos de una misma partida.
+- **TiendaAbierta** y **TiendaPestana\*** llegan por el remoto `TelemetriaUI` con lista blanca y límite de un evento cada 0,25 s: sirven para proporciones de interés, no para contar clics exactos.
+- **Tiempo medio de partida** no es calculable con los eventos actuales porque los cierres envían valor 1, sin duración. El promedio de sesión del dashboard es un proxy, no la duración de la partida.
 
 ### 2.3 Cómo se calibran las hipótesis
 

@@ -14,7 +14,7 @@ Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
 - **No publicado.** Sin DataStore real, sin IDs de monetización, sin audio definitivo.
 - Fases cerradas: 0 (prep/spikes), 1 (vertical slice), 2 (lobby + ranking), 3 (El Doble + chat imitado), 4 (ropa y personalización), 5 (Robux), 6 (audio, móvil, accesibilidad, telemetría, i18n), 7 (docs de lanzamiento), 8 (terreno voxel y rutas), 9 (mundo largo por teselas, meta, tienda, peligros, noche/sustos) y el cierre formal de la 9 (auditoría, ledger, graphify).
 - **Fase 10 en curso:** el QA que no depende de publicar ya está hecho (hitch de teselas, 3 clientes en Studio, UI en A06/iPhone con Device Simulator). Lo que falta necesita tu cuenta o hardware: `docs/pendiente-usuario.md`.
-- **Fase 11 en curso (2026-10-30):** lote L0 empezado; hechos E45 (DataStore v2 con migración, respaldo y autoguardado parcial), E44 (resultados por clave + params, traducidos en el cliente) y E43 (estamina y WalkSpeed autoritativas en servidor). Siguen E46 (eventos de telemetría) y E49 (`QATestHumo`) — ver `docs/fase-11-plan.md`.
+- **Fase 11 en curso (2026-10-30):** lote L0 casi cerrado; hechos E45 (DataStore v2 con migración, respaldo y autoguardado parcial), E44 (resultados por clave + params, traducidos en el cliente), E43 (estamina y WalkSpeed autoritativas en servidor) y E46 (telemetría de tienda, fallo de datos y cierre por modo). Solo queda E49 (`QATestHumo`) — ver `docs/fase-11-plan.md`.
 
 ---
 
@@ -150,6 +150,16 @@ Pedido del usuario: «si entras al menú de la tienda en primera persona se qued
 
 **Evidencia (MCP, 1 jugador):** consola `[Estamina] activo (servidor autoritativo)`; sprint real con Shift (`user_keyboard_input`): `[QA-E43]` 100→97,7→…→5,0 con `ws=24`, y al vaciarse `est=3.5 sprint=false bloq=true ws=16`; regenerado a `11,5` con `bloq=false`; cliente `ws=16 enJuego=false barra=1.00`. Segundo pase: caído `est=56.3` congelada 3 s y `ws=0 ps=true`; reanimado `ws=16` y regeneración 56,3→84,1; bebida por Q → `[Tienda] ... bebió una bebida (2 restantes)`, `bebidas=2` y barra a 100 en el cliente. Arranque limpio (solo DataStore en memoria y asset 203785492) y `rojo build` limpio. No probado: dos clientes simultáneos (el MCP solo lanza Play de 1 jugador; queda en E2) ni una partida real iniciada por `MatchService` (la prueba fijó `EnJuego` desde el script QA).
 
+### Fase 11 · L0: telemetría ampliada (2026-10-30)
+
+- **E46 · eventos nuevos:** `TiendaAbierta`, `TiendaPestanaPinas` y `TiendaPestanaRobux` (cliente → remoto `TelemetriaUI`, con lista blanca `TelemetriaConfig.EventosUI` y límite de 1 cada 0,25 s por jugador), `DatosFallo` (`DataService.AlFallar`, cuando la lectura del perfil agota reintentos y la sesión no persistirá) y el cierre por modo.
+- **Fin por modo:** `MatchService.AlTerminar` pasa un tercer argumento `modoActual`; `TelemetriaService` emite `PartidaFinHistoria` o `PartidaFinRapida` y deja `PartidaFin` solo como respaldo si faltara el modo. Los demás oyentes (`PinasService`, `AmigosRankingService`) ignoran el argumento extra.
+- **Apertura de tienda:** `TiendaUI` escucha `Enabled` (vale el botón del menú y el ProximityPrompt del campamento). Anuncia la pestaña de entrada 0,3 s después: los dos eventos no caben en el mismo frame sin que el límite descarte el segundo.
+- **Visibilidad en Studio:** `evento` y `pasoEmbudo` imprimen `[Telemetria] <evento> · <jugador>` solo en Studio; en producción no hay prints nuevos.
+- **Cobertura:** `Compra` sigue siendo solo Piñas; las compras de Robux se leen en Monetization (documentado en `docs/launch/metrics.md`).
+
+**Evidencia (MCP, 1 jugador):** consola `[Telemetria] embudo 1 · Lobby · PausiarOG` y `AnalyticsService: LogFunnelStepEvent event fired.`; script QA de servidor → `DatosFallo`, `PartidaFinRapida`, `PartidaFinHistoria` y `PartidaFin` (respaldo), todos con `LogCustomEvent event fired.`; cliente real con `TiendaUI.Enabled = true` → `TiendaAbierta` y `TiendaPestanaPinas`; `FireServer('EventoInventado')` no llegó a consola (lista blanca); `TiendaPestanaRobux` válida emitida. Arranque limpio (solo DataStore en memoria y asset 203785492) y `rojo build` limpio. No probado: clic real en la pestaña ROBUX (el MCP no es fiable con clics por píxeles; la conexión `Activated` es de 5 líneas) ni eventos en Analytics de producción (requiere publicar).
+
 ---
 
 ## 5. Lo que falta
@@ -245,4 +255,4 @@ src/
 1. **Fase 10: cerrar lo que depende de ti** — sigue `docs/pendiente-usuario.md`: publicar + API Services, IDs de monetización, compra real, playtest de 8, móvil físico, mando y Modo Puro en producción. El QA de Studio (hitch, 3 clientes, UI A06/iPhone) ya está hecho y registrado.
 2. **Cerrar la fase 10** cuando A–E del documento estén verdes: `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
 3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer el smoke de soft launch de `docs/launch/soft-launch.md`.
-4. **Fase 11 (en curso desde el 2026-10-30):** 47 mejoras antes de publicar en `docs/fase-11-plan.md`, con lotes L0–L11, esquema de datos v2, remotes nuevos y corte de lanzamiento. L0 lleva hechos E45 (esquema v2), E44 (resultados por clave) y E43 (estamina autoritativa); seguir con **E46 (eventos de telemetría: apertura de tienda, pestaña, compra, fallo de datos y fin por modo)** y después E49 (`QATestHumo`). Con E43 cerrado ya se puede tocar D36/D41 (ajustes persistentes y pantalla de ajustes nuevos).
+4. **Fase 11 (en curso desde el 2026-10-30):** 47 mejoras antes de publicar en `docs/fase-11-plan.md`, con lotes L0–L11, esquema de datos v2, remotes nuevos y corte de lanzamiento. L0 lleva hechos E45 (esquema v2), E44 (resultados por clave), E43 (estamina autoritativa) y E46 (telemetría de tienda, datos y modo); sigue **E49 (`QATestHumo`)**, el último de L0. Con E43 cerrado ya se puede tocar D36/D41 (ajustes persistentes y pantalla de ajustes nuevos).

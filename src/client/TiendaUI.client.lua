@@ -322,6 +322,149 @@ local function refrescarTarjetas()
 	end
 end
 
+-- ===== Confirmación de compra (C25) =====
+-- Un solo diálogo para toda la pestaña PIÑAS: cancelar no toca el servidor; confirmar
+-- envía la petición de siempre (el servidor valida saldo y nunca cobra dos veces).
+-- ROBUX no pasa por aquí: su compra ya abre el prompt nativo de Roblox.
+local veloCompra = Instance.new("Frame")
+veloCompra.Name = "VeloCompra"
+veloCompra.Size = UDim2.fromScale(1, 1)
+veloCompra.BackgroundColor3 = Color3.fromRGB(12, 8, 5)
+veloCompra.BackgroundTransparency = 0.45
+veloCompra.BorderSizePixel = 0
+veloCompra.Active = true -- bloquea la tienda de detrás
+veloCompra.Visible = false
+veloCompra.ZIndex = 20
+veloCompra.Parent = gui
+
+local dialogoCompra = Instance.new("Frame")
+dialogoCompra.Name = "DialogoCompra"
+dialogoCompra.AnchorPoint = Vector2.new(0.5, 0.5)
+dialogoCompra.Position = UDim2.fromScale(0.5, 0.5)
+dialogoCompra.Size = UDim2.fromOffset(380, 236)
+dialogoCompra.BackgroundColor3 = MADERA
+dialogoCompra.BorderSizePixel = 0
+dialogoCompra.ZIndex = 21
+dialogoCompra.Parent = veloCompra
+redondear(dialogoCompra, 14)
+
+local escalaDialogo = Instance.new("UIScale")
+escalaDialogo.Parent = dialogoCompra
+local function ajustarEscalaDialogo()
+	local ancho, alto = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+	if ancho <= 0 or alto <= 0 then
+		return
+	end
+	escalaDialogo.Scale = math.clamp(math.min(ancho / 440, alto / 340), 0.8, 1)
+end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscalaDialogo)
+ajustarEscalaDialogo()
+
+local dialogoTitulo = Instance.new("TextLabel")
+dialogoTitulo.Size = UDim2.new(1, -32, 0, 28)
+dialogoTitulo.Position = UDim2.fromOffset(16, 14)
+dialogoTitulo.BackgroundTransparency = 1
+dialogoTitulo.Font = Enum.Font.GothamBlack
+dialogoTitulo.TextSize = 21
+dialogoTitulo.Text = L("confirmar_compra")
+dialogoTitulo.TextColor3 = CREMA
+dialogoTitulo.Parent = dialogoCompra
+
+local dialogoNombre = Instance.new("TextLabel")
+dialogoNombre.Size = UDim2.new(1, -32, 0, 26)
+dialogoNombre.Position = UDim2.fromOffset(16, 48)
+dialogoNombre.BackgroundTransparency = 1
+dialogoNombre.Font = Enum.Font.GothamBold
+dialogoNombre.TextSize = 18
+dialogoNombre.TextColor3 = CREMA
+dialogoNombre.TextTruncate = Enum.TextTruncate.AtEnd
+dialogoNombre.Parent = dialogoCompra
+
+local dialogoPrecio = Instance.new("TextLabel")
+dialogoPrecio.Size = UDim2.new(1, -32, 0, 28)
+dialogoPrecio.Position = UDim2.fromOffset(16, 78)
+dialogoPrecio.BackgroundTransparency = 1
+dialogoPrecio.Font = Enum.Font.GothamBlack
+dialogoPrecio.TextSize = 21
+dialogoPrecio.TextColor3 = AMARILLO
+dialogoPrecio.Parent = dialogoCompra
+
+local dialogoSaldo = Instance.new("TextLabel")
+dialogoSaldo.Size = UDim2.new(1, -32, 0, 22)
+dialogoSaldo.Position = UDim2.fromOffset(16, 108)
+dialogoSaldo.BackgroundTransparency = 1
+dialogoSaldo.Font = Enum.Font.Gotham
+dialogoSaldo.TextSize = 16
+dialogoSaldo.TextColor3 = CREMA
+dialogoSaldo.TextTransparency = 0.15
+dialogoSaldo.Parent = dialogoCompra
+
+-- 56 px de alto: con la escala mínima 0,8 siguen quedando ≥ 44 px de objetivo
+-- táctil en pantallas pequeñas (regla de la revisión apple-design).
+local botonCancelarCompra = Instance.new("TextButton")
+botonCancelarCompra.Name = "CancelarCompra"
+botonCancelarCompra.Size = UDim2.fromOffset(160, 56)
+botonCancelarCompra.Position = UDim2.fromOffset(20, 156)
+botonCancelarCompra.BackgroundColor3 = MADERA_OSCURA
+botonCancelarCompra.Font = Enum.Font.GothamBold
+botonCancelarCompra.TextSize = 18
+botonCancelarCompra.Text = L("cancelar"):upper()
+botonCancelarCompra.TextColor3 = CREMA
+botonCancelarCompra.Parent = dialogoCompra
+redondear(botonCancelarCompra, 10)
+
+local botonConfirmarCompra = Instance.new("TextButton")
+botonConfirmarCompra.Name = "ConfirmarCompra"
+botonConfirmarCompra.Size = UDim2.fromOffset(160, 56)
+botonConfirmarCompra.Position = UDim2.fromOffset(200, 156)
+botonConfirmarCompra.BackgroundColor3 = VERDE
+botonConfirmarCompra.Font = Enum.Font.GothamBlack
+botonConfirmarCompra.TextSize = 18
+botonConfirmarCompra.Text = L("comprar")
+botonConfirmarCompra.TextColor3 = CREMA
+botonConfirmarCompra.Parent = dialogoCompra
+redondear(botonConfirmarCompra, 10)
+
+local registroEnCompra = nil -- tarjeta pendiente de confirmar
+
+local function cerrarConfirmacion()
+	veloCompra.Visible = false
+	registroEnCompra = nil
+end
+
+local function abrirConfirmacion(registro)
+	local precio = registro.item.tipo == "mejora"
+		and registro.item.precios[nivelMejora(registro.item) + 1]
+		or registro.item.precio
+	if type(precio) ~= "number" then
+		return
+	end
+	dialogoNombre.Text = nombreItem(registro.item)
+	dialogoPrecio.Text = ("%d %s"):format(precio, L(TiendaConfig.MonedaClave))
+	dialogoSaldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
+	registroEnCompra = registro
+	veloCompra.Visible = true
+end
+
+botonCancelarCompra.Activated:Connect(cerrarConfirmacion)
+botonConfirmarCompra.Activated:Connect(function()
+	local registro = registroEnCompra
+	if not registro then
+		return
+	end
+	cerrarConfirmacion() -- con el velo oculto, un segundo clic no llega
+	registroPendiente = registro
+	remoteComprar:FireServer({ id = registro.item.id })
+end)
+
+-- Cerrar la tienda por cualquier vía (partida, aviso del servidor) no deja el
+-- diálogo armado para la próxima apertura.
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if not gui.Enabled then
+		cerrarConfirmacion()
+	end
+end)
+
 local function crearTarjetaPinas(item, columna, fila)
 	local tarjeta = Instance.new("Frame")
 	tarjeta.Name = "Tarjeta_" .. item.id
@@ -384,8 +527,13 @@ local function crearTarjetaPinas(item, columna, fila)
 		if registro.habilitado == false then
 			return
 		end
-		registroPendiente = registro
-		remoteComprar:FireServer({ id = item.id })
+		if registro.comprado then
+			-- Re-equipar un cosmético ya pagado es gratis: sin diálogo.
+			registroPendiente = registro
+			remoteComprar:FireServer({ id = item.id })
+			return
+		end
+		abrirConfirmacion(registro)
 	end)
 
 	if esConsumo then
@@ -715,6 +863,9 @@ remotePinas.OnClientEvent:Connect(function(datos)
 	end
 	saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas or 0)
 	pinasActuales = datos.pinas or 0
+	if veloCompra.Visible then
+		dialogoSaldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
+	end
 	refrescarTarjetas() -- el saldo decide qué COMPRAR sigue habilitado
 end)
 

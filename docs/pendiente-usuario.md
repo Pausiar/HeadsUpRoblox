@@ -1,6 +1,6 @@
 # Pendiente del usuario · qué falta y cómo hacerlo
 
-Fecha: 2026-10-29 · Fase 10 (QA multijugador y rendimiento).
+Fecha: 2026-10-29 · Fase 10 (QA multijugador y rendimiento). Actualizado: 2026-10-30 con lo que la fase 11 (`docs/fase-11-plan.md`) necesita de ti.
 Esto es lo que **solo se puede hacer con tu cuenta, tus dispositivos o tus amigos**. El resto ya quedó hecho y verificado en Studio; ver `docs/HANDOFF.md` y `docs/skill-log.md`.
 
 Orden recomendado: **A → B → C → D → E → F → G**. A desbloquea B, C y E. D, F y G no dependen de publicar.
@@ -51,6 +51,15 @@ Para cada fila de la tabla, copia el ID numérico del Dashboard en `paseId` (pas
 1. Recompila y publica (`rojo build default.project.json -o build/HeadsUp.rbxlx` y vuelve a subir el place).
 2. En la tienda debe aparecer la pestaña Robux con precios reales y sin el aviso de «Disponible al publicar».
 3. En consola: `[Monetizacion] activo: 5 pases, 3 productos, Activo=true` (los no disponibles se listan pero no se venden).
+
+### B.4 IDs nuevos de la fase 11 (cuando toque ese lote)
+
+| Qué | Dónde | Nota |
+| --- | --- | --- |
+| Pack de bienvenida (C33) | Monetization > Developer Products | 1 producto con Piñas + cosmético; ID a `MonetizacionConfig` en el lote L8 |
+| Insignias (C28) | Creator Dashboard > Engagement > Badges | 4–6 insignias (meta, primer rescate, 10 partidas, partida de 8); IDs a `InsigniasConfig` en L8 |
+
+No hace falta crearlos ahora: L8 llega después de L0–L7 y el código tolera IDs en 0.
 
 ---
 
@@ -117,6 +126,13 @@ El código ya lo impone: `AmigosRankingService` ignora las partidas con ventajas
 ### E.5 Telemetría en producción
 
 Tras 24–48 h con sesiones reales, abre Creator Dashboard > Analytics y confirma el embudo `PrimeraPartida` (4 pasos), la economía y los eventos de `docs/launch/metrics.md`. En Studio no se agrega nada.
+
+### E.6 Reconexión y servidor (fase 11 · A6/A7)
+
+1. En el place publicado, entra a una partida en curso desde dos cuentas; cierra el cliente de una a mitad y vuelve a entrar en menos de 2 min.
+2. Comprueba que reaparece en su último checkpoint (no en el inicio) y que la plaza no se pierde.
+3. Si la partida terminó mientras estabas fuera, debe llevarte al lobby sin error.
+4. El aviso de cierre de servidor solo se ve cuando Roblox apaga la instancia; en Studio se prueba con el seam de QA, en producción basta con ver que no hay errores al reconectar.
 
 ---
 

@@ -229,3 +229,4 @@ src/
 1. **Fase 10: cerrar lo que depende de ti** — sigue `docs/pendiente-usuario.md`: publicar + API Services, IDs de monetización, compra real, playtest de 8, móvil físico, mando y Modo Puro en producción. El QA de Studio (hitch, 3 clientes, UI A06/iPhone) ya está hecho y registrado.
 2. **Cerrar la fase 10** cuando A–E del documento estén verdes: `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
 3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer el smoke de soft launch de `docs/launch/soft-launch.md`.
+4. **Fase 11 (planificada el 2026-10-30):** 47 mejoras antes de publicar en `docs/fase-11-plan.md`, con lotes L0–L11, esquema de datos v2, remotes nuevos y corte de lanzamiento. Empezar por L0/E45 (esquema v2) y L0/E44 (mensajes por clave); sin eso se rehacen la persistencia y los textos.

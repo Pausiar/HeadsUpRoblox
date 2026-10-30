@@ -12,20 +12,26 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 local StageService = require(script.Parent.StageService)
 local RondaRapidaService = require(script.Parent.RondaRapidaService)
+local TerrenoConfig = require(ReplicatedStorage.Shared.Config.TerrenoConfig)
 local TerrenoService = require(script.Parent.TerrenoService)
 
 local MatchService = {}
 local playerState -- asignado en Iniciar() con pcall; nil = sin reanimación
 local dataService -- asignado en Iniciar() con pcall; nil = sin persistencia
 local puntosService -- asignado en Iniciar() con pcall; nil = stats sin puntos
+local recordRemoto -- creado en Iniciar(); nil antes de arrancar
 
 local checkpoints = {} -- [player] = { indice = n, pos = Vector3 }
 local distancia = {} -- [player] = progreso máximo en la ruta
 local recordSesion = {} -- [player] = mejor distancia de la sesión
+local recordSuperado = {} -- [player] = true al avisar en vivo del récord (B5)
+local datosCargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
 local inicio = nil -- os.clock() del inicio de la partida actual
 local partidaTerminada = false
 local participantesPartida = {} -- roster de la partida actual
 local modoActual = nil -- "historia" | "rapida"
+local semillaActualPartida = nil -- semilla de la partida actual (B4)
+local indiceSemillaHistoria = 0 -- rotación de TerrenoConfig.HistoriaSemillas
 local recargando = {} -- [player] = true mientras LoadCharacter está en curso
 local viajes = {} -- [player] = token del último teletransporte pendiente
 local rutaActual -- ruta del escenario construido (nil si no hay terreno)
@@ -67,6 +73,58 @@ end
 local function aplicarRecord(player, record)
 	if type(record) == "number" then
 		recordSesion[player] = math.max(recordSesion[player] or 0, record)
+	end
+end
+
+-- B5: publica el récord al HUD; `superado` dispara el aviso en vivo.
+local function publicarRecord(player, superado)
+	if recordRemoto then
+		recordRemoto:FireClient(player, {
+			record = math.floor(recordSesion[player] or 0),
+			superado = superado == true,
+		})
+	end
+end
+
+-- B4: rotación estable de semillas curadas de Historia (sin repetir la anterior).
+local function siguienteSemillaHistoria()
+	local semillas = TerrenoConfig.HistoriaSemillas
+	indiceSemillaHistoria = indiceSemillaHistoria % #semillas + 1
+	return semillas[indiceSemillaHistoria]
+end
+
+-- B6: medalla por tiempo relativo a la longitud (segundos por 1000 studs).
+local function medallaDe(distanciaRuta, segundos)
+	if type(distanciaRuta) ~= "number" or distanciaRuta <= 0 or type(segundos) ~= "number" then
+		return nil
+	end
+	local umbral = Config.Medallas.SegundosPor1000
+	local tramo = distanciaRuta / 1000
+	if segundos <= umbral.oro * tramo then
+		return "oro"
+	elseif segundos <= umbral.plata * tramo then
+		return "plata"
+	elseif segundos <= umbral.bronce * tramo then
+		return "bronce"
+	end
+	return nil
+end
+
+-- B6: mejor tiempo de ronda rápida en estadisticas.mejorRapida (solo si ya cargó).
+local function guardarMejorRapida(player, segundos)
+	if modoActual ~= "rapida" or not dataService or not datosCargados[player] then
+		return
+	end
+	local datos = dataService.Obtener(player)
+	local estadisticas = datos.estadisticas
+	if type(estadisticas) ~= "table" then
+		estadisticas = {}
+		datos.estadisticas = estadisticas
+	end
+	local mejor = tonumber(estadisticas.mejorRapida) or 0
+	if mejor <= 0 or segundos < mejor then
+		estadisticas.mejorRapida = segundos
+		dataService.Guardar(player, "estadisticas", estadisticas)
 	end
 end
 
@@ -145,7 +203,7 @@ end
 local function prepararEscenario(modoPartida, semilla)
 	if modoPartida == "historia" then
 		RondaRapidaService.Limpiar()
-		StageService.Construir()
+		StageService.Construir(semilla)
 	else
 		StageService.Limpiar()
 		RondaRapidaService.ConstruirConSemilla(semilla)
@@ -178,7 +236,7 @@ end
 -- studs. El bucle de 1 Hz sigue cerrando checkpoints y meta; la distancia avanza un
 -- stud menos que el destino para que el tope de 32 studs/s no descarte el salto.
 function MatchService._ProbarAvanzarRuta(player, objetivo)
-	if not RunService:IsStudio() or not rutaActual or modoActual ~= "historia" then
+	if not RunService:IsStudio() or not rutaActual or not modoActual then
 		return false
 	end
 	local char = player and player.Parent and player.Character
@@ -190,6 +248,27 @@ function MatchService._ProbarAvanzarRuta(player, objetivo)
 	distancia[player] = math.max(distancia[player] or 0, objetivo - 1)
 	char:PivotTo(CFrame.new(rutaActual:PuntoEnDistancia(objetivo) + Vector3.new(0, 4, 0)))
 	return true
+end
+
+function MatchService.GetSemilla()
+	return semillaActualPartida
+end
+
+-- Seams de Studio para la QA de L4: medallas sintéticas y récord sembrado.
+if RunService:IsStudio() then
+	function MatchService._ProbarMedalla(distancia, segundos)
+		return medallaDe(distancia, segundos)
+	end
+
+	function MatchService._ProbarRecord(player, valor)
+		if typeof(player) ~= "Instance" or not player:IsA("Player") then
+			return false
+		end
+		recordSesion[player] = math.max(0, math.floor(tonumber(valor) or 0))
+		recordSuperado[player] = nil
+		publicarRecord(player, false)
+		return true
+	end
 end
 
 -- Inicio formal desde el lobby (o reintentar). Valida todo lo que llega de fuera.
@@ -227,6 +306,10 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	if modoPartida == "rapida" and semilla == nil then
 		semilla = os.time()
 	end
+	if modoPartida == "historia" and semilla == nil then
+		semilla = siguienteSemillaHistoria()
+	end
+	semillaActualPartida = semilla
 
 	-- Reset de la partida anterior (los récords de sesión se conservan)
 	partidaTerminada = false
@@ -237,6 +320,7 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	table.clear(reanimaciones)
 	table.clear(ultimoRescate)
 	table.clear(ultimoTick)
+	table.clear(recordSuperado)
 	for _, player in ipairs(Players:GetPlayers()) do
 		player:SetAttribute("Distancia", 0)
 		player:SetAttribute("Terminado", false)
@@ -269,6 +353,14 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 		end
 	end
 	inicio = os.clock()
+
+	-- B5/B7: el HUD recibe el récord de partida y el feed de caídas arranca vacío
+	if playerState then
+		playerState.LimpiarCaidas()
+	end
+	for _, player in ipairs(roster) do
+		publicarRecord(player, false)
+	end
 
 	print(("[Match] inicio modo %s con %d jugadores%s"):format(
 		modoPartida,
@@ -322,6 +414,7 @@ function MatchService.Iniciar()
 	local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: checkpoint y fin
 	local finPartida = Remotes.Crear(Remotes.Nombres.FinPartida)
 	local reintentar = Remotes.Crear(Remotes.Nombres.Reintentar)
+	recordRemoto = Remotes.Crear(Remotes.Nombres.Record)
 	local permitirReintentar = RateLimiter.nuevo(Config.Etapa0.Match.EnfriamientoReintentar)
 
 	Players.PlayerAdded:Connect(function(player)
@@ -344,6 +437,8 @@ function MatchService.Iniciar()
 		reanimaciones[player] = nil
 		ultimoRescate[player] = nil
 		ultimoTick[player] = nil
+		recordSuperado[player] = nil
+		datosCargados[player] = nil
 		for i, p in ipairs(participantesPartida) do
 			if p == player then
 				table.remove(participantesPartida, i)
@@ -366,11 +461,50 @@ function MatchService.Iniciar()
 		if #roster == 0 then
 			return -- sin participantes no hay nada que reiniciar
 		end
-		local ok = MatchService.IniciarPartida(roster, modoActual, os.time(), true)
+		local ok = MatchService.IniciarPartida(roster, modoActual, semillaActualPartida, true)
 		if ok then
 			print("[Match] partida reiniciada por", player.Name)
 		end
 	end)
+
+	-- Cierre al alcanzar la meta, común a Historia y ronda rápida (fase 11 · L4/B6).
+	local function cerrarMeta(player)
+		cerrados[player] = true
+		player:SetAttribute("Terminado", true)
+		distancia[player] = rutaActual.Longitud
+		player:SetAttribute("Distancia", math.floor(rutaActual.Longitud))
+		local largoTramo = math.floor(rutaActual.Longitud)
+		local recordAnterior = recordSesion[player] or 0
+		local nuevoRecord = largoTramo > recordAnterior
+		local tiempo = math.floor(os.clock() - inicio)
+		recordSesion[player] = math.max(recordAnterior, largoTramo)
+		if dataService then
+			dataService.Guardar(player, "record", recordSesion[player])
+		end
+		publicarRecord(player, false)
+		guardarMejorRapida(player, tiempo)
+		local stats = {
+			distancia = largoTramo,
+			tiempo = tiempo,
+			checkpoint = totalCheckpoints,
+			puntos = puntosService and puntosService.GetPuntos(player) or 0,
+			record = math.max(recordSesion[player], largoTramo),
+			nuevoRecord = nuevoRecord,
+			reanimaciones = reanimaciones[player] or 0,
+			mejorEquipo = mejorDelEquipo(),
+			victoria = true,
+			medalla = medallaDe(rutaActual.Longitud, tiempo),
+			semilla = semillaActualPartida,
+		}
+		finPartida:FireClient(player, stats)
+		alTerminar:Fire(player, stats, modoActual)
+		sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
+		print(("[Match] meta alcanzada por %s en %ds%s"):format(
+			player.Name,
+			tiempo,
+			stats.medalla and (" · medalla " .. stats.medalla) or ""
+		))
+	end
 
 	-- Bucle de fin de partida: 1 Hz, igual que el del estado del jugador
 	task.spawn(function()
@@ -393,7 +527,11 @@ function MatchService.Iniciar()
 							ultimoRescate[player] = ahora
 							local punto = rutaActual:PuntoEnDistancia(distancia[player] or 0)
 							telegrafiar(player, punto + Vector3.new(0, 4, 0))
-							print("[Match] rescate de", player.Name, "en", math.floor(distancia[player] or 0))
+							-- B7: el vacío también derriba, con su propia causa
+							if playerState and not playerState.EstaCaido(player) then
+								playerState.Derribar(player, "vacio")
+							end
+							print("[Match] rescate de", player.Name, "en", math.floor(distancia[player] or 0), "(vacio)")
 							continue
 						end
 						-- Fuera del corredor no hay progreso: caerse al monte no regala checkpoints
@@ -411,6 +549,13 @@ function MatchService.Iniciar()
 							math.min(progreso, rutaActual.Longitud)
 						)
 						player:SetAttribute("Distancia", math.floor(distancia[player]))
+						-- B5: aviso en vivo al superar el récord (solo si ya había uno)
+						local recordPrevio = recordSesion[player] or 0
+						if recordPrevio > 0 and not recordSuperado[player] and distancia[player] > recordPrevio then
+							recordSuperado[player] = true
+							publicarRecord(player, true)
+							print("[Record] " .. player.Name .. " supera " .. math.floor(recordPrevio) .. " studs")
+						end
 						-- Por progreso: si un tick cruza varios postes, se cobran todos
 						if modoActual == "historia" then
 							local actual = checkpoints[player]
@@ -424,38 +569,14 @@ function MatchService.Iniciar()
 								print("[Match] checkpoint", siguiente, "por", player.Name)
 								siguiente += 1
 							end
+						end
 
-							-- Meta: cierra la carrera sin sacar al jugador de EnJuego (HUD/estamina).
-							if inicio
-								and progreso >= rutaActual.Longitud - Config.Etapa0.Meta.Distancia
-								and not estaCaido(player) then
-								cerrados[player] = true
-								player:SetAttribute("Terminado", true)
-								distancia[player] = rutaActual.Longitud
-								player:SetAttribute("Distancia", math.floor(rutaActual.Longitud))
-								local largoTramo = math.floor(rutaActual.Longitud)
-								local recordAnterior = recordSesion[player] or 0
-								local nuevoRecord = largoTramo > recordAnterior
-								recordSesion[player] = math.max(recordAnterior, largoTramo)
-								if dataService then
-									dataService.Guardar(player, "record", recordSesion[player])
-								end
-								local stats = {
-									distancia = largoTramo,
-									tiempo = math.floor(os.clock() - inicio),
-									checkpoint = totalCheckpoints,
-									puntos = puntosService and puntosService.GetPuntos(player) or 0,
-									record = math.max(recordSesion[player], largoTramo),
-									nuevoRecord = nuevoRecord,
-									reanimaciones = reanimaciones[player] or 0,
-									mejorEquipo = mejorDelEquipo(),
-									victoria = true,
-								}
-								finPartida:FireClient(player, stats)
-								alTerminar:Fire(player, stats, modoActual)
-								sonido:FireClient(player, { id = "Fin", subtitulo = AudioConfig.Efectos.Fin.subtitulo })
-								print("[Match] meta alcanzada por", player.Name)
-							end
+						-- Meta: cierra la carrera sin sacar al jugador de EnJuego (HUD/estamina).
+						-- Común a Historia y ronda rápida: la rápida también tiene arco de meta (B6).
+						if inicio
+							and progreso >= rutaActual.Longitud - Config.Etapa0.Meta.Distancia
+							and not estaCaido(player) then
+							cerrarMeta(player)
 						end
 					end
 				end
@@ -497,6 +618,7 @@ function MatchService.Iniciar()
 								if dataService then
 									dataService.Guardar(player, "record", recordSesion[player])
 								end
+								publicarRecord(player, false)
 								local stats = {
 									distancia = dist,
 									tiempo = math.floor(os.clock() - inicio),
@@ -506,6 +628,8 @@ function MatchService.Iniciar()
 									nuevoRecord = nuevoRecord,
 									reanimaciones = reanimaciones[player] or 0,
 									mejorEquipo = mejorDelEquipo(),
+									causa = playerState and playerState.Causa(player) or nil,
+									semilla = semillaActualPartida,
 								}
 								finPartida:FireClient(player, stats)
 								alTerminar:Fire(player, stats, modoActual)
@@ -533,16 +657,22 @@ function MatchService.Iniciar()
 	if okDatos then
 		dataService = resDatos
 		dataService.AlCargar.Event:Connect(function(player, datos)
+			datosCargados[player] = true
 			if type(datos) == "table" then
 				aplicarRecord(player, datos.record)
 			end
+			publicarRecord(player, false)
 		end)
 		-- Carrera: los datos pueden haber cargado antes de conectar AlCargar
 		for _, player in Players:GetPlayers() do
 			local datos = dataService.Obtener(player)
 			if type(datos) == "table" then
+				if datos.schema ~= nil then
+					datosCargados[player] = true
+				end
 				aplicarRecord(player, datos.record)
 			end
+			publicarRecord(player, false)
 		end
 	else
 		warn("[Match] sin DataService: el récord no se persiste esta sesión")

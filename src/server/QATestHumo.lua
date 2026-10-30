@@ -79,7 +79,7 @@ function QATestHumo.Ejecutar()
 	revisar("checkpoints 1", checkpoints >= StageService.TotalCheckpoints)
 
 	-- 4) Reintento: cancela la vuelta al lobby y reinicia la misma partida
-	revisar("reintento", MatchService.IniciarPartida(roster, "historia", nil, true) == true)
+	revisar("reintento", MatchService.IniciarPartida(roster, "historia", MatchService.GetSemilla(), true) == true)
 	revisar("fase partida 2", LobbyService.GetFase() == "partida")
 	revisar("reintento limpio", player:GetAttribute("Terminado") == false)
 	revisar("vivo tras reintento", esperar(function()

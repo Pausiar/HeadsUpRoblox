@@ -58,6 +58,13 @@ Remotes.Nombres = {
 	-- Fase 11 · A1: tutorial del lobby
 	TutorialVisto = "TutorialVisto", -- client -> server: el jugador terminó o saltó el tutorial (limitado)
 	TutorialEstado = "TutorialEstado", -- server -> client: { visto } tras cargar el perfil
+
+	-- Fase 11 · L4 (B4/B5/B6/B7)
+	Record = "Record", -- server -> client: { record, superado } récord de distancia del jugador
+	Caidas = "Caidas", -- server -> client: { nombre, causa } cada caída del equipo (feed de 3)
+	FraseRapida = "FraseRapida", -- client -> server: id de FrasesConfig (limitado)
+	ChatRapido = "ChatRapido", -- server -> client: { nombre, usuario, texto } filtrado por receptor
+	IdiomaCliente = "IdiomaCliente", -- client -> server: "es" | "en" para filtrar/traducir frases por receptor
 }
 
 function Remotes.Crear(nombre)

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TerrenoConfig = require(ReplicatedStorage.Shared.Config.TerrenoConfig)
 local TerrenoService = require(script.Parent.TerrenoService)
 local Escenario = require(script.Parent.Escenario)
+local StageService = require(script.Parent.StageService)
 local TiendaCampamento = require(script.Parent.TiendaCampamento)
 
 local RondaRapidaService = {}
@@ -49,6 +50,12 @@ function RondaRapidaService.ConstruirConSemilla(semilla)
 	local okTienda, errTienda = pcall(TiendaCampamento.Construir, carpeta, puntoInicio, tangenteInicio)
 	if not okTienda then
 		warn("[RondaRapida] tienda no construida: " .. tostring(errTienda))
+	end
+
+	-- Meta: cierra la ronda con medalla en vez de dejarla sin final (fase 11 · L4/B6).
+	local okMeta, errMeta = pcall(StageService.ConstruirMeta, carpeta, ruta)
+	if not okMeta then
+		warn("[RondaRapida] meta no construida: " .. tostring(errMeta))
 	end
 
 	-- Grupos de rocas junto a los bordes, alternando de lado y sin invadir el centro

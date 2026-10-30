@@ -14,6 +14,13 @@ Config.Estamina = {
 	Ritmo = 10, -- Hz de simulación y publicación del estado
 }
 
+-- Fase 11 · L4 (B6): medallas por tiempo relativo a la longitud de la ruta.
+-- Los umbrales son segundos por cada 1000 studs: Historia (6000) exige 360 s para
+-- oro y Ronda rápida (~270) 16 s. Valores iniciales a ajustar con playtests.
+Config.Medallas = {
+	SegundosPor1000 = { oro = 60, plata = 90, bronce = 120 },
+}
+
 Config.Etapa0 = {
 	Nombre = "Sendero de prueba",
 	CheckpointCada = 260, -- ruta de ~6000 studs: un poste cada ~15 s de marcha

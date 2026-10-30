@@ -21,7 +21,8 @@ La API de Analytics asocia el evento al `Player` que se pasa como argumento, per
 | Evento | Cuándo se emite | Unidad | Qué mide | Qué no mide |
 | --- | --- | --- | --- | --- |
 | `PartidaInicio` | `MatchService.AlEmpezar`, al arrancar una partida o un reintento | 1 por jugador y partida | Inicios de jugador-partida | No lleva modo, roster ni si es la primera partida |
-| `PartidaFinHistoria` | `MatchService.AlTerminar` con modo `historia` | 1 por jugador y partida cerrada | Cierres en Historia | No se emite si todos abandonan; no lleva duración ni motivo |
+| `PartidaSemilla` | `MatchService.AlEmpezar`, con el valor de la semilla de la ruta (B4) | 1 por jugador y partida | Reproducir una ruta concreta desde los logs | El valor es la semilla, no una cantidad agregable; no se suma ni se promedia |
+| `PartidaFinHistoria` | `MatchService.AlTerminar` con modo `historia` | 1 por jugador y partida cerrada | Cierres en Historia, por meta o por caída | No se emite si todos abandonan; no lleva duración ni motivo |
 | `PartidaFinRapida` | `MatchService.AlTerminar` con modo `rapida` | 1 por jugador y partida cerrada | Cierres en Ronda rápida | Lo mismo que Historia |
 | `PartidaFin` | `MatchService.AlTerminar` sin modo reconocible (respaldo) | 1 por jugador y partida cerrada | Cierres que no encajan en los dos eventos anteriores | No debería aparecer con el código actual |
 | `Reanimacion` | `PlayerStateService.Reanimado` con un reanimador válido | 1 por reanimación | Reanimaciones cooperativas, incluido el rescate de El Doble | No incluye la reanimación personal de monetización |
@@ -43,12 +44,12 @@ La API de Analytics asocia el evento al `Player` que se pasa como argumento, per
 | 1 | `Lobby` | Al entrar al servidor, o al arrancar la telemetría si el jugador ya estaba | Usuarios que llegaron al lobby |
 | 2 | `PrimeraEtapa` | Al empezar una partida; no hay una señal separada de entrada a la etapa | Usuarios que iniciaron una partida |
 | 3 | `PrimerCheckpoint` | Al alcanzar un checkpoint; solo existe en Historia | Usuarios que llegaron a un checkpoint |
-| 4 | `PartidaCompletada` | Al cerrar la partida por caída de todos (`AlTerminar`) | Usuarios que cerraron una partida, no necesariamente que la ganaran |
+| 4 | `PartidaCompletada` | Al cerrar la partida por meta (`cerrarMeta`) o por caída de todos (`AlTerminar`) | Usuarios que cerraron una partida, sea por victoria o por derrota |
 
 Dos advertencias de lectura:
 
 - **El paso 3 se salta en Ronda rápida.** Roblox documenta que, si se registra un paso posterior sin el anterior, el anterior se completa automáticamente. Como Ronda rápida no tiene checkpoints pero sí emite el paso 4, el embudo puede inflar `PrimerCheckpoint`. Para la tasa de checkpoints se usa el evento `Checkpoint`, no el paso 3.
-- **El paso 4 no es una victoria.** `MatchService` cierra la partida cuando todos caen; hoy no hay condición de meta ni evento de victoria. `PartidaCompletada` significa «partida cerrada», no «partida ganada».
+- **El paso 4 no distingue victoria de derrota.** Desde L4 la Ronda rápida y la Historia pueden cerrar en el arco de meta, pero `PartidaCompletada` no lleva el resultado; el embudo cuenta «partida cerrada», no «partida ganada».
 
 El embudo es por usuario, no por partida: Roblox cuenta la primera ocurrencia de cada paso y aplica la sesión de embudo. Los eventos personalizados sí son por jugador-partida.
 

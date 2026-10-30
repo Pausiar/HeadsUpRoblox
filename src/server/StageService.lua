@@ -137,6 +137,9 @@ local function construirMeta(carpeta, ruta)
 	return true
 end
 
+-- Reutilizada por la ronda rápida para su propia meta (fase 11 · L4/B6).
+StageService.ConstruirMeta = construirMeta
+
 -- Idempotente: quita la etapa anterior sin tocar el terreno ni la ruta.
 function StageService.Limpiar()
 	local anterior = workspace:FindFirstChild("Etapa0")
@@ -145,9 +148,9 @@ function StageService.Limpiar()
 	end
 end
 
-function StageService.Construir()
+function StageService.Construir(semilla)
 	StageService.Limpiar()
-	local ruta = TerrenoService.ConstruirHistoria()
+	local ruta = TerrenoService.ConstruirHistoria(semilla)
 
 	local carpeta = Instance.new("Folder")
 	carpeta.Name = "Etapa0"

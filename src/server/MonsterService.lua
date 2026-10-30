@@ -324,7 +324,7 @@ local function rapto(gen)
 	sonido:FireAllClients({ id = "Monstruo", subtitulo = AudioConfig.Efectos.Monstruo.subtitulo })
 	-- Derribo y arrastre (PivotTo de ambos) síncronos, antes del señuelo:
 	-- HablarComo puede esperar (filtro) y la limpieza externa podría destruir el clon.
-	playerState.Derribar(victima, "ElDoble")
+	playerState.Derribar(victima, "doble")
 	charV:PivotTo(CFrame.new(MADRIGUERA_POS + Vector3.new(3, 3, 3)))
 	clon:PivotTo(CFrame.new(MADRIGUERA_POS + Vector3.new(-2, 3, -2)))
 	senuelo()

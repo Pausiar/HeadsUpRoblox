@@ -80,18 +80,21 @@ local function nuevaSesion()
 	return ("%s-%d-%d"):format(servidor, os.time(), math.random(100000, 999999))
 end
 
-local function evento(player, nombre)
+local function evento(player, nombre, valor)
 	if not estaActiva() or not jugadorValido(player) then
 		return
 	end
 	if type(nombre) ~= "string" or not eventosValidos[nombre] then
 		return
 	end
+	if type(valor) ~= "number" then
+		valor = 1
+	end
 	-- En Studio Analytics no siempre acepta eventos: la consola deja la evidencia del QA.
 	if RunService:IsStudio() then
-		print("[Telemetria] " .. nombre .. " · " .. player.Name)
+		print("[Telemetria] " .. nombre .. " · " .. player.Name .. (valor ~= 1 and (" · " .. valor) or ""))
 	end
-	llamar("LogCustomEvent", player, nombre, 1)
+	llamar("LogCustomEvent", player, nombre, valor)
 end
 
 -- Cada paso se emite una sola vez por jugador y sesión de servidor. No se exige
@@ -181,9 +184,13 @@ function TelemetriaService.Iniciar()
 		alEntrar(player)
 	end
 
-	matchService.AlEmpezar.Event:Connect(function(jugadores)
+	matchService.AlEmpezar.Event:Connect(function(jugadores, _modo, semilla)
 		for _, player in ipairs(jugadores or {}) do
 			evento(player, TelemetriaConfig.Eventos.PartidaInicio)
+			-- B4: la semilla queda en telemetría para reproducir una ruta concreta.
+			if type(semilla) == "number" then
+				evento(player, TelemetriaConfig.Eventos.PartidaSemilla, semilla)
+			end
 			-- Respaldo si el jugador ya estaba dentro cuando arrancó la telemetría.
 			pasoEmbudo(player, "Lobby")
 			-- No hay señal de entrada a la etapa: empezar la partida es entrar en la 1.

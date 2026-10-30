@@ -88,6 +88,12 @@ TerrenoConfig.Rapida = {
 	WaypointsMax = 10,
 }
 
+-- Fase 11 · L4 (B4): semillas curadas de Historia. Se rotan por partida para que
+-- dos rondas seguidas no repitan el mismo camino; la del lobby sigue siendo Mundo.Semilla.
+-- Validadas con TerrenoService._ProbarHistoria: 5.974, 6.090 y 6.034 studs (QA de L4);
+-- la mayoría de semillas produce rutas cortas, por eso se curan y no se sortean.
+TerrenoConfig.HistoriaSemillas = { 20261016, 20261063, 20261094 }
+
 -- Historia: camino guiado de ~6000 studs que serpentea por la cordillera.
 TerrenoConfig.Historia = {
 	LongitudObjetivo = 6000,

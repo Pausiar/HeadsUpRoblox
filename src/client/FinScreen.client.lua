@@ -20,9 +20,17 @@ local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8 texto
 local VERDE = Color3.fromRGB(76, 140, 74) -- #4C8C4A acción primaria y victoria
 local VERDE_APAGADO = Color3.fromRGB(62, 107, 60) -- #3E6B3C acción primaria en enfriamiento
 local ROJO = Color3.fromRGB(224, 69, 58) -- #E0453A peligro/título
+local ROJO_ACLARADO = Color3.fromRGB(255, 160, 143) -- #FFA08F causa de caída (6,8:1 sobre madera)
 local AMARILLO = Color3.fromRGB(255, 201, 60) -- #FFC93C insignia récord (contraste 8.8:1 sobre madera)
 local VELO = Color3.fromRGB(12, 8, 5) -- fondo oscuro semitransparente
 local BLANCO = Color3.fromRGB(255, 255, 255)
+
+-- Medallas (B6): color de texto RichText en la línea de tiempo; todos ≥ 4,5:1 sobre madera.
+local MEDALLAS = {
+	oro = { clave = "medalla_oro", color = "#FFC93C" },
+	plata = { clave = "medalla_plata", color = "#C9CDD4" },
+	bronce = { clave = "medalla_bronce", color = "#D08A5A" },
+}
 
 local ENFRIAMIENTO = 3 -- s de debounce del botón (el servidor además limita)
 local ANIMACION = 0.25 -- s, entrada sutil (accesibilidad §8: nada brusco)
@@ -62,7 +70,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 432) -- derrota: 8 líneas + insignia + botón
+panel.Size = UDim2.fromOffset(420, 464) -- derrota: 8 filas + causa + botón
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -74,8 +82,8 @@ esquina.Parent = panel
 -- F1 (revisión apple-design, P1 móvil): panel escalable. El UISizeConstraint acota
 -- el tamaño y el UIScale encoge el conjunto (panel + hijos) en pantallas estrechas.
 local restriccionPanel = Instance.new("UISizeConstraint")
-restriccionPanel.MaxSize = Vector2.new(420, 432)
-restriccionPanel.MinSize = Vector2.new(340, 432)
+restriccionPanel.MaxSize = Vector2.new(420, 464)
+restriccionPanel.MinSize = Vector2.new(340, 464)
 restriccionPanel.Parent = panel
 
 local escalaPanel = Instance.new("UIScale")
@@ -136,6 +144,13 @@ local textoPuntos = etiqueta(232, 26)
 local textoPinas = etiqueta(264, 26)
 local textoReanimaciones = etiqueta(296, 26)
 local textoEquipo = etiqueta(328, 26)
+
+-- B7: causa de la caída, solo en derrota (la victoria no tiene causa y no crece).
+local textoCausa = etiqueta(360, 26)
+textoCausa.TextColor3 = ROJO_ACLARADO
+textoCausa.Text = L("causa") .. ": —"
+textoCausa.Visible = false
+
 local etiquetas = {
 	textoDistancia,
 	textoTiempo,
@@ -146,6 +161,23 @@ local etiquetas = {
 	textoReanimaciones,
 	textoEquipo,
 }
+
+-- B6: la medalla va inline en la línea de tiempo con RichText (sin fila extra).
+textoTiempo.RichText = true
+
+-- B4: semilla de la partida, discreta en la esquina superior (no compite con el título).
+local textoSemilla = Instance.new("TextLabel")
+textoSemilla.Name = "Semilla"
+textoSemilla.Size = UDim2.fromOffset(200, 16)
+textoSemilla.Position = UDim2.fromOffset(14, 4)
+textoSemilla.BackgroundTransparency = 1
+textoSemilla.Font = Enum.Font.Gotham
+textoSemilla.TextSize = 13
+textoSemilla.TextXAlignment = Enum.TextXAlignment.Left
+textoSemilla.TextColor3 = CREMA
+textoSemilla.TextTransparency = 0.25 -- ~6,7:1 sobre madera: metadato secundario y legible
+textoSemilla.Text = ""
+textoSemilla.Parent = panel
 
 local boton = Instance.new("TextButton")
 boton.Name = "BotonReintentar"
@@ -182,7 +214,7 @@ local esquinaSeguir = Instance.new("UICorner")
 esquinaSeguir.CornerRadius = UDim.new(0, 12)
 esquinaSeguir.Parent = botonSeguir
 
--- Dos alturas fijas: derrota 432 (un botón) y victoria 560 (dos botones con 12 px de aire).
+-- Dos alturas fijas: derrota 464 (causa + un botón) y victoria 560 (dos botones con 12 px de aire).
 local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328 }
 local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388 }
 
@@ -204,10 +236,11 @@ local function aplicarVariante(victoria)
 		botonSeguir.Position = UDim2.new(0.5, 0, 0, 490)
 		botonSeguir.Text = L("seguir")
 		botonSeguir.Visible = true
+		textoCausa.Visible = false
 	else
-		panel.Size = UDim2.fromOffset(420, 432)
-		restriccionPanel.MaxSize = Vector2.new(420, 432)
-		restriccionPanel.MinSize = Vector2.new(340, 432)
+		panel.Size = UDim2.fromOffset(420, 464)
+		restriccionPanel.MaxSize = Vector2.new(420, 464)
+		restriccionPanel.MinSize = Vector2.new(340, 464)
 		titulo.Position = UDim2.new(0, 10, 0, 16)
 		titulo.Size = UDim2.new(1, -20, 0, 48)
 		titulo.TextWrapped = false
@@ -217,7 +250,9 @@ local function aplicarVariante(victoria)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_DERROTA[i])
 		end
-		boton.Position = UDim2.new(0.5, 0, 0, 362)
+		textoCausa.Position = UDim2.new(0, 20, 0, 360)
+		textoCausa.Visible = true
+		boton.Position = UDim2.new(0.5, 0, 0, 394)
 		botonSeguir.Visible = false
 	end
 	ajustarEscala()
@@ -235,10 +270,17 @@ local function pintarDatos(datos)
 	local record = math.max(0, math.floor(tonumber(datos and datos.record) or 0))
 	local reanimaciones = math.max(0, math.floor(tonumber(datos and datos.reanimaciones) or 0))
 	local mejorEquipo = math.max(0, math.floor(tonumber(datos and datos.mejorEquipo) or 0))
+	local semilla = math.floor(tonumber(datos and datos.semilla) or 0)
 	local nuevoRecord = datos ~= nil and datos.nuevoRecord == true
+	local medalla = type(datos) == "table" and MEDALLAS[datos.medalla] or nil
+	local causa = type(datos) == "table" and datos.causa or nil
 
 	textoDistancia.Text = L("distancia") .. ": " .. ("%d m"):format(distancia)
-	textoTiempo.Text = L("tiempo") .. ": " .. ("%02d:%02d"):format(tiempo / 60, tiempo % 60)
+	local lineaTiempo = L("tiempo") .. ": " .. ("%02d:%02d"):format(tiempo / 60, tiempo % 60)
+	if medalla then
+		lineaTiempo = lineaTiempo .. ' · <font color="' .. medalla.color .. '">' .. L(medalla.clave) .. "</font>"
+	end
+	textoTiempo.Text = lineaTiempo
 	textoCheckpoint.Text = L("checkpoint") .. ": "
 		.. (checkpoint > 0 and ("%d"):format(checkpoint) or "—")
 	textoRecord.Text = L("record") .. ": " .. ("%d m"):format(record)
@@ -246,6 +288,8 @@ local function pintarDatos(datos)
 	textoPinas.Text = L("pinas_ganadas") .. ": " .. ("%d"):format(pinasPartida)
 	textoReanimaciones.Text = L("reanimaciones") .. ": " .. ("%d"):format(reanimaciones)
 	textoEquipo.Text = L("mejor_equipo") .. ": " .. ("%d m"):format(mejorEquipo)
+	textoCausa.Text = L("causa") .. ": " .. (Localization.Causa(causa) or "—")
+	textoSemilla.Text = semilla > 0 and (L("semilla") .. " " .. ("%d"):format(semilla)) or ""
 	insignia.Visible = nuevoRecord
 end
 

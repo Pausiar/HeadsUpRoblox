@@ -31,6 +31,7 @@ local remoteHudEstado = Remotes.Esperar(Remotes.Nombres.HudEstado)
 local remotePaseEstado = Remotes.Esperar(Remotes.Nombres.PaseEstado)
 local remoteReanimar = Remotes.Esperar(Remotes.Nombres.ReanimarPersonal)
 local remoteReanimarResultado = Remotes.Esperar(Remotes.Nombres.ReanimarResult)
+local remoteFinPartida = Remotes.Esperar(Remotes.Nombres.FinPartida)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ReanimarPersonalUI"
@@ -149,6 +150,7 @@ local COSTO = costoConfig and costoConfig > 0 and math.floor(costoConfig) or 100
 local stock = 0
 local modoPuro = false
 local caido = false
+local finDePartida = false
 local reanimando = false
 local cooldownHasta = 0
 local tokenEnfriamiento = 0
@@ -277,6 +279,9 @@ remoteHudEstado.OnClientEvent:Connect(function(datos)
 	if type(datos) ~= "table" then
 		return
 	end
+	if finDePartida then
+		return -- el FinScreen ya cerró la partida de este jugador
+	end
 	local ahoraCaido = datos.estado == "CAÍDO"
 	if ahoraCaido and os.clock() < ignorarCaidoHasta then
 		return -- el servidor aún no ha publicado el Sano tras reanimar
@@ -346,9 +351,18 @@ remoteReanimarResultado.OnClientEvent:Connect(function(datos)
 	end
 end)
 
+-- Al salir los resultados, el panel quedaría debajo del velo y el servidor ya
+-- rechaza la compra: se oculta hasta la siguiente partida.
+remoteFinPartida.OnClientEvent:Connect(function()
+	finDePartida = true
+	ocultarTodo()
+end)
+
 player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 	if player:GetAttribute("EnJuego") ~= true then
 		ocultarTodo()
+	else
+		finDePartida = false
 	end
 end)
 

@@ -5,6 +5,7 @@
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local TerrenoConfig = require(ReplicatedStorage.Shared.Config.TerrenoConfig)
 local Ruta = require(ReplicatedStorage.Shared.Ruta)
@@ -153,8 +154,8 @@ local function nuevaParte(props)
 end
 
 -- Ruta guiada: paseo aleatorio por la cordillera, sin cruzar tramos previos.
-local function rutaDeHistoria()
-	local rng = Random.new(MUNDO.Semilla + 17)
+local function rutaDeHistoria(semilla)
+	local rng = Random.new(semilla + 17)
 	local altura = obtenerAlturaNatural()
 	local margen = HISTORIA.MargenMapa
 	local minX = MUNDO.MinX + margen
@@ -837,14 +838,40 @@ local function construir(modo, semilla, ruta, tilesIniciales)
 	))
 end
 
-function TerrenoService.ConstruirHistoria()
+function TerrenoService.ConstruirHistoria(semilla)
+	semilla = math.floor(tonumber(semilla) or MUNDO.Semilla)
 	TerrenoService.Limpiar()
 	-- La ruta necesita la altura antes de que `construir` fije la semilla.
-	semillaActual = MUNDO.Semilla
+	semillaActual = semilla
 	alturaNatural = crearAltura(semillaActual)
-	local ruta = rutaDeHistoria()
-	construir("historia", MUNDO.Semilla, ruta, MUNDO.TilesIniciales)
+	local ruta = rutaDeHistoria(semilla)
+	construir("historia", semilla, ruta, MUNDO.TilesIniciales)
 	return ruta
+end
+
+-- Seam de Studio (B4): valida una semilla de Historia sin construir el mundo entero.
+-- Devuelve { semilla, longitud, inicio, meta, madriguera } o nil + error.
+if RunService:IsStudio() then
+	function TerrenoService._ProbarHistoria(semilla)
+		semilla = math.floor(tonumber(semilla) or MUNDO.Semilla)
+		local previaSemilla, previaAltura = semillaActual, alturaNatural
+		semillaActual = semilla
+		alturaNatural = crearAltura(semilla)
+		local ok, ruta = pcall(rutaDeHistoria, semilla)
+		semillaActual, alturaNatural = previaSemilla, previaAltura
+		if not ok or not ruta then
+			return nil, tostring(ruta)
+		end
+		local inicio = ruta:PuntoEnDistancia(0)
+		local meta = ruta:PuntoEnDistancia(ruta.Longitud)
+		return {
+			semilla = semilla,
+			longitud = math.floor(ruta.Longitud),
+			inicio = inicio,
+			meta = meta,
+			madriguera = ruta:CercanoXZ(CLAROS.Madriguera.X, CLAROS.Madriguera.Z),
+		}
+	end
 end
 
 function TerrenoService.ConstruirRapida(semilla)

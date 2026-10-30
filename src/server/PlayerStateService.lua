@@ -8,8 +8,9 @@ local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local PlayerStateService = {}
-local estados = {} -- [player] = { caido = bool, deadline = number }
+local estados = {} -- [player] = { caido = bool, deadline = number, causa = string }
 local sonido = Remotes.Crear(Remotes.Nombres.Sonido) -- fase 6: reanimación
+local caidas -- remoto del feed (fase 11 · L4/B7); se crea en Iniciar
 
 -- Señal interna para otros servicios del servidor (plan §4.5: reanimar da puntos)
 local reanimado = Instance.new("BindableEvent")
@@ -35,6 +36,7 @@ function PlayerStateService.Derribar(player, motivo)
 		return
 	end
 	st.caido = true
+	st.causa = motivo
 	st.deadline = os.clock() + Config.Etapa0.Caido.SegundosParaReanimar
 	hum.PlatformStand = true
 	hum.WalkSpeed = 0
@@ -54,6 +56,17 @@ function PlayerStateService.Derribar(player, motivo)
 		end)
 	end
 	print("[Estado] caído:", player.Name, "(" .. tostring(motivo) .. ")")
+	-- Feed del equipo: solo a quienes están jugando (fase 11 · L4/B7)
+	if caidas then
+		for _, otro in ipairs(Players:GetPlayers()) do
+			if otro:GetAttribute("EnJuego") == true then
+				caidas:FireClient(otro, {
+					nombre = player.DisplayName,
+					causa = motivo,
+				})
+			end
+		end
+	end
 end
 
 function PlayerStateService.Reanimar(player, reanimador)
@@ -64,6 +77,7 @@ function PlayerStateService.Reanimar(player, reanimador)
 		return
 	end
 	st.caido = false
+	st.causa = nil
 	hum.PlatformStand = false
 	hum.WalkSpeed = 16
 	hum.Health = math.max(hum.Health, 60)
@@ -78,8 +92,23 @@ function PlayerStateService.EstaCaido(player)
 	return st ~= nil and st.caido
 end
 
+-- La causa sobrevive a la muerte (caido=false al agotarse el plazo) para que el
+-- FinScreen de derrota pueda mostrarla; se limpia al reanimar o al reaparecer.
+function PlayerStateService.Causa(player)
+	local st = estados[player]
+	return st and st.causa or nil
+end
+
+-- Vacía el feed del equipo al empezar una partida (fase 11 · L4/B7).
+function PlayerStateService.LimpiarCaidas()
+	if caidas then
+		caidas:FireAllClients({ reinicio = true })
+	end
+end
+
 function PlayerStateService.Iniciar()
 	hud = Remotes.Crear(Remotes.Nombres.HudEstado)
+	caidas = Remotes.Crear(Remotes.Nombres.Caidas)
 
 	Players.PlayerAdded:Connect(function(player)
 		estados[player] = { caido = false }
@@ -107,6 +136,7 @@ function PlayerStateService.Iniciar()
 					hud:FireClient(player, {
 						estado = "CAÍDO",
 						restante = math.max(0, math.floor(st.deadline - os.clock())),
+						causa = st.causa,
 					})
 				else
 					hud:FireClient(player, { estado = "Sano" })

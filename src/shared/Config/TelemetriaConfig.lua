@@ -6,6 +6,7 @@ TelemetriaConfig.Activo = true
 
 TelemetriaConfig.Eventos = {
 	PartidaInicio = "PartidaInicio",
+	PartidaSemilla = "PartidaSemilla", -- fase 11 · L4/B4: valor = semilla de la ruta
 	PartidaFin = "PartidaFin", -- respaldo si el modo no llega en AlTerminar
 	PartidaFinHistoria = "PartidaFinHistoria",
 	PartidaFinRapida = "PartidaFinRapida",

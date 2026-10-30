@@ -24,7 +24,7 @@ local SUBIDA = 30 -- px que sube cada popup
 local PASO = 26 -- separación vertical por índice de slot
 local DURACION = 1 -- s de vida del popup
 local POPUP_X = -250 -- alineado con el texto del contador (inset de 10 px)
-local POPUP_BASE_Y = 124 -- base del popup, justo sobre el panel de puntos
+local POPUP_BASE_Y = 152 -- base del popup, justo sobre el panel de puntos
 
 local player = Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
@@ -42,7 +42,7 @@ safeArea.Parent = gui
 local panel = Instance.new("Frame")
 panel.Name = "PanelPuntos"
 panel.Size = UDim2.fromOffset(240, 40)
-panel.Position = UDim2.new(1, -260, 0, 128) -- bajo el panel del HUD (240x96 en y=20)
+panel.Position = UDim2.new(1, -260, 0, 156) -- bajo el panel del HUD (240x124 en y=20)
 panel.BackgroundColor3 = MADERA_OSCURA
 panel.BorderSizePixel = 0
 panel.Parent = gui

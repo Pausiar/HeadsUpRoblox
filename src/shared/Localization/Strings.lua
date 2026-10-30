@@ -188,6 +188,7 @@ local Localization = {
 			sprint_shift = "Sprint: Shift",
 			f_linterna = "F: linterna",
 			v_camara = "V: cámara",
+			g_frases = "G: frases",
 			-- Fase 9: meta, tienda de campaña, bebidas y mejoras
 			meta = "META",
 			has_llegado = "¡HAS LLEGADO A LA META!",
@@ -224,6 +225,28 @@ local Localization = {
 			item_pinas_x2 = "Doble de Piñas (30 min)",
 			item_reanimacion_personal = "Reanimación personal",
 			item_pack_sombreros = "Pack de sombreros",
+			-- Fase 11 · L4: causas de caída, semilla, medallas y frases rápidas
+			causa = "Causa",
+			caida_arbol = "Te alcanzó un árbol",
+			caida_piedra = "Te golpeó una piedra",
+			caida_doble = "Te atrapó El Doble",
+			caida_vacio = "Caíste al vacío",
+			caidas = "Caídas",
+			semilla = "Semilla",
+			medalla = "Medalla",
+			medalla_oro = "ORO",
+			medalla_plata = "PLATA",
+			medalla_bronce = "BRONCE",
+			frases = "Frases",
+			frases_titulo = "FRASES RÁPIDAS",
+			frase_ayuda = "¡Ayuda!",
+			frase_espera = "Espérame",
+			frase_vamos = "¡Vamos!",
+			frase_cuidado = "¡Cuidado!",
+			frase_gracias = "Gracias",
+			frase_arriba = "¡Arriba!",
+			frase_reanimame = "¡Reanímame!",
+			frase_doble = "¡Es El Doble!",
 		},
 		en = {
 			-- Main menu
@@ -403,6 +426,7 @@ local Localization = {
 			sprint_shift = "Sprint: Shift",
 			f_linterna = "F: flashlight",
 			v_camara = "V: camera",
+			g_frases = "G: phrases",
 			-- Phase 9: finish, camp shop, drinks and upgrades
 			meta = "FINISH",
 			has_llegado = "YOU REACHED THE FINISH!",
@@ -439,6 +463,28 @@ local Localization = {
 			item_pinas_x2 = "Double Pinecones (30 min)",
 			item_reanimacion_personal = "Personal revive",
 			item_pack_sombreros = "Hat pack",
+			-- Phase 11 · L4: fall causes, seed, medals and quick phrases
+			causa = "Cause",
+			caida_arbol = "A tree got you",
+			caida_piedra = "A rock hit you",
+			caida_doble = "The Double caught you",
+			caida_vacio = "You fell into the void",
+			caidas = "Falls",
+			semilla = "Seed",
+			medalla = "Medal",
+			medalla_oro = "GOLD",
+			medalla_plata = "SILVER",
+			medalla_bronce = "BRONZE",
+			frases = "Phrases",
+			frases_titulo = "QUICK PHRASES",
+			frase_ayuda = "Help!",
+			frase_espera = "Wait for me",
+			frase_vamos = "Let's go!",
+			frase_cuidado = "Watch out!",
+			frase_gracias = "Thanks",
+			frase_arriba = "Go up!",
+			frase_reanimame = "Revive me!",
+			frase_doble = "It's the Double!",
 		},
 	},
 }
@@ -456,6 +502,40 @@ function Localization.L(clave, params)
 		end
 	end
 	return texto
+end
+
+-- Igual que L pero para un idioma explícito: el servidor traduce la frase de cada
+-- receptor sin tocar Localization.Idioma, que es global y compartida.
+function Localization.LPara(idioma, clave, params)
+	local tabla = Localization.Tabla[idioma] or Localization.Tabla.es
+	local texto = tabla[clave] or Localization.Tabla.es[clave] or clave
+	if type(params) == "table" then
+		local ok, formateado = pcall(string.format, texto, table.unpack(params))
+		if ok then
+			return formateado
+		end
+	end
+	return texto
+end
+
+local CAUSAS = {
+	arbol = "caida_arbol",
+	piedra = "caida_piedra",
+	doble = "caida_doble",
+	ElDoble = "caida_doble",
+	vacio = "caida_vacio",
+}
+
+-- Texto de una causa de caída; nil si la causa falta o no se conoce.
+function Localization.Causa(causa, idioma)
+	local clave = CAUSAS[causa]
+	if not clave then
+		return nil
+	end
+	if idioma then
+		return Localization.LPara(idioma, clave)
+	end
+	return Localization.L(clave)
 end
 
 -- Cambia el idioma activo si está en Soportados. Devuelve true si se aplicó.

@@ -24,6 +24,7 @@ local PinasService = require(Server.PinasService)
 local TiendaService = require(Server.TiendaService)
 local MonsterService = require(Server.MonsterService)
 local ChatMimicService = require(Server.ChatMimicService)
+local ChatRapidoService = require(Server.ChatRapidoService)
 local MonetizacionService = require(Server.MonetizacionService)
 local TelemetriaService = require(Server.TelemetriaService)
 local CierreService = require(Server.CierreService)
@@ -47,6 +48,7 @@ RopaService.Iniciar()
 PinasService.Iniciar()
 TiendaService.Iniciar() -- después de PinasService, AccesoriosService y CustomizationService: los usa
 ChatMimicService.Iniciar()
+ChatRapidoService.Iniciar() -- frases rápidas: solo depende de remotes, config y Settings del cliente
 MonsterService.Iniciar()
 MonetizacionService.Iniciar() -- después de TiendaService y MatchService: los usa
 TelemetriaService.Iniciar() -- al final: engancha eventos de MatchService y PlayerStateService

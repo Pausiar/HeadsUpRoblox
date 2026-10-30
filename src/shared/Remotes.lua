@@ -44,6 +44,10 @@ Remotes.Nombres = {
 
 	-- Fase 6: audio y subtítulos (el cliente decide volumen y presentación)
 	Sonido = "Sonido", -- server -> client: { id, posicion?, subtitulo? }
+
+	-- Fase 11 · E43: estamina autoritativa en el servidor
+	Sprint = "Sprint", -- client -> server: boolean, intención de esprintar (limitado)
+	EstaminaEstado = "EstaminaEstado", -- server -> client: { estamina, max, esprintando, bloqueado }
 }
 
 function Remotes.Crear(nombre)

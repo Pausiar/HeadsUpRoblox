@@ -417,6 +417,7 @@ Los umbrales numéricos viven en **`docs/launch/metrics.md`**. Este documento so
 | Ranking de amigos | Falla si no hay amigos o API; ranking vacío | Fallback global ya implementado; probar con 2+ amigos; explicar en la UI | Abierto hasta Ola 1 |
 | Móvil real | UI recortada, controles incómodos, crashes por memoria | Device Simulator + teléfono real; safe area; objetivos 44–56 px; revisar Performance | Abierto hasta Ola 1 |
 | 8 jugadores simultáneos | Físicas, red o servidor inestables | Sesión dedicada de 8; presupuesto de objetos del spike S4; StreamingEnabled | Abierto hasta Ola 1 |
+| Física del personaje en el cliente | Un exploit puede fijar su propia `WalkSpeed` y correr de más | La estamina y la velocidad las fija `EstaminaService`; `MatchService` limita el progreso de ruta a 32 studs/s (sprint real 24), así que el exceso no cobra checkpoints ni meta. Vigilar reportes de velocidad anómala | Mitigado parcial (E43) |
 | PolicyService por región | Compras bloqueadas o restricciones no previstas | No hay aleatorios; revisar logs de `[Tienda]`; si se añaden, mostrar odds y bloquear | Bajo en v1 |
 | Chat moderado | Fuga de texto, insultos o falso positivo | Filtro por receptor ya implementado; banco curado; aviso en tutorial; reportes | Abierto si hay incidente |
 | Audio sin licencia | Retirada de audio o reclamación | Registro de licencias; no subir material comercial; mantener `Musica.id = 0` hasta tener pista | Bloqueado por usuario |

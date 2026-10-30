@@ -1,6 +1,19 @@
 -- Config del slice vertical (plan §3.3: todo por datos)
 local Config = {}
 
+-- E43: estamina y sprint con autoridad del servidor (EstaminaService).
+Config.Estamina = {
+	Max = 100,
+	Drenaje = 20, -- estamina por segundo esprintando (5 s de sprint lleno)
+	Regeneracion = 15, -- estamina por segundo al caminar
+	VelocidadBase = 16,
+	VelocidadSprint = 24,
+	UmbralMinimo = 10, -- tras vaciarse, no se vuelve a esprintar hasta recuperar esto
+	Bebida = 25, -- 1/4 de la barra por bebida (TiendaService la repone)
+	CansancioMinimo = 0.4, -- suelo del multiplicador de las Botas ligeras
+	Ritmo = 10, -- Hz de simulación y publicación del estado
+}
+
 Config.Etapa0 = {
 	Nombre = "Sendero de prueba",
 	CheckpointCada = 260, -- ruta de ~6000 studs: un poste cada ~15 s de marcha

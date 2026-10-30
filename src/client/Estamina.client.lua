@@ -1,15 +1,12 @@
 -- Sprint (LeftShift) + barra de estamina abajo-izquierda (plan §3.5; concepto: docs/concept/, ADN: docs/design/design-dna.md)
 -- Paleta del ADN: barra verde lima #8BC34A, fondo marrón oscuro #3E2A18, texto crema #F5EBD8.
 --
--- NOTA DE AUTORIDAD: la WalkSpeed se cambia desde el CLIENTE; el servidor no controla el
--- movimiento. Mitigación actual: MatchService limita el progreso de ruta a 32 studs/s
--- (sprint real 24), así que teletransportarse ya no cobra checkpoints, Piñas ni meta.
--- shortcut: la estamina sigue siendo cliente (ventaja máxima ≈33 % sobre el sprint real);
--- mover el movimiento a servidor (control custom, plan §3.5) si el sprint se vuelve
--- ventaja de pago o si aparece un exploit de movimiento en producción.
+-- E43: la estamina y la WalkSpeed viven en el SERVIDOR (EstaminaService). Este script
+-- solo pide esprintar con el remoto Sprint y pinta el estado que publica EstaminaEstado;
+-- no toca Humanoid.WalkSpeed ni simula drenaje. La física sigue siendo del cliente
+-- (riesgo residual documentado en EstaminaService).
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -25,24 +22,14 @@ local BOTON_SPRINT = Enum.KeyCode.ButtonL3
 local BOTON_BEBER = Enum.KeyCode.ButtonY
 local remotoBeber = Remotes.Esperar(Remotes.Nombres.BeberBebida)
 local remotoBebidaResultado = Remotes.Esperar(Remotes.Nombres.BebidaResult)
-
--- Constantes del slice (locales a propósito: GameConfig se toca cuando el balance se mida en playtest)
-local ESTAMINA_MAX = 100
-local DRENAJE = 20 -- estamina por segundo esprintando (5 s de sprint lleno)
-local REGENERACION = 15 -- estamina por segundo en reposo
-local VELOCIDAD_BASE = 16
-local VELOCIDAD_SPRINT = 24
-local UMBRAL_MINIMO = 10 -- tras vaciarse, no se vuelve a esprintar hasta recuperar esto
-local BEBIDA_ESTAMINA = ESTAMINA_MAX / 4 -- 1/4 de la barra por bebida (25 puntos)
-local CANSANCIO_MINIMO = 0.4 -- suelo del multiplicador de las Botas ligeras
+local remotoSprint = Remotes.Esperar(Remotes.Nombres.Sprint)
+local remotoEstado = Remotes.Esperar(Remotes.Nombres.EstaminaEstado)
 
 local COLOR_FONDO = Color3.fromRGB(62, 42, 24) -- #3E2A18 marrón oscuro
 local COLOR_BARRA = Color3.fromRGB(139, 195, 74) -- #8BC34A verde lima (ADN: barras de estado)
 local COLOR_TEXTO = Color3.fromRGB(245, 235, 216) -- #F5EBD8 crema
 
-local estamina = ESTAMINA_MAX
-local esprintando = false -- LeftShift mantenido y permitido
-local bloqueadoPorVacio = false -- al llegar a 0, bloquea el sprint hasta UMBRAL_MINIMO
+local estaminaMax = 100
 
 local function obtenerHumanoid()
 	local character = player.Character
@@ -140,48 +127,64 @@ local function avisarBebidas(texto)
 	end)
 end
 
--- El servidor descuenta el stock; aquí solo se repone la barra (autoridad cliente,
--- ver la nota de arriba) y se confirma con el aviso.
+-- El servidor descuenta el stock y repone la estamina; la barra se actualiza
+-- con el siguiente EstaminaEstado.
 remotoBebidaResultado.OnClientEvent:Connect(function(datos)
 	if type(datos) ~= "table" then
 		return
 	end
 	if datos.ok == true then
-		estamina = math.min(ESTAMINA_MAX, estamina + BEBIDA_ESTAMINA)
 		avisarBebidas(L("bebida_tomada"))
 	else
 		avisarBebidas(L("sin_bebidas"))
 	end
 end)
 
+local function pintarEstamina(datos)
+	if type(datos) ~= "table" or type(datos.estamina) ~= "number" then
+		return
+	end
+	estaminaMax = tonumber(datos.max) or estaminaMax
+	if estaminaMax <= 0 then
+		return
+	end
+	local fraccion = math.clamp(datos.estamina / estaminaMax, 0, 1)
+	barra.Size = UDim2.new(fraccion, -4, 0, 14)
+end
+
+remotoEstado.OnClientEvent:Connect(pintarEstamina)
+
 player:GetAttributeChangedSignal("Bebidas"):Connect(pintarBebidas)
 pintarBebidas()
 
 -- reducirEfectos (Settings): aquí no hay animaciones que desactivar — el tamaño de la barra es
--- funcional (se escribe cada Heartbeat), así que la opción no necesita gancho en este slice.
+-- funcional, así que la opción no necesita gancho en este slice.
+
+local function pedirSprint(activo)
+	if activo then
+		local humanoid = obtenerHumanoid()
+		if not humanoid or humanoid.Health <= 0 then
+			return
+		end
+		if player:GetAttribute("EnJuego") ~= true then
+			return
+		end
+	end
+	remotoSprint:FireServer(activo)
+end
 
 -- Sprint solo fuera del lobby: el flujo de JUGAR (MenuInicio) pone el atributo "EnJuego" en el jugador.
 player:GetAttributeChangedSignal("EnJuego"):Connect(function()
 	if player:GetAttribute("EnJuego") ~= true then
-		esprintando = false
-		local humanoid = obtenerHumanoid()
-		if humanoid and humanoid.Health > 0 and not humanoid.PlatformStand then
-			humanoid.WalkSpeed = VELOCIDAD_BASE
-		end
+		pedirSprint(false) -- el servidor devuelve la WalkSpeed base
 	end
 	pintarBebidas()
 end)
 
-local function iniciarSprint()
-	local humanoid = obtenerHumanoid()
-	if not humanoid or humanoid.Health <= 0 then return end
-	esprintando = true
-end
-
 local function detenerSprint()
 	-- Sin check de gameProcessed a propósito: si un TextBox consumió la pulsación hay que soltar
-	-- igualmente, o el sprint queda pegado drenando estamina.
-	esprintando = false
+	-- igualmente, o el sprint queda pegado.
+	pedirSprint(false)
 end
 
 local function puedeBeber()
@@ -203,7 +206,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 	if input.KeyCode ~= Enum.KeyCode.LeftShift and input.KeyCode ~= BOTON_SPRINT then return end
-	iniciarSprint()
+	pedirSprint(true)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
@@ -227,7 +230,7 @@ if UserInputService.TouchEnabled then
 	actualizarVisibilidad()
 	boton.InputBegan:Connect(function(entrada)
 		if entrada.UserInputType == Enum.UserInputType.Touch then
-			iniciarSprint()
+			pedirSprint(true)
 		end
 	end)
 	boton.InputEnded:Connect(function(entrada)
@@ -242,56 +245,6 @@ if UserInputService.TouchEnabled then
 	end)
 end
 
-local function alPersonaje(character)
-	estamina = ESTAMINA_MAX
-	bloqueadoPorVacio = false
-	local humanoid = character:WaitForChild("Humanoid")
-	humanoid.WalkSpeed = VELOCIDAD_BASE
-end
-
-player.CharacterAdded:Connect(alPersonaje)
-if player.Character then
-	task.spawn(alPersonaje, player.Character) -- respawn o script cargado tarde
-end
-
-RunService.Heartbeat:Connect(function(dt)
-	local humanoid = obtenerHumanoid()
-	if not humanoid or humanoid.Health <= 0 then
-		return -- sin personaje o muerto: no tocar nada
-	end
-	if humanoid.PlatformStand then
-		return -- caído: PlayerStateService fija WalkSpeed 0 y lo restaura al revivir
-	end
-
-	if
-		esprintando
-		and not bloqueadoPorVacio
-		and player:GetAttribute("EnJuego") == true
-		and estamina > 0
-	then
-		humanoid.WalkSpeed = VELOCIDAD_SPRINT
-		-- Botas ligeras: Cansancio baja 0,15 por nivel (0,55 al máximo). El suelo
-		-- de 0,4 deja margen para futuros niveles sin regalar sprint infinito.
-		local cansancio = math.clamp(tonumber(player:GetAttribute("Cansancio")) or 1, CANSANCIO_MINIMO, 1)
-		estamina -= DRENAJE * cansancio * dt
-		if estamina <= 0 then
-			estamina = 0
-			bloqueadoPorVacio = true -- sprint forzado fuera hasta recuperar UMBRAL_MINIMO
-		end
-	else
-		humanoid.WalkSpeed = VELOCIDAD_BASE
-		estamina += REGENERACION * dt
-		if estamina > ESTAMINA_MAX then
-			estamina = ESTAMINA_MAX
-		end
-		if bloqueadoPorVacio and estamina >= UMBRAL_MINIMO then
-			bloqueadoPorVacio = false
-		end
-	end
-
-	barra.Size = UDim2.new(estamina / ESTAMINA_MAX, -4, 0, 14)
-end)
-
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave ~= "idioma" then
 		return
@@ -301,4 +254,4 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 	pintarBebidas()
 end)
 
-print("[Estamina] activo")
+print("[Estamina] activo (servidor autoritativo)")

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PolicyService = game:GetService("PolicyService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
 local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
@@ -30,6 +31,7 @@ local personalizacion
 local telemetriaService
 local playerState
 local monetizacion
+local estaminaService
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
 local cargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
 
@@ -274,14 +276,14 @@ function TiendaService.Iniciar()
 	telemetriaService = require(script.Parent.TelemetriaService)
 	playerState = require(script.Parent.PlayerStateService)
 	monetizacion = require(script.Parent.MonetizacionService)
+	estaminaService = require(script.Parent.EstaminaService)
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)
 	remotoResultado = Remotes.Crear(Remotes.Nombres.CompraResult)
 	remotoComprar.OnServerEvent:Connect(procesarCompra)
 
-	-- Beber: el servidor solo descuenta stock; la estamina la repone el cliente
-	-- (es cliente-autoritativa, ver la nota de Estamina.client.lua).
+	-- Beber: el servidor descuenta stock y repone la estamina (E43, autoridad servidor).
 	permitirBeber = RateLimiter.nuevo(1)
 	remotoBeber = Remotes.Crear(Remotes.Nombres.BeberBebida)
 	remotoBebidaResultado = Remotes.Crear(Remotes.Nombres.BebidaResult)
@@ -307,6 +309,7 @@ function TiendaService.Iniciar()
 		datos.bebidas -= 1
 		dataService.Guardar(player, "bebidas", datos.bebidas)
 		publicar(player)
+		estaminaService.Reponer(player, GameConfig.Estamina.Bebida)
 		remotoBebidaResultado:FireClient(player, { ok = true, bebidas = datos.bebidas })
 		print("[Tienda] " .. player.Name .. " bebió una bebida (" .. datos.bebidas .. " restantes)")
 	end)

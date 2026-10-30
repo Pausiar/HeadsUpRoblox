@@ -14,7 +14,7 @@ Reglas de trabajo obligatorias: [`AGENTS.md`](../AGENTS.md).
 - **No publicado.** Sin DataStore real, sin IDs de monetización, sin audio definitivo.
 - Fases cerradas: 0 (prep/spikes), 1 (vertical slice), 2 (lobby + ranking), 3 (El Doble + chat imitado), 4 (ropa y personalización), 5 (Robux), 6 (audio, móvil, accesibilidad, telemetría, i18n), 7 (docs de lanzamiento), 8 (terreno voxel y rutas), 9 (mundo largo por teselas, meta, tienda, peligros, noche/sustos) y el cierre formal de la 9 (auditoría, ledger, graphify).
 - **Fase 10 en curso:** el QA que no depende de publicar ya está hecho (hitch de teselas, 3 clientes en Studio, UI en A06/iPhone con Device Simulator). Lo que falta necesita tu cuenta o hardware: `docs/pendiente-usuario.md`.
-- **Fase 11 en curso (2026-10-30):** lote L0 empezado; hechos E45 (DataStore v2 con migración, respaldo y autoguardado parcial) y E44 (resultados por clave + params, traducidos en el cliente). Siguen E43 (estamina autoritativa), E46 (eventos de telemetría) y E49 (`QATestHumo`) — ver `docs/fase-11-plan.md`.
+- **Fase 11 en curso (2026-10-30):** lote L0 empezado; hechos E45 (DataStore v2 con migración, respaldo y autoguardado parcial), E44 (resultados por clave + params, traducidos en el cliente) y E43 (estamina y WalkSpeed autoritativas en servidor). Siguen E46 (eventos de telemetría) y E49 (`QATestHumo`) — ver `docs/fase-11-plan.md`.
 
 ---
 
@@ -141,6 +141,15 @@ Pedido del usuario: «si entras al menú de la tienda en primera persona se qued
 
 **Evidencia:** `QATestDatos` (nuevo módulo Studio-only, no lo arranca Main) → `[QA-DATOS] OK migracion=v1 idempotente=true fusion=defaults<guardado<sesion`; `[QA-E45] schema=2 faltan={} pinas=170 comprados=2`; `_ProbarMigracion` → `schema=2 pinas=7 idempotente=true`; `_ProbarFusion` → `xp=42 partidas=3 idioma=en tutorialPorDefecto=false sesionManda=170 sesionNoPisaXp=42`; E44 en EN: «Not enough Pinecones», «Available when the game is published», «Invalid design», «You're not down», «Wool beanie», «Equipped», «Green shirt», «Unknown item»; en ES: «Piñas insuficientes», «Bebida energética»; `Sin reanimaciones ni 100 Piñas` / `No revives or 100 Pinecones` con `faltanEN=0 faltanES=0`; playtest de arranque con consola limpia (solo DataStore en memoria y asset 203785492) y `rojo build` limpio. No probado en Studio: migración/respaldo/autoguardado reales y rejoin (QA-60/61/62, requieren place publicado).
 
+### Fase 11 · L0: estamina autoritativa (2026-10-30)
+
+- **E43 · `EstaminaService` (nuevo, servidor):** lleva por jugador `valor`, intención de sprint y bloqueo; simula a `GameConfig.Estamina.Ritmo` (10 Hz) drenaje × `Cansancio` (Botas ligeras), regeneración y `WalkSpeed` (16/24). Publica `EstaminaEstado { estamina, max, esprintando, bloqueado }` solo cuando cambia. El remoto `Sprint` (boolean) sustituye al cálculo local del cliente; valida tipo y limita frecuencia a 20 ms (idempotente, no se pierden sueltas humanas).
+- **Cliente:** `Estamina.client.lua` ya no toca `WalkSpeed` ni simula drenaje; pide sprint con `Sprint`, pinta la barra con `EstaminaEstado` y mantiene el rótulo de bebidas. `TiendaService` repone +25 (`GameConfig.Estamina.Bebida`) al beber. Al vaciarse, el servidor suelta la intención: hay que volver a pulsar tras recuperar el umbral (antes el cliente reanudaba solo con la tecla mantenida).
+- **Interacción con caído:** mientras `PlatformStand` o `EstaCaido`, el bucle no escribe `WalkSpeed` ni drena/regenera; al revivir vuelve a 16 y, si la intención sigue activa, a 24.
+- **Riesgo residual:** la física del personaje sigue siendo del cliente; un exploit puede fijar su propia `WalkSpeed` local. Mitigación vigente: `MatchService` limita el progreso de ruta a 32 studs/s (sprint real 24). Documentado en la cabecera de `EstaminaService`.
+
+**Evidencia (MCP, 1 jugador):** consola `[Estamina] activo (servidor autoritativo)`; sprint real con Shift (`user_keyboard_input`): `[QA-E43]` 100→97,7→…→5,0 con `ws=24`, y al vaciarse `est=3.5 sprint=false bloq=true ws=16`; regenerado a `11,5` con `bloq=false`; cliente `ws=16 enJuego=false barra=1.00`. Segundo pase: caído `est=56.3` congelada 3 s y `ws=0 ps=true`; reanimado `ws=16` y regeneración 56,3→84,1; bebida por Q → `[Tienda] ... bebió una bebida (2 restantes)`, `bebidas=2` y barra a 100 en el cliente. Arranque limpio (solo DataStore en memoria y asset 203785492) y `rojo build` limpio. No probado: dos clientes simultáneos (el MCP solo lanza Play de 1 jugador; queda en E2) ni una partida real iniciada por `MatchService` (la prueba fijó `EnJuego` desde el script QA).
+
 ---
 
 ## 5. Lo que falta
@@ -170,12 +179,11 @@ Falta (bloqueado por hardware/personas/publicación):
 
 ### C. Deuda registrada (marcadores `shortcut:`)
 
-5 marcadores, todos con disparador de revisión:
+3 marcadores, todos con disparador de revisión:
 
 | Archivo | Qué queda pendiente |
 | --- | --- |
 | `src/client/Accesibilidad.client.lua` | 140 % no refluye alturas fijas; algunos rótulos se recortan |
-| `src/client/Estamina.client.lua` | Estamina cliente (ventaja máxima ≈33 % sobre el sprint real) — E43 la sustituye por servidor |
 | `src/server/AmigosRankingService.lua` | Una consulta lee hasta 50 claves por jugador; vigilar con grupos grandes |
 | `src/client/AnimacionBeber.client.lua` | Animación solo local (otros jugadores no ven la lata) y omitida en rigs R6/Motor6D; migrar a una animación subida si la co-op lo pide |
 
@@ -207,7 +215,7 @@ Todo el detalle accionable, con pasos y verificaciones esperadas, está en **[`d
 src/
   server/   Main.server.lua (arranque), DataService, QATestDatos (Studio-only), LobbyService, MatchService,
             StageService, TerrenoService, HazardService, MonsterService, ChatMimicService,
-            PlayerStateService, PinasService, PuntosService, TiendaService, RopaService,
+            PlayerStateService, EstaminaService, PinasService, PuntosService, TiendaService, RopaService,
             CustomizationService, AccesoriosService, MonetizacionService,
             RankingService, AmigosRankingService, RondaRapidaService, TelemetriaService
   client/   MenuInicio, LobbyUI, Hud, HudPuntos, HudPinas, HudRanking, FinScreen,
@@ -237,4 +245,4 @@ src/
 1. **Fase 10: cerrar lo que depende de ti** — sigue `docs/pendiente-usuario.md`: publicar + API Services, IDs de monetización, compra real, playtest de 8, móvil físico, mando y Modo Puro en producción. El QA de Studio (hitch, 3 clientes, UI A06/iPhone) ya está hecho y registrado.
 2. **Cerrar la fase 10** cuando A–E del documento estén verdes: `/ponytail-audit`, `/ponytail-debt`, `graphify update .` y fila en `docs/skill-log.md`.
 3. Cuando haya datos de publicación (IDs + `Activo=true`), hacer el smoke de soft launch de `docs/launch/soft-launch.md`.
-4. **Fase 11 (en curso desde el 2026-10-30):** 47 mejoras antes de publicar en `docs/fase-11-plan.md`, con lotes L0–L11, esquema de datos v2, remotes nuevos y corte de lanzamiento. L0 lleva hechos E45 (esquema v2) y E44 (resultados por clave); seguir con **E43 (estamina autoritativa + `EstaminaService` + remotes `Sprint`/`EstaminaEstado`)**, después E46 (eventos de telemetría) y E49 (`QATestHumo`). Sin E43 no se pueden cerrar D36/D41 (ajustes persistentes y pantalla de ajustes nuevos).
+4. **Fase 11 (en curso desde el 2026-10-30):** 47 mejoras antes de publicar en `docs/fase-11-plan.md`, con lotes L0–L11, esquema de datos v2, remotes nuevos y corte de lanzamiento. L0 lleva hechos E45 (esquema v2), E44 (resultados por clave) y E43 (estamina autoritativa); seguir con **E46 (eventos de telemetría: apertura de tienda, pestaña, compra, fallo de datos y fin por modo)** y después E49 (`QATestHumo`). Con E43 cerrado ya se puede tocar D36/D41 (ajustes persistentes y pantalla de ajustes nuevos).

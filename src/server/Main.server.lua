@@ -9,6 +9,7 @@ local Server = script.Parent
 local DataService = require(Server.DataService)
 local StageService = require(Server.StageService)
 local PlayerStateService = require(Server.PlayerStateService)
+local EstaminaService = require(Server.EstaminaService)
 local MatchService = require(Server.MatchService)
 local LobbyService = require(Server.LobbyService)
 local AmigosRankingService = require(Server.AmigosRankingService)
@@ -30,6 +31,7 @@ DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 StageService.Construir()
 TerrenoService.IniciarStreaming() -- después de Construir: ya existen la ruta y las plazas
 PlayerStateService.Iniciar()
+EstaminaService.Iniciar() -- después de PlayerStateService: consulta si el jugador está caído
 MatchService.Iniciar()
 LobbyService.Iniciar() -- después de MatchService: engancha AlEmpezar/AlTerminarPartida
 AmigosRankingService.Iniciar() -- después de MatchService: escucha AlTerminar
@@ -46,4 +48,4 @@ MonsterService.Iniciar()
 MonetizacionService.Iniciar() -- después de TiendaService y MatchService: los usa
 TelemetriaService.Iniciar() -- al final: engancha eventos de MatchService y PlayerStateService
 
-print("[Slice] servidor listo: lobby, match, puntos, ranking, terreno, peligros, personalización, ropa, sombreros, Piñas, tienda, El Doble y Robux")
+print("[Slice] servidor listo: lobby, match, estamina, puntos, ranking, terreno, peligros, personalización, ropa, sombreros, Piñas, tienda, El Doble y Robux")

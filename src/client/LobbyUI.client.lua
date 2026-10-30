@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
+local SocialService = game:GetService("SocialService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
@@ -275,6 +276,21 @@ local mensaje = etiqueta(
 )
 mensaje.TextTruncate = Enum.TextTruncate.AtEnd
 
+-- Descripción del modo: ocupa la franja de la cuenta atrás cuando no hay cuenta.
+-- Una línea con truncado: al 140 % sigue cabiendo sin recortar la frase corta.
+local descripcionModo = etiqueta(
+	panel,
+	UDim2.fromOffset(24, 350),
+	UDim2.new(1, -48, 0, 40),
+	"",
+	17,
+	CREMA,
+	Enum.Font.GothamBold
+)
+descripcionModo.TextTransparency = 0.1
+descripcionModo.TextTruncate = Enum.TextTruncate.AtEnd
+descripcionModo.Visible = false
+
 local botonListo = boton(
 	panel,
 	"BotonListo",
@@ -324,6 +340,18 @@ local botonVolver = boton(
 	CREMA
 )
 
+-- Invitar entre VOLVER y RANKING: 180 px caben en el hueco central de 252 px.
+local botonInvitar = boton(
+	panel,
+	"BotonInvitar",
+	UDim2.fromOffset(180, 482),
+	UDim2.fromOffset(180, 44),
+	L("invitar"):upper(),
+	20,
+	MADERA_BOTON,
+	CREMA
+)
+
 -- Estado local mínimo: solo refleja el último payload. La lista no se toca a mano.
 local estadoActual = nil
 local faseActual = nil
@@ -368,6 +396,17 @@ local function mostrarMensajeTemporal(texto, clave)
 	end)
 end
 
+local function pintarDescripcion()
+	local clave = "modo_historia_desc"
+	for _, modo in ipairs(LobbyConfig.Modos) do
+		if modo.id == modoActual then
+			clave = modo.descripcion or clave
+			break
+		end
+	end
+	descripcionModo.Text = L(clave)
+end
+
 local function pintarModo()
 	local puedeCambiar = esHost and faseActual == "esperando"
 	for _, par in ipairs(botonesModo) do
@@ -379,6 +418,7 @@ local function pintarModo()
 		par.boton.AutoButtonColor = puedeCambiar
 		par.boton.Selectable = puedeCambiar
 	end
+	pintarDescripcion()
 end
 
 local function pintarListo()
@@ -474,6 +514,7 @@ local function aplicarEstado(datos)
 	else
 		cuenta.Text = ""
 	end
+	descripcionModo.Visible = fase == "esperando"
 
 	-- El host ve EMPEZAR a la derecha del READY; al cancelar la cuenta no se mueve el botón.
 	botonListo.Position = UDim2.fromOffset(
@@ -562,6 +603,16 @@ botonRanking.Activated:Connect(function()
 	end
 end)
 
+botonInvitar.Activated:Connect(function()
+	-- En Studio o sin cuenta apta SocialService puede fallar: no debe romper el lobby.
+	local ok = pcall(function()
+		SocialService:PromptGameInvite(player)
+	end)
+	if not ok then
+		mostrarMensajeTemporal(L("invitar_no_disponible"), "invitar_no_disponible")
+	end
+end)
+
 botonVolver.Activated:Connect(function()
 	remoteListo:FireServer(false) -- no toca EnJuego: solo salimos de la sala
 	local ranking = player.PlayerGui:FindFirstChild("RankingAmigosUI")
@@ -589,9 +640,11 @@ local function aplicarTextosBase()
 	botonEmpezar.Text = L("empezar"):upper()
 	botonRanking.Text = L("ranking"):upper()
 	botonVolver.Text = L("volver"):upper()
+	botonInvitar.Text = L("invitar"):upper()
 	for _, fila in ipairs(filas) do
 		fila.host.Text = L("host")
 	end
+	pintarDescripcion()
 end
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)

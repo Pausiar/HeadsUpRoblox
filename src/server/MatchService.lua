@@ -31,6 +31,7 @@ local viajes = {} -- [player] = token del último teletransporte pendiente
 local rutaActual -- ruta del escenario construido (nil si no hay terreno)
 local totalCheckpoints = 0 -- checkpoints lógicos de la ruta actual (solo Historia)
 local cerrados = {} -- [player] = true al alcanzar la meta; no se vuelve a cerrar ni a cobrar
+local reanimaciones = {} -- [player] = reanimaciones hechas a compañeros en esta partida
 local ultimoRescate = {} -- [player] = os.clock() del último rescate anti-vacío
 local ultimoTick = {} -- [player] = os.clock() del último tick con posición válida
 
@@ -162,6 +163,17 @@ end
 -- Alias del contrato anterior (RankingService llama a ObtenerDistancia)
 MatchService.ObtenerDistancia = MatchService.GetDistancia
 
+-- Mejor distancia alcanzada por cualquier participante en la partida actual.
+local function mejorDelEquipo()
+	local mejor = 0
+	for _, player in ipairs(participantesPartida) do
+		if player.Parent then
+			mejor = math.max(mejor, distancia[player] or 0)
+		end
+	end
+	return math.floor(mejor)
+end
+
 -- QA de Studio (E49): coloca al jugador al final de la ruta sin caminar los ~5.000
 -- studs. El bucle de 1 Hz sigue cerrando checkpoints y meta; la distancia avanza un
 -- stud menos que el destino para que el tope de 32 studs/s no descarte el salto.
@@ -222,6 +234,7 @@ function MatchService.IniciarPartida(jugadores, modoPartida, semilla, recargarCa
 	table.clear(checkpoints)
 	table.clear(distancia)
 	table.clear(cerrados)
+	table.clear(reanimaciones)
 	table.clear(ultimoRescate)
 	table.clear(ultimoTick)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -287,6 +300,16 @@ function MatchService.Iniciar()
 	local okEstado, resEstado = pcall(require, script.Parent.PlayerStateService)
 	if okEstado then
 		playerState = resEstado
+		-- A8: solo cuentan las reanimaciones a un compañero dentro de la partida
+		playerState.Reanimado.Event:Connect(function(reanimador, jugador)
+			if not reanimador or reanimador == jugador or not inicio or partidaTerminada then
+				return
+			end
+			if reanimador:GetAttribute("EnJuego") ~= true then
+				return
+			end
+			reanimaciones[reanimador] = (reanimaciones[reanimador] or 0) + 1
+		end)
 	else
 		warn("[Match] sin PlayerStateService: no se reanimará al iniciar")
 	end
@@ -318,6 +341,7 @@ function MatchService.Iniciar()
 		recargando[player] = nil
 		viajes[player] = nil
 		cerrados[player] = nil
+		reanimaciones[player] = nil
 		ultimoRescate[player] = nil
 		ultimoTick[player] = nil
 		for i, p in ipairs(participantesPartida) do
@@ -423,6 +447,8 @@ function MatchService.Iniciar()
 									puntos = puntosService and puntosService.GetPuntos(player) or 0,
 									record = math.max(recordSesion[player], largoTramo),
 									nuevoRecord = nuevoRecord,
+									reanimaciones = reanimaciones[player] or 0,
+									mejorEquipo = mejorDelEquipo(),
 									victoria = true,
 								}
 								finPartida:FireClient(player, stats)
@@ -478,6 +504,8 @@ function MatchService.Iniciar()
 									puntos = puntosService and puntosService.GetPuntos(player) or 0,
 									record = math.max(recordSesion[player], dist),
 									nuevoRecord = nuevoRecord,
+									reanimaciones = reanimaciones[player] or 0,
+									mejorEquipo = mejorDelEquipo(),
 								}
 								finPartida:FireClient(player, stats)
 								alTerminar:Fire(player, stats, modoActual)

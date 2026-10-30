@@ -62,7 +62,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 420) -- derrota: 5 líneas + insignia + botón
+panel.Size = UDim2.fromOffset(420, 432) -- derrota: 8 líneas + insignia + botón
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -74,8 +74,8 @@ esquina.Parent = panel
 -- F1 (revisión apple-design, P1 móvil): panel escalable. El UISizeConstraint acota
 -- el tamaño y el UIScale encoge el conjunto (panel + hijos) en pantallas estrechas.
 local restriccionPanel = Instance.new("UISizeConstraint")
-restriccionPanel.MaxSize = Vector2.new(420, 420)
-restriccionPanel.MinSize = Vector2.new(340, 340)
+restriccionPanel.MaxSize = Vector2.new(420, 432)
+restriccionPanel.MinSize = Vector2.new(340, 432)
 restriccionPanel.Parent = panel
 
 local escalaPanel = Instance.new("UIScale")
@@ -83,9 +83,11 @@ escalaPanel.Parent = panel
 
 -- Player no tiene ViewportSize (doc Roblox gana): la GUI es la fuente del viewport
 -- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo). La altura también manda:
--- la victoria apila dos botones y el panel crece hasta 480 px.
+-- la victoria mide 560 px y en un móvil de 338 px necesita bajar de 0,75 para que
+-- los botones sigan en pantalla (A06: 560 × 0,6 = 336).
 local function ajustarEscala()
-	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / 500), 0.75, 1)
+	local alto = panel.Size.Y.Offset
+	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / (alto + 24)), 0.6, 1)
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()
@@ -126,17 +128,29 @@ insignia.TextColor3 = AMARILLO
 insignia.Visible = false
 insignia.Parent = panel
 
-local textoDistancia = etiqueta(116, 28)
-local textoTiempo = etiqueta(150, 28)
-local textoCheckpoint = etiqueta(184, 28)
-local textoRecord = etiqueta(218, 28)
-local textoPuntos = etiqueta(252, 28)
-local etiquetas = { textoDistancia, textoTiempo, textoCheckpoint, textoRecord, textoPuntos }
+local textoDistancia = etiqueta(104, 26)
+local textoTiempo = etiqueta(136, 26)
+local textoCheckpoint = etiqueta(168, 26)
+local textoRecord = etiqueta(200, 26)
+local textoPuntos = etiqueta(232, 26)
+local textoPinas = etiqueta(264, 26)
+local textoReanimaciones = etiqueta(296, 26)
+local textoEquipo = etiqueta(328, 26)
+local etiquetas = {
+	textoDistancia,
+	textoTiempo,
+	textoCheckpoint,
+	textoRecord,
+	textoPuntos,
+	textoPinas,
+	textoReanimaciones,
+	textoEquipo,
+}
 
 local boton = Instance.new("TextButton")
 boton.Name = "BotonReintentar"
 boton.AnchorPoint = Vector2.new(0.5, 0)
-boton.Position = UDim2.new(0.5, 0, 0, 316)
+boton.Position = UDim2.new(0.5, 0, 0, 362)
 boton.Size = UDim2.fromOffset(300, 56) -- objetivo de toque grande (≥44 px)
 boton.BackgroundColor3 = VERDE
 boton.BorderSizePixel = 0
@@ -168,48 +182,50 @@ local esquinaSeguir = Instance.new("UICorner")
 esquinaSeguir.CornerRadius = UDim.new(0, 12)
 esquinaSeguir.Parent = botonSeguir
 
--- Dos alturas fijas: derrota 420 (un botón) y victoria 480 (dos botones con 12 px de aire).
-local FILAS_DERROTA = { 116, 150, 184, 218, 252 }
-local FILAS_VICTORIA = { 164, 198, 232, 266, 300 }
+-- Dos alturas fijas: derrota 432 (un botón) y victoria 560 (dos botones con 12 px de aire).
+local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328 }
+local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388 }
 
 local function aplicarVariante(victoria)
 	if victoria then
-		panel.Size = UDim2.fromOffset(420, 480)
-		restriccionPanel.MaxSize = Vector2.new(420, 480)
-		restriccionPanel.MinSize = Vector2.new(340, 480)
+		panel.Size = UDim2.fromOffset(420, 560)
+		restriccionPanel.MaxSize = Vector2.new(420, 560)
+		restriccionPanel.MinSize = Vector2.new(340, 560)
 		titulo.Position = UDim2.new(0, 10, 0, 8)
-		titulo.Size = UDim2.new(1, -20, 0, 116) -- holgura para dos líneas de 40 px
+		titulo.Size = UDim2.new(1, -20, 0, 114) -- holgura para dos líneas de 40 px
 		titulo.TextWrapped = true
 		titulo.Text = L("has_llegado")
 		titulo.TextColor3 = VERDE
-		insignia.Position = UDim2.new(0, 20, 0, 128)
+		insignia.Position = UDim2.new(0, 20, 0, 126)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_VICTORIA[i])
 		end
-		boton.Position = UDim2.new(0.5, 0, 0, 336)
-		botonSeguir.Position = UDim2.new(0.5, 0, 0, 404)
+		boton.Position = UDim2.new(0.5, 0, 0, 422)
+		botonSeguir.Position = UDim2.new(0.5, 0, 0, 490)
 		botonSeguir.Text = L("seguir")
 		botonSeguir.Visible = true
 	else
-		panel.Size = UDim2.fromOffset(420, 420)
-		restriccionPanel.MaxSize = Vector2.new(420, 420)
-		restriccionPanel.MinSize = Vector2.new(340, 340)
-		titulo.Position = UDim2.new(0, 10, 0, 18)
+		panel.Size = UDim2.fromOffset(420, 432)
+		restriccionPanel.MaxSize = Vector2.new(420, 432)
+		restriccionPanel.MinSize = Vector2.new(340, 432)
+		titulo.Position = UDim2.new(0, 10, 0, 16)
 		titulo.Size = UDim2.new(1, -20, 0, 48)
 		titulo.TextWrapped = false
 		titulo.Text = L("has_caido")
 		titulo.TextColor3 = ROJO
-		insignia.Position = UDim2.new(0, 20, 0, 74)
+		insignia.Position = UDim2.new(0, 20, 0, 66)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_DERROTA[i])
 		end
-		boton.Position = UDim2.new(0.5, 0, 0, 316)
+		boton.Position = UDim2.new(0.5, 0, 0, 362)
 		botonSeguir.Visible = false
 	end
+	ajustarEscala()
 end
 
 local enEnfriamiento = false
 local ultimosDatos = nil
+local pinasPartida = 0 -- Piñas ganadas en la partida en curso (Pinas remote)
 
 local function pintarDatos(datos)
 	local distancia = math.max(0, math.floor(tonumber(datos and datos.distancia) or 0))
@@ -217,6 +233,8 @@ local function pintarDatos(datos)
 	local checkpoint = math.floor(tonumber(datos and datos.checkpoint) or 0)
 	local puntos = math.max(0, math.floor(tonumber(datos and datos.puntos) or 0))
 	local record = math.max(0, math.floor(tonumber(datos and datos.record) or 0))
+	local reanimaciones = math.max(0, math.floor(tonumber(datos and datos.reanimaciones) or 0))
+	local mejorEquipo = math.max(0, math.floor(tonumber(datos and datos.mejorEquipo) or 0))
 	local nuevoRecord = datos ~= nil and datos.nuevoRecord == true
 
 	textoDistancia.Text = L("distancia") .. ": " .. ("%d m"):format(distancia)
@@ -225,6 +243,9 @@ local function pintarDatos(datos)
 		.. (checkpoint > 0 and ("%d"):format(checkpoint) or "—")
 	textoRecord.Text = L("record") .. ": " .. ("%d m"):format(record)
 	textoPuntos.Text = L("puntos") .. ": " .. ("%d"):format(puntos)
+	textoPinas.Text = L("pinas_ganadas") .. ": " .. ("%d"):format(pinasPartida)
+	textoReanimaciones.Text = L("reanimaciones") .. ": " .. ("%d"):format(reanimaciones)
+	textoEquipo.Text = L("mejor_equipo") .. ": " .. ("%d m"):format(mejorEquipo)
 	insignia.Visible = nuevoRecord
 end
 
@@ -251,6 +272,11 @@ boton.Activated:Connect(function()
 	boton.AutoButtonColor = false
 	boton.Text = L("reanudando") -- F2: feedback visible durante el enfriamiento
 	boton.BackgroundColor3 = VERDE_APAGADO
+	-- El ganador no respawnea al reintentar (no hay CharacterAdded que cierre el velo)
+	-- y EnJuego no cambia de valor en el servidor: limpiar aquí las Piñas de la
+	-- partida anterior, que si no se sumarían a las del nuevo panel.
+	gui.Enabled = false
+	pinasPartida = 0
 	reintentar:FireServer()
 	task.delay(ENFRIAMIENTO, function()
 		enEnfriamiento = false
@@ -267,6 +293,22 @@ botonSeguir.Activated:Connect(function()
 end)
 
 finPartida.OnClientEvent:Connect(mostrar)
+
+-- Las Piñas de la partida se acumulan del propio remote (caminar + bonus al cerrar);
+-- así el total del panel también recoge el bonus de meta que llega tras FinPartida.
+Remotes.Esperar(Remotes.Nombres.Pinas).OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	local ganadas = math.max(0, math.floor(tonumber(datos.ganadas) or 0))
+	if ganadas == 0 then
+		return
+	end
+	pinasPartida += ganadas
+	if gui.Enabled and ultimosDatos then
+		pintarDatos(ultimosDatos)
+	end
+end)
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave ~= "idioma" then
@@ -289,7 +331,9 @@ end)
 -- La vuelta al lobby (o un reintento) pone EnJuego=false sin recargar al ganador:
 -- sin esto el velo se quedaría encima del lobby.
 player:GetAttributeChangedSignal("EnJuego"):Connect(function()
-	if player:GetAttribute("EnJuego") ~= true then
+	if player:GetAttribute("EnJuego") == true then
+		pinasPartida = 0 -- nueva partida: el panel arranca sin las Piñas de la anterior
+	else
 		gui.Enabled = false
 	end
 end)

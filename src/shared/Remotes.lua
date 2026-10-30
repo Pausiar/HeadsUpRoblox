@@ -6,7 +6,7 @@ local Remotes = {}
 
 Remotes.Nombres = {
 	HudEstado = "HudEstado", -- server -> client: { estado, restante }
-	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord, victoria? }
+	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord, reanimaciones, mejorEquipo, victoria? }
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }
 	Ranking = "Ranking", -- server -> client: array de { nombre, puntos, distancia } ordenado por puntos
@@ -54,6 +54,10 @@ Remotes.Nombres = {
 
 	-- Fase 11 · A7: aviso de apagado del servidor
 	ServidorCerrando = "ServidorCerrando", -- server -> client: { segundos } antes del apagado
+
+	-- Fase 11 · A1: tutorial del lobby
+	TutorialVisto = "TutorialVisto", -- client -> server: el jugador terminó o saltó el tutorial (limitado)
+	TutorialEstado = "TutorialEstado", -- server -> client: { visto } tras cargar el perfil
 }
 
 function Remotes.Crear(nombre)

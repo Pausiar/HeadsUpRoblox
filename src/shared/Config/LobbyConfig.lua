@@ -6,8 +6,8 @@ LobbyConfig.MaxJugadores = 8
 LobbyConfig.CuentaAtras = 5 -- s desde que todos están listos hasta el inicio
 LobbyConfig.ModoPorDefecto = "historia"
 LobbyConfig.Modos = {
-	{ id = "historia", nombre = "Historia" },
-	{ id = "rapida", nombre = "Ronda rápida" },
+	{ id = "historia", nombre = "Historia", descripcion = "modo_historia_desc" },
+	{ id = "rapida", nombre = "Ronda rápida", descripcion = "modo_rapida_desc" },
 }
 LobbyConfig.PermitirSoloEnStudio = true -- playtests del MCP con 1 jugador; en vivo exige 2
 LobbyConfig.EsperaResultados = 12 -- s entre el fin de partida y la vuelta al lobby

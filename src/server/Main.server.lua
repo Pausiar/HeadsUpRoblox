@@ -27,8 +27,10 @@ local ChatMimicService = require(Server.ChatMimicService)
 local MonetizacionService = require(Server.MonetizacionService)
 local TelemetriaService = require(Server.TelemetriaService)
 local CierreService = require(Server.CierreService)
+local TutorialService = require(Server.TutorialService)
 
 DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
+TutorialService.Iniciar() -- después de DataService: escucha AlCargar
 StageService.Construir()
 TerrenoService.IniciarStreaming() -- después de Construir: ya existen la ruta y las plazas
 PlayerStateService.Iniciar()

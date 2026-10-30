@@ -557,7 +557,7 @@ end
 local notaRanuras = etiqueta(
 	grupoRopa,
 	UDim2.fromOffset(194, 188),
-	UDim2.fromOffset(342, 18),
+	UDim2.fromOffset(320, 46),
 	"",
 	16,
 	CREMA,
@@ -566,10 +566,12 @@ local notaRanuras = etiqueta(
 )
 notaRanuras.Name = "NotaRanuras"
 notaRanuras.TextTruncate = Enum.TextTruncate.AtEnd
+notaRanuras.TextWrapped = true
+notaRanuras.TextYAlignment = Enum.TextYAlignment.Top
 
 etiquetaClave(
 	grupoRopa,
-	UDim2.fromOffset(34, 388),
+	UDim2.fromOffset(22, 388),
 	UDim2.fromOffset(240, 20),
 	"patron",
 	17,
@@ -582,8 +584,8 @@ local botonesPatron = {}
 for i, item in ipairs(RopaConfig.Patrones) do
 	local b = boton(
 		grupoRopa,
-		UDim2.fromOffset(34 + (i - 1) * 100, 410),
-		UDim2.fromOffset(92, 44),
+		UDim2.fromOffset(22 + (i - 1) * 104, 410),
+		UDim2.fromOffset(100, 44),
 		item.nombre,
 		18,
 		MARRON,
@@ -665,7 +667,7 @@ local color2Nombre = etiqueta(
 
 etiquetaClave(
 	grupoRopa,
-	UDim2.fromOffset(34, 458),
+	UDim2.fromOffset(22, 458),
 	UDim2.fromOffset(240, 20),
 	"pegatina",
 	17,
@@ -678,8 +680,8 @@ local botonesPegatina = {}
 for i, item in ipairs(RopaConfig.Pegatinas) do
 	local b = boton(
 		grupoRopa,
-		UDim2.fromOffset(34 + (i - 1) * 100, 480),
-		UDim2.fromOffset(92, 44),
+		UDim2.fromOffset(22 + (i - 1) * 104, 480),
+		UDim2.fromOffset(100, 44),
 		item.nombre,
 		18,
 		MARRON,

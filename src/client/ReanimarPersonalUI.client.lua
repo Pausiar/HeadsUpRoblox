@@ -181,8 +181,10 @@ end
 local function actualizarBoton()
 	local listo = caido and not modoPuro and not reanimando and os.clock() >= cooldownHasta
 	if modoPuro then
-		boton.Text = L("modo_puro_sin_reanimacion")
+		-- Primero el tamaño y luego el texto: Accesibilidad reajusta al cambiar Text,
+		-- y así la escala 140 % manda sobre este caso de dos líneas.
 		boton.TextSize = 14
+		boton.Text = L("modo_puro_sin_reanimacion")
 		boton.BackgroundColor3 = MADERA_OSCURA
 		boton.TextColor3 = CREMA
 		boton.TextTransparency = 0

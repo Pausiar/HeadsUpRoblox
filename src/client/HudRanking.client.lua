@@ -19,10 +19,10 @@ local COLOR_LIDER = Color3.fromRGB(255, 201, 60) -- #FFC93C (sugiere la corona)
 local FUENTE = Enum.Font.GothamBold
 local TAMANO_TEXTO = 16
 local MAX_FILAS = 4
-local ALTO_FILA = 22
-local PASO_FILA = 26
-local ANCHO_NOMBRE = 84
-local ANCHO_NOMBRE_VACIO = 178 -- «Sin jugadores» ocupa la fila sin número ni puntos al lado
+local ALTO_FILA = 26 -- deja crecer el texto al 140 % (22 px) sin recortarlo
+local PASO_FILA = 30
+local ANCHO_NOMBRE = 152
+local ANCHO_NOMBRE_VACIO = 260 -- «Sin jugadores» ocupa la fila sin número ni puntos al lado
 
 local player = Players.LocalPlayer
 
@@ -40,7 +40,7 @@ safeArea.Parent = gui
 
 local panel = Instance.new("Frame")
 panel.Name = "PanelRanking"
-panel.Size = UDim2.fromOffset(220, 150)
+panel.Size = UDim2.fromOffset(310, 164)
 panel.Position = UDim2.new(0, 20, 0, 20)
 panel.BackgroundColor3 = COLOR_PANEL
 panel.BorderSizePixel = 0
@@ -51,7 +51,7 @@ esquina.CornerRadius = UDim.new(0, 12)
 esquina.Parent = panel
 
 local titulo = Instance.new("TextLabel")
-titulo.Size = UDim2.new(1, -20, 0, 20)
+titulo.Size = UDim2.new(1, -20, 0, 24)
 titulo.Position = UDim2.new(0, 10, 0, 8)
 titulo.BackgroundTransparency = 1
 titulo.Font = FUENTE
@@ -82,9 +82,9 @@ local filas = {}
 for i = 1, MAX_FILAS do
 	local y = 8 + i * PASO_FILA
 	filas[i] = {
-		num = etiqueta(0, 10, y, 20, Enum.TextXAlignment.Left),
-		nombre = etiqueta(0, 32, y, ANCHO_NOMBRE, Enum.TextXAlignment.Left),
-		puntos = etiqueta(1, -100, y, 90, Enum.TextXAlignment.Right),
+		num = etiqueta(0, 10, y, 24, Enum.TextXAlignment.Left),
+		nombre = etiqueta(0, 36, y, ANCHO_NOMBRE, Enum.TextXAlignment.Left),
+		puntos = etiqueta(1, -110, y, 106, Enum.TextXAlignment.Right),
 	}
 end
 

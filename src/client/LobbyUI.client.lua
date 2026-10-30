@@ -153,8 +153,8 @@ local subtitulo = etiqueta(
 local botonHistoria = boton(
 	panel,
 	"ModoHistoria",
-	UDim2.fromOffset(94, 72),
-	UDim2.fromOffset(180, 44),
+	UDim2.fromOffset(62, 72),
+	UDim2.fromOffset(210, 44),
 	L("historia"),
 	20,
 	MADERA_BOTON,
@@ -163,8 +163,8 @@ local botonHistoria = boton(
 local botonRapida = boton(
 	panel,
 	"ModoRapida",
-	UDim2.fromOffset(286, 72),
-	UDim2.fromOffset(180, 44),
+	UDim2.fromOffset(288, 72),
+	UDim2.fromOffset(210, 44),
 	L("ronda_rapida"),
 	20,
 	MADERA_BOTON,
@@ -209,7 +209,7 @@ for i = 1, MAX_JUGADORES do
 	local nombre = etiqueta(
 		fondo,
 		UDim2.fromOffset(30, 0),
-		UDim2.fromOffset(282, ALTO_FILA),
+		UDim2.fromOffset(260, ALTO_FILA),
 		"",
 		20,
 		CREMA,
@@ -220,7 +220,7 @@ for i = 1, MAX_JUGADORES do
 
 	local host = etiqueta(
 		fondo,
-		UDim2.fromOffset(320, 3),
+		UDim2.fromOffset(290, 3),
 		UDim2.fromOffset(62, 21),
 		L("host"),
 		17,
@@ -234,8 +234,8 @@ for i = 1, MAX_JUGADORES do
 
 	local estado = etiqueta(
 		fondo,
-		UDim2.fromOffset(388, 0),
-		UDim2.fromOffset(112, ALTO_FILA),
+		UDim2.fromOffset(356, 0),
+		UDim2.fromOffset(148, ALTO_FILA),
 		"",
 		18,
 		CREMA,

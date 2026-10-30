@@ -30,7 +30,20 @@ local function aplicar(objeto)
 		base = objeto.TextSize
 		objeto:SetAttribute(ATRIBUTO_BASE, base)
 	end
+	-- El texto puede llegar después de crear la etiqueta (HUD, avisos, listas): al
+	-- cambiar, se repite el ajuste para que lo escalado no desborde su caja.
+	if objeto:GetAttribute("EscalaVigilada") ~= true then
+		objeto:SetAttribute("EscalaVigilada", true)
+		objeto:GetPropertyChangedSignal("Text"):Connect(function()
+			aplicar(objeto)
+		end)
+	end
 	local objetivo = math.max(1, math.floor(base * escala / 100 + 0.5))
+	-- Sin cambio de texto ni de escala no se reescribe TextSize (el HUD cambia texto
+	-- cada frame y cada escritura invalida el layout).
+	if objeto.TextSize == objetivo and objeto.TextFits then
+		return
+	end
 	objeto.TextSize = objetivo
 	-- Si el texto no cabe en su caja, baja hasta el tamaño base: mejor texto base
 	-- que un rótulo cortado. TextFits se actualiza al escribir TextSize.

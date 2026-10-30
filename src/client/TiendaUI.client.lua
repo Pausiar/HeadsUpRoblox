@@ -478,7 +478,7 @@ local function crearTarjetaPinas(item, columna, fila)
 	local esConsumo = item.tipo == "bebida" or item.tipo == "mejora"
 
 	local nombre = Instance.new("TextLabel")
-	nombre.Size = UDim2.new(1, item.tipo == "camiseta" and -56 or -20, 0, 22)
+	nombre.Size = UDim2.new(1, item.tipo == "camiseta" and -40 or -20, 0, 22)
 	nombre.Position = UDim2.fromOffset(10, 5)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
@@ -683,10 +683,12 @@ local function actualizarBotonRobux(registro)
 	registro.habilitado = habilitado
 end
 
+local ALTO_TARJETA_ROBUX = 128 -- título a dos líneas con el texto al 140 %
+
 local function crearTarjetaRobux(item, orden)
 	local tarjeta = Instance.new("Frame")
 	tarjeta.Name = "Robux_" .. item.id
-	tarjeta.Size = UDim2.fromOffset(220, 108)
+	tarjeta.Size = UDim2.fromOffset(220, ALTO_TARJETA_ROBUX)
 	tarjeta.LayoutOrder = orden
 	tarjeta.BackgroundColor3 = MARRON_TARJETA
 	tarjeta.BorderSizePixel = 0
@@ -694,7 +696,7 @@ local function crearTarjetaRobux(item, orden)
 	redondear(tarjeta, 10)
 
 	local nombre = Instance.new("TextLabel")
-	nombre.Size = UDim2.new(1, -20, 0, 39)
+	nombre.Size = UDim2.new(1, -20, 0, 52)
 	nombre.Position = UDim2.fromOffset(10, 3)
 	nombre.BackgroundTransparency = 1
 	nombre.Font = Enum.Font.GothamBold
@@ -708,7 +710,7 @@ local function crearTarjetaRobux(item, orden)
 
 	local precio = Instance.new("TextLabel")
 	precio.Size = UDim2.new(1, -20, 0, 18)
-	precio.Position = UDim2.fromOffset(10, 42)
+	precio.Position = UDim2.fromOffset(10, 56)
 	precio.BackgroundTransparency = 1
 	precio.Font = Enum.Font.GothamBold
 	precio.TextSize = 18
@@ -724,7 +726,7 @@ local function crearTarjetaRobux(item, orden)
 
 	local boton = Instance.new("TextButton")
 	boton.Size = UDim2.new(1, -20, 0, 44)
-	boton.Position = UDim2.fromOffset(10, 62)
+	boton.Position = UDim2.fromOffset(10, 80)
 	boton.BackgroundColor3 = MADERA_OSCURA
 	boton.Font = Enum.Font.GothamBlack
 	boton.TextSize = 17
@@ -753,7 +755,7 @@ for i, item in ipairs(catalogoRobux) do
 	crearTarjetaRobux(item, i)
 end
 local filasRobux = math.ceil(#catalogoRobux / 2)
-scrollRobux.CanvasSize = UDim2.fromOffset(0, filasRobux * 108 + math.max(0, filasRobux - 1) * 10)
+scrollRobux.CanvasSize = UDim2.fromOffset(0, filasRobux * ALTO_TARJETA_ROBUX + math.max(0, filasRobux - 1) * 10)
 
 refrescarEstadoRobux = function()
 	stockLabel.Text = L("reanimaciones") .. ": " .. ("%d"):format(estadoPases.reanimaciones)

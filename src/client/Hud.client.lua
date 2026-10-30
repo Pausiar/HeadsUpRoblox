@@ -87,12 +87,10 @@ aplicarEnJuego()
 Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
 	if datos.estado == "CAÍDO" then
 		deadlineLocal = os.clock() + (datos.restante or 0)
-		estado.TextSize = 20
 		estado.TextColor3 = Color3.fromRGB(255, 111, 97) -- #FF6F61, contraste ≥ 4.5:1 (revisión apple-design)
 		refrescarEstado()
 	else
 		deadlineLocal = nil
-		estado.TextSize = 18
 		estado.TextColor3 = Color3.fromRGB(139, 195, 74)
 		refrescarEstado()
 	end

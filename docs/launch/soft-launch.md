@@ -272,7 +272,7 @@ El código está listo para el dashboard; lo que falta son los IDs y la decisió
 
 ### 3.3 Qué valida el servidor
 
-- `ComprarRobux` valida id, `disponible`, que `Activo = true` y que el ID sea mayor que 0; si algo falla, responde `RobuxResult` con `AvisoNoPublicado` o “No disponible en esta versión” y no abre prompt.
+- `ComprarRobux` valida id, `disponible`, que `Activo = true` y que el ID sea mayor que 0; si algo falla, responde `RobuxResult` con la clave `aviso_no_publicado` o `no_disponible_version` (el cliente las traduce) y no abre prompt.
 - Los pases se comprueban con `UserOwnsGamePassAsync` al entrar y tras `ReclamarPase`; el cliente solo avisa. Un pase comprado no se entrega por el evento del prompt.
 - Los productos pasan por `ProcessReceipt`, con deduplicación por `PurchaseId` en DataService (`recibos`, máximo 100). Solo hay un handler, en `MonetizacionService`; no añadir otro.
 - `Activo = false` bloquea los prompts, pero **no** bloquea `ProcessReceipt`: si un producto listado se vende fuera del juego, el recibo se procesa igual. No usar `Activo = false` como interruptor de emergencia de recibos.

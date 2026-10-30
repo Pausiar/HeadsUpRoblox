@@ -3,26 +3,66 @@
 -- Servidor autoritativo: la caché de sesión es la fuente de verdad mientras el
 -- jugador está aquí; el DataStore solo se lee al entrar y se escribe al salir/
 -- periódicamente. En Studio sin acceso a API degrada a modo memoria (warn una vez).
+-- Esquema v2 (fase 11 · E45): clave HUMM_Jugador_v2, migración desde la v1 con
+-- respaldo previo y autoguardado que solo escribe los campos cambiados.
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
-local NOMBRE_TIENDA = "HUMM_Jugador_v1" -- versionado para migraciones futuras
+local TIENDA_V2 = "HUMM_Jugador_v2"
+local TIENDA_V1 = "HUMM_Jugador_v1" -- solo se lee para migrar perfiles antiguos
+local ESQUEMA = 2
 local INTERVALO_AUTO = 60 -- segundos entre tandas de autoguardado
 local MAX_REINTENTOS = 3 -- reintentos tras el primer intento (backoff 1-2-4 s)
+local SUFIJO_RESPALDO = "_respaldo_v1"
 
 local DataService = {}
 DataService.AlCargar = Instance.new("BindableEvent") -- (player, datos)
 
-local tienda -- DataStore (nil = modo memoria desde el arranque)
+local tiendaV2 -- DataStore del esquema actual (nil = modo memoria)
+local tiendaV1 -- DataStore antiguo, solo para migrar y respaldar
 local sinApiStudio = false -- bandera: Studio sin acceso a API (warn una vez, no reintenta)
 local caches = {} -- [player] = tabla de datos de sesión
 local sucios = {} -- [player] = true si hay cambios sin guardar
+local camposSucios = {} -- [player][campo] = true desde el último guardado
+local sinPersistir = {} -- [player] = true si una lectura falló: no se pisa lo guardado
+local cargando = {} -- [player] = true mientras corre una carga (evita duplicarla)
 
 local function claveDe(player)
 	return "u_" .. player.UserId
+end
+
+-- Campos nuevos del esquema v2 (plan §3). Los que aún no usa ningún lote quedan
+-- aquí desde el principio para que la migración no dependa del orden de llegada.
+local function perfilNuevo()
+	return {
+		schema = ESQUEMA,
+		tutorialVisto = false,
+		estadisticas = { partidas = 0, metas = 0, reanimaciones = 0, mejorDistancia = 0, mejorRapida = 0 },
+		misiones = { dia = "", progreso = {}, reclamadas = {} },
+		racha = { ultimoDia = "", dias = 0 },
+		xp = 0,
+		cosmeticos = { poseidos = {}, equipados = {} },
+		bienvenidaComprada = false,
+		ultimaPartida = {},
+		ajustes = {}, -- §3.1 (D37/D41); GuardarAjustes llega en L9
+	}
+end
+
+-- Migración pura v1 → v2: conserva todos los campos v1 y añade los del esquema.
+-- Idempotente: migrar el resultado otra vez devuelve el mismo perfil.
+local function migrarPerfil(datosV1)
+	local perfil = perfilNuevo()
+	if type(datosV1) == "table" then
+		for campo, valor in pairs(datosV1) do
+			perfil[campo] = valor
+		end
+	end
+	perfil.schema = ESQUEMA
+	return perfil
 end
 
 -- Los mensajes típicos de Studio sin API: "Studio access to APIs is not allowed"
@@ -42,10 +82,10 @@ end
 
 -- GetAsync con reintentos. Devuelve (datos, fallo): fallo = "fallo" (agotó
 -- reintentos), "studio" (sin API) o nil (OK, datos puede ser nil = primera vez).
-local function cargar(clave)
+local function cargar(store, clave)
 	for reintento = 0, MAX_REINTENTOS do
 		local ok, res = pcall(function()
-			return tienda:GetAsync(clave)
+			return store:GetAsync(clave)
 		end)
 		if ok then
 			return res, nil
@@ -62,16 +102,26 @@ local function cargar(clave)
 	return nil, "fallo"
 end
 
--- UpdateAsync (NO SetAsync, plan §3.3): el merge devuelve la caché de sesión,
--- fuente de verdad. Con pcall y reintentos; nunca lanza.
-local function guardarYa(clave, datos, nombre)
-	if not tienda or sinApiStudio then
+-- UpdateAsync (NO SetAsync, plan §3.3). Con `campos` escribe solo esos campos
+-- sobre lo guardado (autoguardado); sin él reemplaza el perfil (salida/cierre).
+-- Con pcall y reintentos; nunca lanza.
+local function guardarYa(clave, datos, nombre, campos)
+	if not tiendaV2 or sinApiStudio then
 		return false -- modo memoria: nada que persistir
 	end
 	for reintento = 0, MAX_REINTENTOS do
 		local ok, err = pcall(function()
-			tienda:UpdateAsync(clave, function()
-				return datos
+			tiendaV2:UpdateAsync(clave, function(anterior)
+				if not campos then
+					datos.schema = ESQUEMA
+					return datos
+				end
+				local nuevo = type(anterior) == "table" and anterior or {}
+				for campo in pairs(campos) do
+					nuevo[campo] = datos[campo] -- nil borra el campo (p. ej. sombrero)
+				end
+				nuevo.schema = ESQUEMA
+				return nuevo
 			end)
 		end)
 		if ok then
@@ -91,22 +141,43 @@ local function guardarYa(clave, datos, nombre)
 	return false
 end
 
-local function cargarJugador(player)
-	local nombre = player.Name
-	local datos, fallo
-	if tienda and not sinApiStudio then
-		datos, fallo = cargar(claveDe(player))
-	end
-	if fallo == "fallo" then
-		warn("[Datos] carga falló para " .. nombre .. " (modo memoria)")
-	end
-	if not player.Parent then -- se fue antes de terminar de cargar
-		caches[player] = nil
-		sucios[player] = nil
+-- Copia de seguridad del perfil v1 antes de migrar. Nunca sobrescribe un
+-- respaldo previo y nunca bloquea la carga (si falla, solo avisa).
+local function respaldarV1(clave, datos, nombre)
+	if not tiendaV1 or sinApiStudio then
 		return
 	end
-	-- Respetar escrituras previas a la carga (Obtener/Guardar crean la tabla antes).
-	local cache = caches[player] or {}
+	local ok, err = pcall(function()
+		tiendaV1:UpdateAsync(clave .. SUFIJO_RESPALDO, function(anterior)
+			return anterior or datos
+		end)
+	end)
+	if ok then
+		print("[Datos] respaldo v1 guardado para " .. nombre)
+	else
+		warn("[Datos] respaldo v1 falló para " .. nombre .. ": " .. tostring(err))
+	end
+end
+
+local function marcarCampos(player, campos)
+	if not campos then
+		return
+	end
+	local pendientes = camposSucios[player]
+	if not pendientes then
+		pendientes = {}
+		camposSucios[player] = pendientes
+	end
+	for campo in pairs(campos) do
+		pendientes[campo] = true
+	end
+end
+
+-- Fusión de la caché con lo guardado (o con el perfil migrado): lo que ya
+-- escribió la sesión manda, después entra lo guardado y al final los defaults
+-- del esquema solo rellenan huecos. Orden importante: al revés, un perfil
+-- guardado perdería xp/estadísticas/misiones contra los valores por defecto.
+local function fusionarPerfil(cache, datos)
 	if datos then
 		for k, v in pairs(datos) do
 			if cache[k] == nil then
@@ -114,7 +185,63 @@ local function cargarJugador(player)
 			end
 		end
 	end
+	for campo, valor in pairs(perfilNuevo()) do
+		if cache[campo] == nil then
+			cache[campo] = valor
+		end
+	end
+	return cache
+end
+
+local function cargarJugador(player)
+	if cargando[player] then
+		return -- PlayerAdded y el barrido de arranque pueden coincidir
+	end
+	cargando[player] = true
+	local nombre = player.Name
+	local clave = claveDe(player)
+	local datos, fallo
+	if tiendaV2 and not sinApiStudio then
+		datos, fallo = cargar(tiendaV2, clave)
+	end
+	if fallo == "fallo" then
+		-- Sin saber qué había guardado, escribir al salir lo pisaría con la caché vacía.
+		sinPersistir[player] = true
+		warn("[Datos] carga falló para " .. nombre .. ": sesión sin guardar")
+	end
+
+	-- Migración v1 → v2 solo si v2 aún no existe; así dos cargas seguidas no
+	-- vuelven a migrar ni duplican campos. Respaldo y escritura son best-effort.
+	if datos == nil and fallo == nil and tiendaV2 and not sinApiStudio and tiendaV1 then
+		local v1, falloV1 = cargar(tiendaV1, clave)
+		if v1 ~= nil then
+			task.spawn(respaldarV1, clave, v1, nombre)
+			datos = migrarPerfil(v1)
+			if guardarYa(clave, datos, nombre, nil) then
+				print("[Datos] perfil v1 migrado a v2 para " .. nombre)
+			else
+				warn("[Datos] migración v1→v2 no se pudo escribir para " .. nombre)
+			end
+		elseif falloV1 == "fallo" then
+			-- Sin saber qué había en v1, escribir v2 taparía el perfil antiguo.
+			sinPersistir[player] = true
+			warn("[Datos] lectura v1 falló para " .. nombre .. ": sesión sin guardar")
+		end
+	end
+
+	if not player.Parent then -- se fue antes de terminar de cargar
+		caches[player] = nil
+		sucios[player] = nil
+		camposSucios[player] = nil
+		sinPersistir[player] = nil
+		cargando[player] = nil
+		return
+	end
+
+	-- Respetar escrituras previas a la carga (Obtener/Guardar crean la tabla antes).
+	local cache = fusionarPerfil(caches[player] or {}, datos)
 	caches[player] = cache
+	cargando[player] = nil
 	if fallo == nil then
 		print("[Datos] carga OK para " .. nombre)
 	end
@@ -122,26 +249,42 @@ local function cargarJugador(player)
 	Remotes.Crear(Remotes.Nombres.TusDatos):FireClient(player, cache)
 end
 
-local function guardarSiFalla(player, cache)
-	if not guardarYa(claveDe(player), cache, player.Name) then
-		-- Reintentar solo si el fallo fue transitorio (no modo memoria).
-		if tienda and not sinApiStudio and player.Parent and caches[player] == cache then
-			sucios[player] = true
-		end
+-- Guardado de una tanda: campos concretos si se conocen, perfil completo si no.
+-- Si falla de forma transitoria, deja la marca para el siguiente intento.
+local function guardarSiFalla(player, cache, campos)
+	if sinPersistir[player] then
+		return
+	end
+	if guardarYa(claveDe(player), cache, player.Name, campos) then
+		return
+	end
+	if tiendaV2 and not sinApiStudio and player.Parent and caches[player] == cache then
+		sucios[player] = true
+		marcarCampos(player, campos)
 	end
 end
 
 function DataService.Iniciar()
-	local ok, res = pcall(function()
-		return DataStoreService:GetDataStore(NOMBRE_TIENDA)
+	local okV2, resV2 = pcall(function()
+		return DataStoreService:GetDataStore(TIENDA_V2)
 	end)
-	if ok then
-		tienda = res
+	if okV2 then
+		tiendaV2 = resV2
 	else
-		if esErrorStudio(res) then
+		if esErrorStudio(resV2) then
 			marcarSinApi()
 		else
-			warn("[Datos] no se pudo abrir el DataStore: modo memoria (" .. tostring(res) .. ")")
+			warn("[Datos] no se pudo abrir el DataStore: modo memoria (" .. tostring(resV2) .. ")")
+		end
+	end
+	if tiendaV2 then
+		local okV1, resV1 = pcall(function()
+			return DataStoreService:GetDataStore(TIENDA_V1)
+		end)
+		if okV1 then
+			tiendaV1 = resV1
+		else
+			warn("[Datos] DataStore v1 no disponible: sin migración (" .. tostring(resV1) .. ")")
 		end
 	end
 
@@ -152,7 +295,8 @@ function DataService.Iniciar()
 		task.spawn(cargarJugador, player)
 	end
 
-	-- Autoguardado periódico: solo jugadores sucios; nunca rompe el bucle.
+	-- Autoguardado periódico: solo jugadores sucios y solo sus campos cambiados;
+	-- nunca rompe el bucle.
 	task.spawn(function()
 		while true do
 			task.wait(INTERVALO_AUTO)
@@ -161,7 +305,9 @@ function DataService.Iniciar()
 					sucios[player] = nil
 					local cache = caches[player]
 					if cache and player.Parent then
-						task.spawn(guardarSiFalla, player, cache)
+						local campos = camposSucios[player]
+						camposSucios[player] = nil
+						task.spawn(guardarSiFalla, player, cache, campos)
 					end
 				end
 			end)
@@ -171,31 +317,37 @@ function DataService.Iniciar()
 		end
 	end)
 
-	-- Guardado al salir: un UpdateAsync asíncrono con la caché actual.
+	-- Guardado al salir: perfil completo con la caché actual.
 	Players.PlayerRemoving:Connect(function(player)
 		local cache = caches[player]
+		local bloqueado = sinPersistir[player]
 		caches[player] = nil
 		sucios[player] = nil
-		if cache and tienda and not sinApiStudio then
-			task.spawn(guardarYa, claveDe(player), cache, player.Name)
+		camposSucios[player] = nil
+		sinPersistir[player] = nil
+		cargando[player] = nil
+		if cache and not bloqueado and tiendaV2 and not sinApiStudio then
+			task.spawn(guardarYa, claveDe(player), cache, player.Name, nil)
 		end
 	end)
 
 	-- Flush final al cerrar el servidor (task.spawn + espera acotada).
 	game:BindToClose(function()
-		if not tienda or sinApiStudio then
+		if not tiendaV2 or sinApiStudio then
 			return
 		end
 		local pendientes = 0
 		local lista = {}
 		for player, cache in pairs(caches) do
-			lista[#lista + 1] = { player, cache }
+			if not sinPersistir[player] then
+				lista[#lista + 1] = { player, cache }
+			end
 		end
 		for _, par in ipairs(lista) do
 			local player, cache = par[1], par[2]
 			pendientes += 1
 			task.spawn(function()
-				guardarYa(claveDe(player), cache, player.Name)
+				guardarYa(claveDe(player), cache, player.Name, nil)
 				pendientes -= 1
 			end)
 		end
@@ -205,7 +357,7 @@ function DataService.Iniciar()
 		end
 	end)
 
-	print("[Datos] servicio listo" .. (tienda and "" or " (modo memoria)"))
+	print("[Datos] servicio listo" .. (tiendaV2 and "" or " (modo memoria)"))
 end
 
 -- Tabla de datos en caché del jugador; {} si aún no cargó (no espera).
@@ -223,6 +375,29 @@ end
 function DataService.Guardar(player, clave, valor)
 	DataService.Obtener(player)[clave] = valor
 	sucios[player] = true
+	marcarCampos(player, { [clave] = true })
+end
+
+-- Seam de Studio (sin DataStore no se puede ejercitar la migración real):
+-- devuelve el perfil migrado y si una segunda migración es idéntica.
+if RunService:IsStudio() then
+	function DataService._ProbarMigracion(datosV1)
+		local primero = migrarPerfil(datosV1)
+		local segundo = migrarPerfil(primero)
+		local iguales = true
+		for campo, valor in pairs(primero) do
+			if segundo[campo] ~= valor then
+				iguales = false
+				break
+			end
+		end
+		return primero, iguales
+	end
+
+	-- Lo guardado debe ganar a los defaults; la sesión, a lo guardado.
+	function DataService._ProbarFusion(datos, sesion)
+		return fusionarPerfil(sesion or {}, datos)
+	end
 end
 
 return DataService

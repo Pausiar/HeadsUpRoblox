@@ -702,17 +702,14 @@ remoteResultado.OnClientEvent:Connect(function(datos)
 			pinasActuales = datos.pinas
 			saldo.Text = L("pinas") .. ": " .. ("%d"):format(datos.pinas)
 		end
-		if type(datos.mensaje) == "string" and datos.mensaje ~= "" then
-			mostrarAviso(datos.mensaje, AMARILLO)
+		if type(datos.clave) == "string" and datos.clave ~= "" then
+			mostrarAviso(L(datos.clave, datos.params), AMARILLO)
 		end
 		-- Los atributos replican por su propio canal: repintar al final del frame
 		-- evita enseñar el stock/nivel anterior unos milisegundos.
 		task.defer(refrescarTarjetas)
 	else
-		local texto = datos.mensaje
-		if type(texto) ~= "string" or texto == "" then
-			texto = L("pinas_insuficientes")
-		end
+		local texto = type(datos.clave) == "string" and L(datos.clave, datos.params) or L("pinas_insuficientes")
 		mostrarAviso(texto)
 		registroPendiente = nil
 		refrescarTarjetas()
@@ -723,10 +720,8 @@ remoteRobuxResultado.OnClientEvent:Connect(function(datos)
 	if type(datos) ~= "table" then
 		return
 	end
-	local mensaje = datos.mensaje
-	if type(mensaje) ~= "string" or mensaje == "" then
-		mensaje = datos.ok == true and L("compra_iniciada") or L("compra_no_disponible")
-	end
+	local mensaje = type(datos.clave) == "string" and L(datos.clave, datos.params)
+		or (datos.ok == true and L("compra_iniciada") or L("compra_no_disponible"))
 	mostrarAviso(mensaje, datos.ok == true and AMARILLO or ROJO_AVISO)
 end)
 

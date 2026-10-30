@@ -171,26 +171,25 @@ end
 
 -- Flujo de compra (plan §7): rate limit → validar → consumible/mejora → cosmético
 -- (¿ya comprado? re-equipar gratis → cobrar → guardar → aplicar) → responder.
--- shortcut: los mensajes de resultado van en español y la UI los enseña tal cual; con
--- idioma EN la tienda mezcla idiomas. Enviar un código estable y traducirlo en el
--- cliente (L(codigo)) antes del lanzamiento en inglés.
+-- Los resultados viajan como clave + params (fase 11 · E44); el cliente los
+-- traduce con Localization.L para que EN no muestre frases en español.
 local function procesarCompra(player, payload)
 	if not permitirCompra(player) then
 		return
 	end
 	if type(payload) ~= "table" or type(payload.id) ~= "string" then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Petición inválida", pinas = pinasService.GetPinas(player) })
+		remotoResultado:FireClient(player, { ok = false, clave = "peticion_invalida", pinas = pinasService.GetPinas(player) })
 		return
 	end
 	local item = TiendaConfig.PorId(payload.id)
 	if not item then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Item desconocido", pinas = pinasService.GetPinas(player) })
+		remotoResultado:FireClient(player, { ok = false, clave = "item_desconocido", pinas = pinasService.GetPinas(player) })
 		return
 	end
 	-- Sin datos cargados, escribir stock/niveles pisaría lo persistido: se espera.
 	-- (Mismo motivo por el que MonetizacionService deja los recibos para luego.)
 	if not cargados[player] then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Cargando…", pinas = pinasService.GetPinas(player) })
+		remotoResultado:FireClient(player, { ok = false, clave = "cargando", pinas = pinasService.GetPinas(player) })
 		return
 	end
 
@@ -198,17 +197,17 @@ local function procesarCompra(player, payload)
 	if item.tipo == "bebida" then
 		local datos = datosJugador(player)
 		if datos.bebidas >= limiteBebidas(player) then
-			remotoResultado:FireClient(player, { ok = false, mensaje = "Máximo", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+			remotoResultado:FireClient(player, { ok = false, clave = "maximo", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
 			return
 		end
 		if not pinasService.Gastar(player, item.precio) then
-			remotoResultado:FireClient(player, { ok = false, mensaje = "Piñas insuficientes", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+			remotoResultado:FireClient(player, { ok = false, clave = "pinas_insuficientes", pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
 			return
 		end
 		datos.bebidas += 1
 		dataService.Guardar(player, "bebidas", datos.bebidas)
 		publicar(player)
-		remotoResultado:FireClient(player, { ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
+		remotoResultado:FireClient(player, { ok = true, clave = item.nombreClave, pinas = pinasService.GetPinas(player), bebidas = datos.bebidas })
 		registrarCompra(player, item, item.precio)
 		return
 	end
@@ -219,7 +218,7 @@ local function procesarCompra(player, payload)
 		local nivel = datos.mejoras[item.mejora] or 0
 		if nivel >= item.maximo then
 			remotoResultado:FireClient(player, {
-				ok = false, mensaje = "Máximo", pinas = pinasService.GetPinas(player),
+				ok = false, clave = "maximo", pinas = pinasService.GetPinas(player),
 				mejoras = { monedas = datos.mejoras.monedas, aguante = datos.mejoras.aguante },
 			})
 			return
@@ -227,18 +226,18 @@ local function procesarCompra(player, payload)
 		local precio = item.precios[nivel + 1]
 		if type(precio) ~= "number" then
 			warn("[Tienda] catálogo inválido en " .. item.id .. ": falta precios[" .. (nivel + 1) .. "]")
-			remotoResultado:FireClient(player, { ok = false, mensaje = "Item no disponible", pinas = pinasService.GetPinas(player) })
+			remotoResultado:FireClient(player, { ok = false, clave = "item_no_disponible", pinas = pinasService.GetPinas(player) })
 			return
 		end
 		if not pinasService.Gastar(player, precio) then
-			remotoResultado:FireClient(player, { ok = false, mensaje = "Piñas insuficientes", pinas = pinasService.GetPinas(player) })
+			remotoResultado:FireClient(player, { ok = false, clave = "pinas_insuficientes", pinas = pinasService.GetPinas(player) })
 			return
 		end
 		datos.mejoras[item.mejora] = nivel + 1
 		dataService.Guardar(player, "mejoras", datos.mejoras)
 		publicar(player)
 		remotoResultado:FireClient(player, {
-			ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player),
+			ok = true, clave = item.nombreClave, pinas = pinasService.GetPinas(player),
 			mejoras = { monedas = datos.mejoras.monedas, aguante = datos.mejoras.aguante },
 		})
 		registrarCompra(player, item, precio)
@@ -248,20 +247,20 @@ local function procesarCompra(player, payload)
 	-- Ya propietario: re-equipar gratis (nunca se cobra dos veces).
 	if table.find(listaComprados(player), payload.id) then
 		aplicarItem(player, item)
-		remotoResultado:FireClient(player, { ok = true, mensaje = "Equipado", pinas = pinasService.GetPinas(player) })
+		remotoResultado:FireClient(player, { ok = true, clave = "equipado", pinas = pinasService.GetPinas(player) })
 		return
 	end
 
 	-- Compra nueva: el servidor decide si hay saldo y descuenta.
 	if not pinasService.Gastar(player, item.precio) then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Piñas insuficientes", pinas = pinasService.GetPinas(player) })
+		remotoResultado:FireClient(player, { ok = false, clave = "pinas_insuficientes", pinas = pinasService.GetPinas(player) })
 		return
 	end
 	local comprados = listaComprados(player)
 	table.insert(comprados, payload.id)
 	dataService.Guardar(player, "comprados", comprados) -- marca sucio para autoguardado
 	aplicarItem(player, item)
-	remotoResultado:FireClient(player, { ok = true, mensaje = item.nombre, pinas = pinasService.GetPinas(player) })
+	remotoResultado:FireClient(player, { ok = true, clave = item.nombreClave, pinas = pinasService.GetPinas(player) })
 	registrarCompra(player, item, item.precio)
 end
 
@@ -302,7 +301,7 @@ function TiendaService.Iniciar()
 		end
 		local datos = datosJugador(player)
 		if datos.bebidas <= 0 then
-			remotoBebidaResultado:FireClient(player, { ok = false, mensaje = "Sin bebidas", bebidas = 0 })
+			remotoBebidaResultado:FireClient(player, { ok = false, clave = "sin_bebidas", bebidas = 0 })
 			return
 		end
 		datos.bebidas -= 1

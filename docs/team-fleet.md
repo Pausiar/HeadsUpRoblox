@@ -32,7 +32,7 @@ Ningún agente edita `src/shared/Remotes.lua`, `src/server/Main.server.lua`,
 - Pases: `UserOwnsGamePassAsync` al entrar y tras `ReclamarPase` (el servidor revalida;
   el cliente solo avisa). En Studio sin API degrada a «sin pases» con warn.
 - `ComprarRobux` valida id y `disponible`; si `MonetizacionConfig.Activo` es false
-  responde `RobuxResult { ok=false, mensaje=AvisoNoPublicado }` sin prompt.
+  responde `RobuxResult { ok=false, clave="aviso_no_publicado" }` sin prompt.
   Si está activo y es pase → `PromptGamePassPurchase`; producto → `PromptProductPurchase`.
 - `ProcessReceipt` de productos: valida productId, idempotencia con DataService `recibos`
   (lista acotada), y entrega: `pinas_x2` (os.time+1800 en `pinasX2Hasta`),
@@ -40,7 +40,7 @@ Ningún agente edita `src/shared/Remotes.lua`, `src/server/Main.server.lua`,
   (los 3 ids a `comprados` vía `TiendaService.ConcederItem`).
 - `ReanimarPersonal`: exige caído, no Puro, límite 1 por partida y stock
   (`reanimacionesPersonales`) o `PinasService.Gastar(player, costoPinas)`; reanima con
-  `PlayerStateService.Reanimar`; responde `ReanimarResult { ok, mensaje }`.
+  `PlayerStateService.Reanimar`; responde `ReanimarResult { ok, clave, params? }`.
   El límite se reinicia en `MatchService.AlEmpezar`.
 - `ModoPuro` (boolean): persiste en DataService `modoPuro` y republica `PaseEstado`.
   En Puro no hay reanimación personal ni efecto de Linterna Pro.

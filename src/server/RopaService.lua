@@ -129,7 +129,7 @@ local function guardarRopa(player, payload)
 	local ranura = type(payload) == "table" and ranuraValida(payload.ranura, ranurasDe(player))
 	local diseno = ranura and normalizarDiseno(payload)
 	if not (ranura and diseno) then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Diseño inválido" })
+		remotoResultado:FireClient(player, { ok = false, clave = "diseno_invalido" })
 		return
 	end
 	if not disenos[player] then
@@ -139,7 +139,7 @@ local function guardarRopa(player, payload)
 	activa[player] = ranura
 	DataService.Guardar(player, "ropa", { activa = ranura, disenos = disenos[player] }) -- persistencia (plan §3.3)
 	aplicar(player, player.Character)
-	remotoResultado:FireClient(player, { ok = true, mensaje = "Diseño guardado" })
+	remotoResultado:FireClient(player, { ok = true, clave = "diseno_guardado" })
 	print("[Ropa] diseño guardado por " .. player.Name .. ": ranura " .. ranura)
 end
 

@@ -6,7 +6,7 @@ local MonetizacionConfig = {}
 
 MonetizacionConfig.Activo = false
 MonetizacionConfig.Moneda = "Robux"
-MonetizacionConfig.AvisoNoPublicado = "Disponible al publicar el juego"
+MonetizacionConfig.AvisoNoPublicadoClave = "aviso_no_publicado"
 MonetizacionConfig.ModoPuroPorDefecto = false
 
 MonetizacionConfig.Pases = {

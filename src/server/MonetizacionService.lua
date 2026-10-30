@@ -233,21 +233,21 @@ local function comprarRobux(player, payload)
 	local id = type(payload) == "table" and payload.id or payload
 	local item = type(id) == "string" and MonetizacionConfig.PorId(id) or nil
 	if not item or (item.tipo ~= "pase" and item.tipo ~= "producto") then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "Compra inválida", id = id })
+		remotoResultado:FireClient(player, { ok = false, clave = "compra_invalida", id = id })
 		return
 	end
 	local idRobux = item.tipo == "pase" and item.paseId or item.productoId
 	if MonetizacionConfig.Activo ~= true or type(idRobux) ~= "number" or idRobux <= 0 then
-		remotoResultado:FireClient(player, { ok = false, mensaje = MonetizacionConfig.AvisoNoPublicado, id = id })
+		remotoResultado:FireClient(player, { ok = false, clave = MonetizacionConfig.AvisoNoPublicadoClave, id = id })
 		return
 	end
 	if item.disponible == false then
-		remotoResultado:FireClient(player, { ok = false, mensaje = "No disponible en esta versión", id = id })
+		remotoResultado:FireClient(player, { ok = false, clave = "no_disponible_version", id = id })
 		return
 	end
 
 	-- Responder antes del prompt: la entrega real ocurre en ProcessReceipt o ReclamarPase.
-	remotoResultado:FireClient(player, { ok = true, mensaje = "Abriendo tienda…", id = id })
+	remotoResultado:FireClient(player, { ok = true, clave = "abriendo_tienda", id = id })
 	local ok, err = pcall(function()
 		if item.tipo == "pase" then
 			MarketplaceService:PromptGamePassPurchase(player, item.paseId)
@@ -257,7 +257,7 @@ local function comprarRobux(player, payload)
 	end)
 	if not ok then
 		warn("[Monetizacion] no se pudo abrir la tienda para " .. player.Name .. ": " .. tostring(err))
-		remotoResultado:FireClient(player, { ok = false, mensaje = MonetizacionConfig.AvisoNoPublicado, id = id })
+		remotoResultado:FireClient(player, { ok = false, clave = MonetizacionConfig.AvisoNoPublicadoClave, id = id })
 	end
 end
 
@@ -284,41 +284,41 @@ local function reanimarPersonal(player)
 	if not permitirReanimar(player) then
 		return
 	end
-	local function responder(ok, mensaje)
-		remotoReanimarResultado:FireClient(player, { ok = ok, mensaje = mensaje })
+	local function responder(ok, clave, params)
+		remotoReanimarResultado:FireClient(player, { ok = ok, clave = clave, params = params })
 	end
 
 	if esPuro(player) then
-		responder(false, "Modo Puro: sin reanimación personal")
+		responder(false, "modo_puro_sin_reanimacion")
 		return
 	end
 	if not playerState.EstaCaido(player) then
-		responder(false, "No estás caído")
+		responder(false, "no_estas_caido")
 		return
 	end
 	-- Con la carrera cerrada no hay dónde reanimar: evita gastar Piñas/stock
 	-- detrás del FinScreen (el velo ya bloquea clics, esto cubre al servidor).
 	if not matchService.EstaEnPartida() or player:GetAttribute("Terminado") == true then
-		responder(false, "La partida terminó")
+		responder(false, "partida_terminada")
 		return
 	end
 	local item = MonetizacionConfig.PorId("reanimacion_personal")
 	local limite = item and tonumber(item.limitePorPartida) or 1
 	if (reanimacionesPartida[player] or 0) >= limite then
-		responder(false, "Ya usaste tu reanimación en esta partida")
+		responder(false, "reanimacion_ya_usada")
 		return
 	end
 	local stock = math.max(0, math.floor(tonumber(datosDe(player).reanimacionesPersonales) or 0))
 	local costo = item and tonumber(item.costoPinas) or 100
 	local usaStock = stock > 0
 	if not usaStock and pinasService.GetPinas(player) < costo then
-		responder(false, ("Sin reanimaciones ni %d Piñas"):format(costo))
+		responder(false, "sin_reanimaciones_ni_pinas", { costo })
 		return
 	end
 
 	playerState.Reanimar(player, nil)
 	if playerState.EstaCaido(player) then
-		responder(false, "No se pudo reanimar")
+		responder(false, "no_reanimar")
 		return
 	end
 	if usaStock then
@@ -328,7 +328,7 @@ local function reanimarPersonal(player)
 	end
 	reanimacionesPartida[player] = (reanimacionesPartida[player] or 0) + 1
 	publicar(player)
-	responder(true, "Reanimado")
+	responder(true, "reanimado")
 	if telemetriaService then
 		telemetriaService.Evento(player, TelemetriaConfig.Eventos.ReanimacionPersonal)
 	end

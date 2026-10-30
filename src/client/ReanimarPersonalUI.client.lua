@@ -335,9 +335,11 @@ remoteReanimarResultado.OnClientEvent:Connect(function(datos)
 		tokenError += 1
 		mostrarAviso(L("reanimado"))
 	else
-		-- Si el servidor no manda mensaje, el respaldo es nuestro (y traducible).
-		local texto = type(datos.mensaje) == "string" and datos.mensaje or nil
-		mostrarError(texto)
+		-- El servidor manda clave (+ params opcionales); se guarda la clave para
+		-- re-traducir si cambia el idioma mientras el aviso sigue visible.
+		local texto = type(datos.clave) == "string" and L(datos.clave, datos.params) or nil
+		local clave = type(datos.params) == "table" and nil or datos.clave
+		mostrarError(texto, type(clave) == "string" and clave or nil)
 		enfriar(1)
 	end
 end)

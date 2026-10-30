@@ -15,9 +15,9 @@ Remotes.Nombres = {
 	ChatFalso = "ChatFalso", -- server -> client: { nick, texto } de El Doble (filtrado por receptor)
 	Pinas = "Pinas", -- server -> client: { pinas, ganadas } al caminar y al cerrar una partida
 	Comprar = "Comprar", -- client -> server: { id } del catálogo (TiendaConfig)
-	CompraResult = "CompraResult", -- server -> client: { ok, mensaje, pinas }
+	CompraResult = "CompraResult", -- server -> client: { ok, clave, params?, pinas, bebidas?/mejoras? }
 	BeberBebida = "BeberBebida", -- client -> server: gastar una bebida comprada (limitado)
-	BebidaResult = "BebidaResult", -- server -> client: { ok, bebidas, mensaje }
+	BebidaResult = "BebidaResult", -- server -> client: { ok, clave, params?, bebidas }
 
 	-- Fase 2: lobby formal y ranking de amigos
 	LobbyEstado = "LobbyEstado", -- server -> client: { fase, jugadores, modo, min, max, cuenta, host, puedeEmpezar, mensaje? }
@@ -31,15 +31,15 @@ Remotes.Nombres = {
 	GuardarRopa = "GuardarRopa", -- client -> server: { ranura, patron, color1, color2, pegatina }
 	PedirRopa = "PedirRopa", -- client -> server: solicitar estado actual de ropa
 	RopaEstado = "RopaEstado", -- server -> client: { activa, ranurasDesbloqueadas, disenos }
-	RopaResult = "RopaResult", -- server -> client: { ok, mensaje }
+	RopaResult = "RopaResult", -- server -> client: { ok, clave, params? }
 
 	-- Fase 5: monetización Robux (los IDs viven en MonetizacionConfig; 0 = sin publicar)
 	ComprarRobux = "ComprarRobux", -- client -> server: { id } de MonetizacionConfig
-	RobuxResult = "RobuxResult", -- server -> client: { ok, mensaje, id }
+	RobuxResult = "RobuxResult", -- server -> client: { ok, clave, params?, id }
 	PaseEstado = "PaseEstado", -- server -> client: { pases, reanimaciones, pinasX2Hasta, modoPuro, activo }
 	ReclamarPase = "ReclamarPase", -- client -> server: id del pase tras PromptGamePassPurchaseFinished; el servidor revalida posesión
 	ReanimarPersonal = "ReanimarPersonal", -- client -> server: gastar una reanimación personal
-	ReanimarResult = "ReanimarResult", -- server -> client: { ok, mensaje }
+	ReanimarResult = "ReanimarResult", -- server -> client: { ok, clave, params? }
 	ModoPuro = "ModoPuro", -- client -> server: boolean (modo Puro: sin ventajas ni reanimaciones de pago)
 
 	-- Fase 6: audio y subtítulos (el cliente decide volumen y presentación)

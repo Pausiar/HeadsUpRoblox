@@ -1,6 +1,6 @@
 # Matriz de QA · Heads Up! Mountain Mayhem
 
-Versión 1.0 · 28-10-2026 · Fase 7 (lanzamiento y vivo)
+Versión 1.1 · 30-10-2026 · Fase 7 (lanzamiento y vivo) + casos de la fase 11 (L0)
 
 Alcance: verificación funcional, multiplataforma, accesibilidad, persistencia y seguridad antes del soft launch. Esta matriz describe **casos y evidencia**, no resultados: los resultados se anotan en `docs/skill-log.md` y en el registro de la fase. El comportamiento esperado se apoya en el código y los Config del repo; cuando el plan y el código no coinciden, se indica como **brecha**.
 
@@ -129,6 +129,7 @@ Cualquier error rojo es P0. Los avisos ya conocidos de Studio sin API, el asset 
 | QA-49 | Subtítulos | Provocar aviso, impacto, reanimación, checkpoint, monstruo y fin; desactivar subtítulos; repetir dos avisos seguidos | Cada efecto crítico tiene subtítulo legible abajo-centro, por encima del panel de reanimación; se deduplica en <1 s; con el ajuste off no aparece; **brecha:** el texto de `AudioConfig` está en español también en EN y dura 2,5 s fijos | S: subtítulo; C: `[Audio] ...`; I: `PlayerGui.Subtitulos`; `Settings.subtitulos` | P1 |
 | QA-50 | Safe area y tamaños táctiles | En móvil con notch y en viewport corto: menú, lobby, ajustes, tienda, personalización, ranking, FinScreen, HUD y subtítulos; medir objetivos | Ningún panel queda bajo el notch ni cortado; los controles principales miden ≥44×44 px (los táctiles 56×56); la tienda y el editor se pueden recorrer; el panel de reanimación no se recorta | M: captura en dispositivo real; I: `SafeArea`, `UIScale`, `AbsoluteSize/AbsolutePosition`; S: cada pantalla | P1 |
 | QA-51 | Contraste y daltonismo | Revisar peligros, estados CAÍDO/SANO, tienda, Modo Puro y ranking | La información no depende solo del color: hay texto, forma o posición; los contrastes del ADN se mantienen; el rojo de peligro es legible sobre madera | S: capturas; M: simulación de daltonismo; I: colores del ADN | P2 |
+| QA-63 | Resultados de acción por clave en ES/EN | En EN y después en ES: comprar con saldo, comprar sin saldo, re-equipar, guardar ropa válida e inválida, reanimar de pie y abrir un producto Robux sin publicar | El servidor manda `clave` (+ `params`) y la UI traduce; en EN no aparece ninguna frase en español; en ES se lee el texto natural; una clave desconocida cae al texto por defecto sin romper la UI | R: `CompraResult`/`RopaResult`/`ReanimarResult`/`RobuxResult`; S: avisos ES/EN; C: sin warnings de paridad | P1 |
 
 ## 7. Persistencia, telemetría y datos
 
@@ -142,6 +143,9 @@ Cualquier error rojo es P0. Los avisos ya conocidos de Studio sin API, el asset 
 | QA-57 | Telemetría en Studio | Arrancar con `TelemetriaConfig.Activo=true`; jugar; revisar consola | `[Telemetria] activa: embudo PrimeraPartida con 4 pasos`; los eventos no se convierten en datos del Creator Dashboard (solo servidor publicado); si Analytics falla, un warn y el juego sigue | C: `[Telemetria] ...`, `AnalyticsService: ... event fired`; S: partida | P1 |
 | QA-58 | Telemetría publicada | En place publicado, jugar una partida completa; revisar Creator Dashboard → Analytics → Custom/Funnel/Economy y `View Events` | `PartidaInicio`, `PartidaFin`, `Reanimacion`, `Checkpoint`, `Rapto`, `Compra`, `ReanimacionPersonal` y el embudo `PrimeraPartida` aparecen; la economía muestra Piñas fuente `Partida` y sumidero `Tienda`; no hay nombres ni texto libre | D: Creator Dashboard; C: sin errores; I: `TelemetriaConfig` | P1 |
 | QA-59 | Analytics no disponible | Forzar un fallo de Analytics (Studio sin API o servicio caído) y jugar | Un solo warn `[Telemetria] AnalyticsService no disponible...`; no se repite; no se rompe la partida; no se pierden datos de juego | C: warn único; S: partida normal | P1 |
+| QA-60 | Migración v1 → v2 | En E3 con un perfil v1 existente (`HUMM_Jugador_v1`), entrar; salir y volver a entrar | La primera entrada lee v1, escribe `HUMM_Jugador_v2` con `schema = 2` y conserva todos los campos v1 (Piñas, comprados, ropa, récord…); deja `u_<UserId>_respaldo_v1` sin pisar un respaldo previo; la segunda entrada no vuelve a migrar | C: `[Datos] respaldo v1 guardado para ...`, `[Datos] perfil v1 migrado a v2 para ...`; D: claves v2 y `_respaldo_v1`; R: `TusDatos` | P0 |
+| QA-61 | Autoguardado parcial y fusión del perfil | Cambiar solo un campo (caminar para ganar Piñas), esperar el tick de 60 s; rejoin; comprobar xp, estadísticas, misiones y ajustes | El autoguardado escribe solo los campos sucios sobre lo guardado; lo que no cambió sigue en el DataStore; un perfil guardado nunca se sustituye por los valores por defecto; lo escrito antes de terminar la carga gana a lo leído | C: `[Datos] guardado OK`, `[Datos] carga OK`; D: rejoin; I: `DataService._ProbarFusion` | P0 |
+| QA-62 | Lectura fallida no pisa el perfil | Forzar un fallo de lectura (API desactivada o error de DataStore) y entrar; jugar; salir | La sesión sigue en memoria, avisa «sesión sin guardar» y **no** escribe al salir ni en `BindToClose`; el perfil guardado queda intacto | C: `[Datos] carga falló para ...: sesión sin guardar` (o `lectura v1 falló`); D: rejoin con API | P1 |
 
 ## 8. Casos negativos y seguridad
 
@@ -244,6 +248,16 @@ Evidencia nueva de la fase 10 (2026-10-29, Studio):
 | 3 clientes simultáneos (Servidor y clientes) | Los 3 entran al lobby, marcan listo, arranca la cuenta atrás y la partida; HUD por jugador y ranking con 3 a 0; sin errores | Capturas de la sesión; `docs/skill-log.md` |
 | UI en Samsung Galaxy A06 (705×338) | Menú completo con SALIR sin scroll (escala 0,7); lobby, personalización y ajustes con scroll vertical; botones alcanzables | Capturas `A06_menu_final`, `A06_personalizacion_bottom` |
 | UI en iPhone 17 Pro (750×381) | Menú completo; AMIGOS movido a y=155 y sin solape con el salto (655,233 70×70) | Capturas `iPhone17_menu`, `iPhone17_menu_amigos_fix`; `[TOUCH] overlapJump=false` |
+
+Evidencia nueva de la fase 11 · L0 (2026-10-30, Studio):
+
+| Prueba | Resultado | Evidencia |
+| --- | --- | --- |
+| Esquema v2 (E45): migración pura | `schema=2` con los campos v1 conservados (`pinas=7`); una segunda migración es idéntica (`idempotente=true`) | `QATestDatos` → `[QA-DATOS] OK migracion=v1 idempotente=true fusion=defaults<guardado<sesion`; `_ProbarMigracion` (`schema=2 faltan={} idempotente=true`) |
+| Esquema v2 (E45): fusión de la caché | Lo guardado gana a los defaults (`xp=42`, `estadisticas.partidas=3`, `ajustes.idioma=en`, `tutorialVisto=false` rellenado) y lo escrito antes de cargar gana a lo guardado (`pinas=170`) | `_ProbarFusion` en Studio; `[QA-E45] schema=2 faltan={} pinas=170 comprados=2` |
+| Resultados por clave (E44) | En EN: «Not enough Pinecones», «Available when the game is published», «Invalid design», «You're not down», «Wool beanie», «Equipped», «Green shirt», «Unknown item»; en ES: «Piñas insuficientes», «Bebida energética»; «Sin reanimaciones ni 100 Piñas» / «No revives or 100 Pinecones» con paridad ES/EN completa | Consola y avisos de la sesión; `faltanEN=0 faltanES=0` |
+
+Sin probar en Studio (requiere place publicado): migración real contra DataStore, respaldo, autoguardado parcial y rejoin (QA-60/61/62 quedan como pendientes de E3).
 
 Sigue pendiente de ejecución real: partida de 8 por Historia, FPS en móvil de gama media, mando, 1.ª persona, Modo Puro en producción, DataStore/ranking/telemetría reales y compra real. Instrucciones en `docs/pendiente-usuario.md`.
 

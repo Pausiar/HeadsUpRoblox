@@ -927,10 +927,7 @@ remoteRopaResult.OnClientEvent:Connect(function(datos)
 		mostrarAviso(L("guardado"), VERDE_CLARO, 1.2)
 	else
 		envioRopa = nil
-		local texto = L("no_guardar")
-		if type(datos.mensaje) == "string" and datos.mensaje ~= "" then
-			texto = datos.mensaje
-		end
+		local texto = type(datos.clave) == "string" and L(datos.clave, datos.params) or L("no_guardar")
 		mostrarAviso(texto, ROJO_ACLARADO, 2)
 	end
 end)

@@ -126,6 +126,21 @@ local Localization = {
 			compra_iniciada = "Compra iniciada",
 			compra_no_disponible = "Compra no disponible",
 			comprobando_pase = "Comprobando pase…",
+			-- Resultados de acciones (servidor manda clave + params, fase 11 · E44)
+			peticion_invalida = "Petición inválida",
+			item_desconocido = "Item desconocido",
+			item_no_disponible = "Item no disponible",
+			equipado = "Equipado",
+			diseno_invalido = "Diseño inválido",
+			diseno_guardado = "Diseño guardado",
+			compra_invalida = "Compra inválida",
+			aviso_no_publicado = "Disponible al publicar el juego",
+			no_disponible_version = "No disponible en esta versión",
+			abriendo_tienda = "Abriendo tienda…",
+			no_estas_caido = "No estás caído",
+			partida_terminada = "La partida terminó",
+			reanimacion_ya_usada = "Ya usaste tu reanimación en esta partida",
+			sin_reanimaciones_ni_pinas = "Sin reanimaciones ni %d Piñas",
 			-- Reanimación personal
 			reanimacion_personal = "REANIMACIÓN PERSONAL",
 			una_reanimacion = "1 reanimación personal",
@@ -297,6 +312,21 @@ local Localization = {
 			compra_iniciada = "Purchase started",
 			compra_no_disponible = "Purchase unavailable",
 			comprobando_pase = "Checking pass…",
+			-- Action results (server sends key + params, phase 11 · E44)
+			peticion_invalida = "Invalid request",
+			item_desconocido = "Unknown item",
+			item_no_disponible = "Item unavailable",
+			equipado = "Equipped",
+			diseno_invalido = "Invalid design",
+			diseno_guardado = "Design saved",
+			compra_invalida = "Invalid purchase",
+			aviso_no_publicado = "Available when the game is published",
+			no_disponible_version = "Not available in this version",
+			abriendo_tienda = "Opening shop…",
+			no_estas_caido = "You're not down",
+			partida_terminada = "The round is over",
+			reanimacion_ya_usada = "You already used your revive this round",
+			sin_reanimaciones_ni_pinas = "No revives or %d Pinecones",
 			-- Personal revive
 			reanimacion_personal = "PERSONAL REVIVE",
 			una_reanimacion = "1 personal revive",
@@ -357,9 +387,17 @@ local Localization = {
 
 -- Devuelve el texto de `clave` en el idioma activo; si falta, cae a español
 -- y, si tampoco existe, a la propia clave para no romper la UI.
-function Localization.L(clave)
+-- `params` es opcional: se aplica con string.format (p. ej. "%d Piñas").
+function Localization.L(clave, params)
 	local activo = Localization.Tabla[Localization.Idioma]
-	return (activo and activo[clave]) or Localization.Tabla.es[clave] or clave
+	local texto = (activo and activo[clave]) or Localization.Tabla.es[clave] or clave
+	if type(params) == "table" then
+		local ok, formateado = pcall(string.format, texto, table.unpack(params))
+		if ok then
+			return formateado
+		end
+	end
+	return texto
 end
 
 -- Cambia el idioma activo si está en Soportados. Devuelve true si se aplicó.

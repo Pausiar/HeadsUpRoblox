@@ -26,6 +26,7 @@ local MonsterService = require(Server.MonsterService)
 local ChatMimicService = require(Server.ChatMimicService)
 local MonetizacionService = require(Server.MonetizacionService)
 local TelemetriaService = require(Server.TelemetriaService)
+local CierreService = require(Server.CierreService)
 
 DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 StageService.Construir()
@@ -47,5 +48,6 @@ ChatMimicService.Iniciar()
 MonsterService.Iniciar()
 MonetizacionService.Iniciar() -- después de TiendaService y MatchService: los usa
 TelemetriaService.Iniciar() -- al final: engancha eventos de MatchService y PlayerStateService
+CierreService.Iniciar() -- BindToClose propio; DataService vuelca perfiles en paralelo
 
 print("[Slice] servidor listo: lobby, match, estamina, puntos, ranking, terreno, peligros, personalización, ropa, sombreros, Piñas, tienda, El Doble y Robux")

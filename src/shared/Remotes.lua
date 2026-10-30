@@ -51,6 +51,9 @@ Remotes.Nombres = {
 
 	-- Fase 11 · E46: eventos de UI que solo el cliente conoce (validados contra la lista)
 	TelemetriaUI = "TelemetriaUI", -- client -> server: nombre de evento declarado en EventosUI
+
+	-- Fase 11 · A7: aviso de apagado del servidor
+	ServidorCerrando = "ServidorCerrando", -- server -> client: { segundos } antes del apagado
 }
 
 function Remotes.Crear(nombre)

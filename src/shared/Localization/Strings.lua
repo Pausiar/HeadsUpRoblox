@@ -78,6 +78,8 @@ local Localization = {
 			empieza_en = "EMPIEZA EN",
 			empieza_breve = "EMPIEZA EN BREVE…",
 			jugador = "Jugador",
+			ahora_host = "Ahora eres el host",
+			servidor_cerrando = "EL SERVIDOR SE ESTÁ CERRANDO", -- ya en mayúsculas: String.upper no cubre «á»
 			-- Ranking de amigos
 			amigos = "Amigos",
 			ranking_amigos = "RANKING DE AMIGOS",
@@ -265,6 +267,8 @@ local Localization = {
 			empieza_en = "STARTS IN",
 			empieza_breve = "STARTING SOON…",
 			jugador = "Player",
+			ahora_host = "You are the host now",
+			servidor_cerrando = "THE SERVER IS SHUTTING DOWN",
 			-- Friends leaderboard
 			amigos = "Friends",
 			ranking_amigos = "FRIENDS LEADERBOARD",

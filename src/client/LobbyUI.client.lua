@@ -336,6 +336,7 @@ local mensajeTemporal = nil
 local mensajeTemporalClave = nil
 local tokenMensaje = 0
 local ocultaPorPartida = false
+local hostAnterior = nil -- A5: al salir el host, el siguiente hereda y se le avisa
 
 local function pintarMensaje()
 	local texto = mensajeTemporal or mensajeServidor
@@ -429,6 +430,14 @@ local function aplicarEstado(datos)
 	esHost = propio ~= nil and propio.host == true
 	soyParticipante = propio ~= nil
 	listoActual = propio ~= nil and propio.listo == true
+
+	-- El servidor elige host por orden de llegada; si el anterior se fue y me toca,
+	-- el aviso lo dice. Los demás ven la etiqueta HOST moverse de fila.
+	local hostNuevo = type(datos.host) == "string" and datos.host or nil
+	if hostAnterior ~= nil and hostNuevo ~= nil and hostNuevo ~= hostAnterior and esHost then
+		mostrarMensajeTemporal(L("ahora_host"), "ahora_host")
+	end
+	hostAnterior = hostNuevo
 
 	local min = tonumber(datos.min) or LobbyConfig.MinJugadores
 	local max = tonumber(datos.max) or LobbyConfig.MaxJugadores

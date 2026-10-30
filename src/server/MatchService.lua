@@ -3,6 +3,7 @@
 -- fin de la partida; el reintentar sigue limitado en el servidor.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local AudioConfig = require(ReplicatedStorage.Shared.Config.AudioConfig)
 local Config = require(ReplicatedStorage.Shared.Config.GameConfig)
@@ -160,6 +161,24 @@ end
 
 -- Alias del contrato anterior (RankingService llama a ObtenerDistancia)
 MatchService.ObtenerDistancia = MatchService.GetDistancia
+
+-- QA de Studio (E49): coloca al jugador al final de la ruta sin caminar los ~5.000
+-- studs. El bucle de 1 Hz sigue cerrando checkpoints y meta; la distancia avanza un
+-- stud menos que el destino para que el tope de 32 studs/s no descarte el salto.
+function MatchService._ProbarAvanzarRuta(player, objetivo)
+	if not RunService:IsStudio() or not rutaActual or modoActual ~= "historia" then
+		return false
+	end
+	local char = player and player.Parent and player.Character
+	local raiz = char and char:FindFirstChild("HumanoidRootPart")
+	if not raiz then
+		return false
+	end
+	objetivo = math.clamp(objetivo or (rutaActual.Longitud - 2), 1, rutaActual.Longitud)
+	distancia[player] = math.max(distancia[player] or 0, objetivo - 1)
+	char:PivotTo(CFrame.new(rutaActual:PuntoEnDistancia(objetivo) + Vector3.new(0, 4, 0)))
+	return true
+end
 
 -- Inicio formal desde el lobby (o reintentar). Valida todo lo que llega de fuera.
 -- recargarCaidos es interno de REINTENTAR: respawnea a los caídos para cerrar el FinScreen.

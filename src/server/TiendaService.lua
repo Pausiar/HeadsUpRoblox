@@ -24,6 +24,8 @@ local remotoBeber
 local remotoBebidaResultado
 local permitirCompra -- RateLimiter.nuevo(1) por jugador
 local permitirBeber -- RateLimiter.nuevo(1) por jugador
+local bengalaService -- se asigna en Iniciar (L6 · B13)
+local bengalaConfig -- se asigna en Iniciar
 local dataService -- se asignan en Iniciar: Main llama DataService.Iniciar() antes
 local pinasService
 local accesorios
@@ -246,6 +248,25 @@ local function procesarCompra(player, payload)
 		return
 	end
 
+	-- Bengala (L6 · B13): consumible con stock; nunca re-equipar ni añadir a comprados.
+	if item.tipo == "bengala" then
+		if bengalaService.StockDe(player) >= bengalaConfig.StockMax then
+			remotoResultado:FireClient(player, { ok = false, clave = "bengala_maximo", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		if not pinasService.Gastar(player, item.precio) then
+			remotoResultado:FireClient(player, { ok = false, clave = "pinas_insuficientes", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		bengalaService.AnadirStock(player)
+		registrarCompra(player, item, item.precio)
+		remotoResultado:FireClient(player, {
+			ok = true, clave = "bengala_comprada", pinas = pinasService.GetPinas(player),
+			bengalas = bengalaService.StockDe(player),
+		})
+		return
+	end
+
 	-- Ya propietario: re-equipar gratis (nunca se cobra dos veces).
 	if table.find(listaComprados(player), payload.id) then
 		aplicarItem(player, item)
@@ -277,6 +298,8 @@ function TiendaService.Iniciar()
 	playerState = require(script.Parent.PlayerStateService)
 	monetizacion = require(script.Parent.MonetizacionService)
 	estaminaService = require(script.Parent.EstaminaService)
+	bengalaService = require(script.Parent.BengalaService)
+	bengalaConfig = require(ReplicatedStorage.Shared.Config.BengalaConfig)
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)

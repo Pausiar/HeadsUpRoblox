@@ -31,6 +31,8 @@ local CierreService = require(Server.CierreService)
 local TutorialService = require(Server.TutorialService)
 local CargarService = require(Server.CargarService)
 local EmpujonService = require(Server.EmpujonService)
+local ClimaService = require(Server.ClimaService)
+local BengalaService = require(Server.BengalaService)
 
 DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 TutorialService.Iniciar() -- después de DataService: escucha AlCargar
@@ -54,6 +56,8 @@ TiendaService.Iniciar() -- después de PinasService, AccesoriosService y Customi
 ChatMimicService.Iniciar()
 ChatRapidoService.Iniciar() -- frases rápidas: solo depende de remotes, config y Settings del cliente
 MonsterService.Iniciar()
+BengalaService.Iniciar() -- L6 · B13: después de MonsterService (atura a sus clones) y TiendaService (ventas)
+ClimaService.Iniciar() -- L6 · B12: sin dependencias; programa eventos solo con jugadores EnJuego
 MonetizacionService.Iniciar() -- después de TiendaService y MatchService: los usa
 TelemetriaService.Iniciar() -- al final: engancha eventos de MatchService y PlayerStateService
 CierreService.Iniciar() -- BindToClose propio; DataService vuelca perfiles en paralelo

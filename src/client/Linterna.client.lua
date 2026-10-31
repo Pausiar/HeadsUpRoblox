@@ -23,14 +23,14 @@ local BRILLO = 4
 local COLOR_BASE = Color3.fromRGB(255, 243, 214) -- blanco cálido #FFF3D6
 local COLOR_PRO = Color3.fromRGB(63, 127, 191) -- azul del ADN #3F7FBF (información/selección)
 
--- GANCHO_DELATE (plan §5.3, contrajuego contra El Doble): al integrarlo, el SERVIDOR
--- comprobará si el cono de la linterna de un jugador ilumina al Doble —producto punto
--- entre la dirección del haz (LookVector de la Head, hacia donde apunta el SpotLight
--- con Face Front) y el vector unitario hacia el Doble, dentro del ángulo vigente
--- (35° o 40,25° con Linterna Pro) y el alcance (40) del cono— y le pondrá un Highlight
--- para delatarlo. No se implementa aquí: la detección es autoritativa del servidor;
--- esta constante es el gancho documentado.
-local GANCHO_DELATE = false
+-- GANCHO_DELATE implementado (B15, plan §5.3 + fase-11 §L6): con la linterna
+-- encendida en partida, cada INTERVALO_HAZ (5 Hz) se envía al servidor la
+-- dirección del haz como LookVector de la CÁMARA —en 3ª persona la Head no gira
+-- con ella: la cámara es hacia donde mira de verdad el jugador—. El receptor
+-- (MonsterService, remote LinternaAim) valida y comprueba el cono de delate
+-- (clon a ≤25 studs dentro de 35° del haz) y lo ahuyenta: la detección es
+-- autoritativa del servidor; el cliente solo informa.
+local INTERVALO_HAZ = 0.2 -- 5 Hz, la misma cadencia que limita el receptor
 
 -- Etiqueta discreta del atajo, clonada de la de «V: cámara» (CameraController),
 -- apilada un escalón más arriba (crema #F5EBD8 al 25%)
@@ -164,6 +164,25 @@ if remotoPase then
 	end)
 else
 	warn("[Linterna] sin remote PaseEstado: se usa la linterna base")
+end
+
+-- B15 (GANCHO_DELATE): envío del haz a 5 Hz mientras alumbra en partida. El
+-- servidor limita el remoto a la misma cadencia; aquí no hay que frenar más.
+local remotoAim = carpetaRemotes and carpetaRemotes:WaitForChild("LinternaAim", 15)
+if remotoAim then
+	task.spawn(function()
+		while true do
+			task.wait(INTERVALO_HAZ)
+			if encendida and player:GetAttribute("EnJuego") == true then
+				local camara = workspace.CurrentCamera
+				if camara then
+					remotoAim:FireServer({ direccion = camara.CFrame.LookVector })
+				end
+			end
+		end
+	end)
+else
+	warn("[Linterna] sin remote LinternaAim: el Doble no reacciona al haz")
 end
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)

@@ -70,6 +70,12 @@ Remotes.Nombres = {
 	Cargar = "Cargar", -- client -> server: { accion = "cargar"|"soltar", objetivo = userId } (limitado)
 	CargarEstado = "CargarEstado", -- server -> client: { portador, objetivo } estado del porte por jugador
 	Empujar = "Empujar", -- client -> server: { objetivo = userId } impulso validado en servidor (limitado)
+
+	-- Fase 11 · L6 (B12/B13/B15)
+	Clima = "Clima", -- server -> client: { tipo, intensidad, duracion } evento de clima (ventisca/niebla)
+	Bengala = "Bengala", -- client -> server: usar una bengala del stock (limitado)
+	BengalaResult = "BengalaResult", -- server -> client: { ok, clave, params? }
+	LinternaAim = "LinternaAim", -- client -> server: dirección del haz a 5 Hz (B15, validado en servidor)
 }
 
 function Remotes.Crear(nombre)

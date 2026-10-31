@@ -23,6 +23,10 @@ TiendaConfig.Catalogo = {
 	{ id = "camiseta_azul",     nombre = "Camiseta azul",     nombreClave = "item_camiseta_azul",     tipo = "camiseta", precio = 20, color = { 63, 127, 191 } },
 	-- Consumibles: stock persistido; se gastan al beber (Estamina repone el 25 %).
 	{ id = "bebida_energetica", nombre = "Bebida energética", nombreClave = "item_bebida_energetica", tipo = "bebida", precio = 20, maximo = 5, descripcion = "Recupera 1/4 de resistencia al beberla (tecla Q)", descripcionClave = "descripcion_bebida" },
+	-- Consumible de un uso (B13): stock en DataService ("bengalas"); BengalaService
+	-- la planta en el mundo y aturde al Doble con la tecla G. Tipo "bengala":
+	-- TiendaService aún no lo trata como stock (GANCHO_COORDINADOR, ver BengalaService).
+	{ id = "bengala", nombre = "Bengala", nombreClave = "item_bengala", tipo = "bengala", precio = 40, maximo = 3, descripcion = "Luz de 20 s que aturde a El Doble 4 s (tecla G)", descripcionClave = "descripcion_bengala" },
 	-- Mejoras por niveles: el precio se lee de precios[nivel + 1] (TiendaService lo cobra).
 	{ id = "mejora_monedas", nombre = "Ojo de lince", nombreClave = "item_mejora_monedas", tipo = "mejora", mejora = "monedas", precios = { 60, 120, 200 }, maximo = 3, descripcion = "+25% de Piñas al caminar por nivel", descripcionClave = "descripcion_monedas" },
 	{ id = "mejora_aguante", nombre = "Botas ligeras", nombreClave = "item_mejora_aguante", tipo = "mejora", mejora = "aguante", precios = { 60, 120, 200 }, maximo = 3, descripcion = "Cansancio -15% al esprintar por nivel", descripcionClave = "descripcion_aguante" },

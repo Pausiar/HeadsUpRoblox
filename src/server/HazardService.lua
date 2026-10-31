@@ -14,6 +14,8 @@ local HazardService = {}
 local rng = Random.new()
 local playerState
 local sonido
+local NOMBRE_CLON = "ElDoble" -- mismo nombre que MonsterService y BengalaService
+local monster -- MonsterService si carga: Aturdir del clon por árbol/piedra (B15)
 -- Caché defensiva: un build intermedio de TerrenoService puede no tener ArbolesCerca.
 local buscarArboles = TerrenoService.ArbolesCerca
 local MAX_PIEDRAS = 30
@@ -60,6 +62,24 @@ local function distanciaSegmentoXZ(p, a, b)
 	local dx = p.X - (a.X + abx * t)
 	local dz = p.Z - (a.Z + abz * t)
 	return math.sqrt(dx * dx + dz * dz)
+end
+
+-- B15 (fase 11 §L6): el árbol que cae y la piedra que impacta también detienen
+-- 2 s al clon de El Doble. Mismo radio de daño que sufren los jugadores, medido
+-- contra la posición del clon (distanciaClon devuelve la distancia a comparar).
+-- Aturdir no hace daño (§5.4: el Doble nunca muere); pcall tolera un
+-- MonsterService a medias, mismo patrón defensivo que BengalaService.
+local function aturdirClones(radio, causa, distanciaClon)
+	if not (monster and type(monster.Aturdir) == "function") then
+		return
+	end
+	for _, obj in ipairs(workspace:GetChildren()) do
+		if obj:IsA("Model") and obj.Name == NOMBRE_CLON
+			and distanciaClon(obj:GetPivot().Position) <= radio
+			and pcall(monster.Aturdir, obj, 2) then
+			print("[Doble] aturdido por " .. causa .. " 2s")
+		end
+	end
 end
 
 -- Fase 11 · L5/B3: zona sin peligros del refugio (plan fase-11 §L5). StageService
@@ -128,6 +148,12 @@ local function golpearConArbol(base, direccion, altura, cfg)
 			playerState.Derribar(player, "arbol")
 		end
 	end
+
+	-- B15: el tronco caído también detiene al clon (misma línea de caída y
+	-- banda de altura que los jugadores, mismo radio, contra su posición).
+	aturdirClones(cfg.RadioDanio, "árbol", function(pos)
+		return math.abs(pos.Y - base.Y) <= 8 and distanciaSegmentoXZ(pos, base, final) or math.huge
+	end)
 end
 
 -- Tween sobre un CFrameValue: PivotTo en cada cambio y cancelación limpia si
@@ -275,6 +301,10 @@ local function crearPiedra(base, altura, cfg)
 		piedra:SetAttribute("Impactado", true)
 		hum:TakeDamage(cfg.Danio)
 		playerState.Derribar(player, "piedra")
+		-- B15: el impacto también aturde a un clon a menos del radio de daño.
+		aturdirClones(cfg.RadioDanio, "piedra", function(pos)
+			return Vector3.new(pos.X - piedra.Position.X, 0, pos.Z - piedra.Position.Z).Magnitude
+		end)
 		destruirPiedra(piedra)
 	end)
 
@@ -329,6 +359,12 @@ end
 
 function HazardService.Iniciar()
 	playerState = require(script.Parent.PlayerStateService)
+	-- B15: MonsterService es opcional aquí (aturdimiento del clon); pcall por
+	-- si el require pilla el archivo a medias (patrón de BengalaService).
+	local okM, modM = pcall(require, script.Parent.MonsterService)
+	if okM then
+		monster = modM
+	end
 	sonido = Remotes.Crear(Remotes.Nombres.Sonido)
 	local cfg = Config.Etapa0.ArbolesQueCaen
 

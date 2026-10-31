@@ -41,10 +41,10 @@ velo.BackgroundTransparency = 1 -- funde hasta 0.25 al entrar
 velo.BorderSizePixel = 0
 velo.Parent = gui
 
--- El panel nominal es 480x470; en pantallas estrechas se escala el conjunto y, si aun así
+-- El panel nominal es 480x530; en pantallas estrechas se escala el conjunto y, si aun así
 -- no cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza: SALIR nunca
 -- queda fuera del área táctil. Los botones miden 56 px, así que el suelo 0,7 los deja en
--- ~39 px y permite que el panel entero quepa en el A06 sin scroll.
+-- ~39 px; en el A06 el panel escalado (~371 px) desliza un poco y SALIR sigue al alcance.
 local marco = Instance.new("ScrollingFrame")
 marco.Name = "MarcoScroll"
 marco.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -61,7 +61,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelMenu"
 panel.AnchorPoint = Vector2.new(0, 0)
 panel.Position = UDim2.fromOffset(0, 0)
-panel.Size = UDim2.fromOffset(480, 470)
+panel.Size = UDim2.fromOffset(480, 530)
 panel.BackgroundColor3 = MADERA_PANEL
 panel.BorderSizePixel = 0
 panel.Parent = marco
@@ -78,9 +78,9 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 520, alto / 510), 0.7, 1)
+	escala.Scale = math.clamp(math.min(ancho / 520, alto / 570), 0.7, 1)
 	local anchoPanel = 480 * escala.Scale
-	local altoPanel = 470 * escala.Scale
+	local altoPanel = 530 * escala.Scale
 	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
 	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
 	marco.ScrollingEnabled = altoPanel > alto
@@ -107,7 +107,7 @@ etiqueta(UDim2.new(0, 0, 0, 78), 30, "MOUNTAIN MAYHEM", 24, Enum.Font.GothamBlac
 local lema = etiqueta(UDim2.new(0, 0, 1, -24), 20, L("lema"), 16, Enum.Font.Gotham, CREMA)
 
 local mensajeSalir = etiqueta(
-	UDim2.new(0, 0, 0, 422),
+	UDim2.new(0, 0, 0, 482),
 	22,
 	L("salir_ayuda"),
 	16,
@@ -143,7 +143,8 @@ local botonJugar = botonMenu("jugar", 116, VERDE, BLANCO)
 local botonPersonalizar = botonMenu("personalizar", 182, MADERA_BOTON, CREMA)
 local botonAjustes = botonMenu("ajustes", 248, MADERA_BOTON, CREMA)
 local botonTienda = botonMenu("tienda", 314, MADERA_BOTON, CREMA)
-local botonSalir = botonMenu("salir", 380, MADERA_BOTON, CREMA)
+local botonCreditos = botonMenu("creditos", 380, MADERA_BOTON, CREMA)
+local botonSalir = botonMenu("salir", 446, MADERA_BOTON, CREMA)
 
 -- Aviso de «llega en una fase futura»: cambia el texto y congela el color 1,5 s. Devuelve la acción.
 local function avisoFase(boton, claveAviso, claveOriginal)
@@ -205,6 +206,17 @@ botonAjustes.Activated:Connect(function()
 		return
 	end
 	parpadearAjustes()
+end)
+
+local parpadearCreditos = avisoFase(botonCreditos, "creditos_fase", "creditos")
+botonCreditos.Activated:Connect(function()
+	local creditos = player.PlayerGui:FindFirstChild("CreditosUI")
+	if creditos then
+		creditos.Enabled = true
+		gui.Enabled = false -- el VOLVER de CreditosUI nos re-muestra (contrato); sin tocar EnJuego
+		return
+	end
+	parpadearCreditos()
 end)
 
 local parpadearTienda = avisoFase(botonTienda, "tienda_fase", "tienda")

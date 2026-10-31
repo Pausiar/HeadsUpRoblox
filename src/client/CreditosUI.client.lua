@@ -124,7 +124,7 @@ lista.ScrollBarThickness = 4
 lista.ScrollBarImageColor3 = CREMA
 lista.ScrollingDirection = Enum.ScrollingDirection.Y
 lista.CanvasSize = UDim2.fromOffset(0, 0)
-lista.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+lista.AutomaticCanvasSize = Enum.AutomaticSize.Y
 lista.Parent = panel
 
 local orden = Instance.new("UIListLayout")

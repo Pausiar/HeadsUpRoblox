@@ -39,6 +39,9 @@ local INFO_ENTRADA = TweenInfo.new(ANIMACION, Enum.EasingStyle.Quad, Enum.Easing
 
 local finPartida = Remotes.Esperar(Remotes.Nombres.FinPartida)
 local reintentar = Remotes.Esperar(Remotes.Nombres.Reintentar)
+-- L5b: el total de renacimientos no viaja en FinPartida; llega por remote aparte.
+-- Con timeout para no colgar esta pantalla si el servicio aún no arrancó (patrón de MenuAjustes).
+local renacimientoEstado = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.RenacimientoEstado, 10)
 
 local player = Players.LocalPlayer
 
@@ -70,7 +73,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 464) -- derrota: 8 filas + causa + botón
+panel.Size = UDim2.fromOffset(420, 496) -- derrota: 9 filas + causa + botón
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -82,8 +85,8 @@ esquina.Parent = panel
 -- F1 (revisión apple-design, P1 móvil): panel escalable. El UISizeConstraint acota
 -- el tamaño y el UIScale encoge el conjunto (panel + hijos) en pantallas estrechas.
 local restriccionPanel = Instance.new("UISizeConstraint")
-restriccionPanel.MaxSize = Vector2.new(420, 464)
-restriccionPanel.MinSize = Vector2.new(340, 464)
+restriccionPanel.MaxSize = Vector2.new(420, 496)
+restriccionPanel.MinSize = Vector2.new(340, 496)
 restriccionPanel.Parent = panel
 
 local escalaPanel = Instance.new("UIScale")
@@ -91,11 +94,11 @@ escalaPanel.Parent = panel
 
 -- Player no tiene ViewportSize (doc Roblox gana): la GUI es la fuente del viewport
 -- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo). La altura también manda:
--- la victoria mide 560 px y en un móvil de 338 px necesita bajar de 0,75 para que
--- los botones sigan en pantalla (A06: 560 × 0,6 = 336).
+-- la victoria mide 592 px y en un móvil de 338 px necesita ~0,55 para que los
+-- botones sigan en pantalla (A06: 592 × 0,55 = 326), de ahí el suelo 0,5.
 local function ajustarEscala()
 	local alto = panel.Size.Y.Offset
-	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / (alto + 24)), 0.6, 1)
+	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / (alto + 24)), 0.5, 1)
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarEscala)
 ajustarEscala()
@@ -144,6 +147,7 @@ local textoPuntos = etiqueta(232, 26)
 local textoPinas = etiqueta(264, 26)
 local textoReanimaciones = etiqueta(296, 26)
 local textoEquipo = etiqueta(328, 26)
+local textoRenacimientos = etiqueta(360, 26) -- L5b: fila extra; la posición final la fija aplicarVariante
 
 -- B7: causa de la caída, solo en derrota (la victoria no tiene causa y no crece).
 local textoCausa = etiqueta(360, 26)
@@ -160,6 +164,7 @@ local etiquetas = {
 	textoPinas,
 	textoReanimaciones,
 	textoEquipo,
+	textoRenacimientos,
 }
 
 -- B6: la medalla va inline en la línea de tiempo con RichText (sin fila extra).
@@ -214,15 +219,15 @@ local esquinaSeguir = Instance.new("UICorner")
 esquinaSeguir.CornerRadius = UDim.new(0, 12)
 esquinaSeguir.Parent = botonSeguir
 
--- Dos alturas fijas: derrota 464 (causa + un botón) y victoria 560 (dos botones con 12 px de aire).
-local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328 }
-local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388 }
+-- Dos alturas fijas: derrota 496 (causa + un botón) y victoria 592 (dos botones con 12 px de aire).
+local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328, 360 }
+local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388, 420 }
 
 local function aplicarVariante(victoria)
 	if victoria then
-		panel.Size = UDim2.fromOffset(420, 560)
-		restriccionPanel.MaxSize = Vector2.new(420, 560)
-		restriccionPanel.MinSize = Vector2.new(340, 560)
+		panel.Size = UDim2.fromOffset(420, 592)
+		restriccionPanel.MaxSize = Vector2.new(420, 592)
+		restriccionPanel.MinSize = Vector2.new(340, 592)
 		titulo.Position = UDim2.new(0, 10, 0, 8)
 		titulo.Size = UDim2.new(1, -20, 0, 114) -- holgura para dos líneas de 40 px
 		titulo.TextWrapped = true
@@ -232,15 +237,15 @@ local function aplicarVariante(victoria)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_VICTORIA[i])
 		end
-		boton.Position = UDim2.new(0.5, 0, 0, 422)
-		botonSeguir.Position = UDim2.new(0.5, 0, 0, 490)
+		boton.Position = UDim2.new(0.5, 0, 0, 454)
+		botonSeguir.Position = UDim2.new(0.5, 0, 0, 522)
 		botonSeguir.Text = L("seguir")
 		botonSeguir.Visible = true
 		textoCausa.Visible = false
 	else
-		panel.Size = UDim2.fromOffset(420, 464)
-		restriccionPanel.MaxSize = Vector2.new(420, 464)
-		restriccionPanel.MinSize = Vector2.new(340, 464)
+		panel.Size = UDim2.fromOffset(420, 496)
+		restriccionPanel.MaxSize = Vector2.new(420, 496)
+		restriccionPanel.MinSize = Vector2.new(340, 496)
 		titulo.Position = UDim2.new(0, 10, 0, 16)
 		titulo.Size = UDim2.new(1, -20, 0, 48)
 		titulo.TextWrapped = false
@@ -250,9 +255,9 @@ local function aplicarVariante(victoria)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_DERROTA[i])
 		end
-		textoCausa.Position = UDim2.new(0, 20, 0, 360)
+		textoCausa.Position = UDim2.new(0, 20, 0, 392)
 		textoCausa.Visible = true
-		boton.Position = UDim2.new(0.5, 0, 0, 394)
+		boton.Position = UDim2.new(0.5, 0, 0, 426)
 		botonSeguir.Visible = false
 	end
 	ajustarEscala()
@@ -261,6 +266,7 @@ end
 local enEnfriamiento = false
 local ultimosDatos = nil
 local pinasPartida = 0 -- Piñas ganadas en la partida en curso (Pinas remote)
+local renacimientosActuales = 0 -- L5b: total de renacimientos, cacheado de RenacimientoEstado
 
 local function pintarDatos(datos)
 	local distancia = math.max(0, math.floor(tonumber(datos and datos.distancia) or 0))
@@ -288,6 +294,7 @@ local function pintarDatos(datos)
 	textoPinas.Text = L("pinas_ganadas") .. ": " .. ("%d"):format(pinasPartida)
 	textoReanimaciones.Text = L("reanimaciones") .. ": " .. ("%d"):format(reanimaciones)
 	textoEquipo.Text = L("mejor_equipo") .. ": " .. ("%d m"):format(mejorEquipo)
+	textoRenacimientos.Text = "Renacimientos: " .. ("%d"):format(renacimientosActuales) -- clave `renacimientos` pendiente en Strings
 	textoCausa.Text = L("causa") .. ": " .. (Localization.Causa(causa) or "—")
 	textoSemilla.Text = semilla > 0 and (L("semilla") .. " " .. ("%d"):format(semilla)) or ""
 	insignia.Visible = nuevoRecord
@@ -353,6 +360,20 @@ Remotes.Esperar(Remotes.Nombres.Pinas).OnClientEvent:Connect(function(datos)
 		pintarDatos(ultimosDatos)
 	end
 end)
+
+-- L5b: el renacimiento se cachea del remote de estado; si el panel ya está visible
+-- se repinta al vuelo y si no, en el próximo mostrar().
+if renacimientoEstado then
+	renacimientoEstado.OnClientEvent:Connect(function(datos)
+		if type(datos) ~= "table" then
+			return
+		end
+		renacimientosActuales = math.max(0, math.floor(tonumber(datos.renacimientos) or 0))
+		if gui.Enabled and ultimosDatos then
+			pintarDatos(ultimosDatos)
+		end
+	end)
+end
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave ~= "idioma" then

@@ -11,6 +11,7 @@ local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
+local MedallasRutaConfig = require(ReplicatedStorage.Shared.Config.MedallasRutaConfig)
 
 -- mini-tokens
 local COLOR_PANEL = Color3.fromRGB(62, 42, 24) -- #3E2A18
@@ -81,14 +82,35 @@ end
 local filas = {}
 for i = 1, MAX_FILAS do
 	local y = 8 + i * PASO_FILA
+	-- Chip de medalla de ruta (fase 11 · L5b): color del tier que el jugador
+	-- flexeó; solo se pinta si el payload del ranking trae `medalla`.
+	local medalla = Instance.new("Frame")
+	medalla.Size = UDim2.fromOffset(10, 10)
+	medalla.Position = UDim2.new(0, 36, 0, y + 8)
+	medalla.BackgroundColor3 = COLOR_CREMA
+	medalla.BorderSizePixel = 0
+	medalla.Visible = false
+	medalla.Parent = panel
+	local esquinaMedalla = Instance.new("UICorner")
+	esquinaMedalla.CornerRadius = UDim.new(0, 3)
+	esquinaMedalla.Parent = medalla
+
 	filas[i] = {
 		num = etiqueta(0, 10, y, 24, Enum.TextXAlignment.Left),
 		nombre = etiqueta(0, 36, y, ANCHO_NOMBRE, Enum.TextXAlignment.Left),
 		puntos = etiqueta(1, -110, y, 106, Enum.TextXAlignment.Right),
+		medalla = medalla,
 	}
 end
 
--- Redibuja las filas con el payload del remote (array de { nombre, puntos, distancia }).
+-- Con chip, el nombre se corre 14 px a la derecha para dejarle hueco.
+local function colocarNombre(fila, conMedalla)
+	local y = fila.nombre.Position.Y.Offset
+	fila.nombre.Position = UDim2.fromOffset(conMedalla and 50 or 36, y)
+	fila.nombre.Size = UDim2.fromOffset(conMedalla and ANCHO_NOMBRE - 14 or ANCHO_NOMBRE, ALTO_FILA)
+end
+
+-- Redibuja las filas con el payload del remote (array de { nombre, puntos, distancia, medalla? }).
 local ultimaLista = {}
 
 local function pintar(lista)
@@ -102,6 +124,7 @@ local function pintar(lista)
 		fila.num.Visible = visible
 		fila.nombre.Visible = visible
 		fila.puntos.Visible = visible
+		fila.medalla.Visible = false
 		if entrada then
 			local color = i == 1 and COLOR_LIDER or COLOR_CREMA
 			fila.num.Text = i .. "."
@@ -112,12 +135,19 @@ local function pintar(lista)
 				.. (entrada.nombre == player.DisplayName and (" (" .. L("tu"):lower() .. ")") or "")
 			fila.puntos.TextColor3 = color
 			fila.puntos.Text = ("— %d %s"):format(entrada.puntos, L("pts"))
+			local tierMedalla = entrada.medalla and MedallasRutaConfig.PorId(entrada.medalla)
+			fila.medalla.Visible = tierMedalla ~= nil
+			if tierMedalla then
+				fila.medalla.BackgroundColor3 = tierMedalla.color
+			end
+			colocarNombre(fila, tierMedalla ~= nil)
 		end
 	end
 
 	-- Lista vacía: aviso en la primera fila, crema al 60 %.
 	if #lista == 0 then
 		local primera = filas[1]
+		colocarNombre(primera, false)
 		primera.nombre.Visible = true
 		primera.nombre.Text = L("sin_jugadores")
 		primera.nombre.TextTransparency = 0.4

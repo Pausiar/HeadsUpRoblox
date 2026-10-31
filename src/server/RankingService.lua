@@ -25,6 +25,7 @@ function RankingService.Iniciar()
 					nombre = player.DisplayName,
 					puntos = puntosService.GetPuntos(player),
 					distancia = math.round(matchService.ObtenerDistancia(player)),
+					medalla = player:GetAttribute("MedallaRuta"),
 				})
 			end
 

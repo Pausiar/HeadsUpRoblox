@@ -76,6 +76,12 @@ Remotes.Nombres = {
 	Bengala = "Bengala", -- client -> server: usar una bengala del stock (limitado)
 	BengalaResult = "BengalaResult", -- server -> client: { ok, clave, params? }
 	LinternaAim = "LinternaAim", -- client -> server: dirección del haz a 5 Hz (B15, validado en servidor)
+
+	-- Fase 11 · L5b (renacimiento, medallas de ruta, sabueso)
+	Renacer = "Renacer", -- client -> server: renacer si hay metas suficientes (limitado)
+	RenacimientoEstado = "RenacimientoEstado", -- server -> client: { renacimientos, metas, faltan, multPuntos, aguante }
+	MedallaRutaEquipar = "MedallaRutaEquipar", -- client -> server: { id } del tier a flexear (limitado)
+	MedallaRutaEstado = "MedallaRutaEstado", -- server -> client: { rutas, tier, equipada }
 }
 
 function Remotes.Crear(nombre)

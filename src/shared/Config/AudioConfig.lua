@@ -14,6 +14,9 @@ AudioConfig.Efectos = {
 	Reanimar = { id = "rbxasset://sounds/action_get_up.mp3", volumen = 0.6, subtitulo = "Te han reanimado" },
 	Checkpoint = { id = "rbxasset://sounds/switch3.wav", volumen = 0.5, subtitulo = "Checkpoint alcanzado" },
 	Monstruo = { id = "rbxasset://sounds/bass.wav", volumen = 0.8, subtitulo = "Algo se mueve entre los árboles…", velocidad = 0.55 },
+	-- L6b: aullido del Sabueso. id 0 = aún sin asset (AudioService lo descarta
+	-- en su pcall); el subtítulo lo muestra Subtitulos.client sin mirar el id.
+	Aullido = { id = 0, subtitulo = "Un aullido resuena entre los árboles…" },
 	Compra = { id = "rbxasset://sounds/electronicpingshort.wav", volumen = 0.45, subtitulo = "Compra realizada", velocidad = 1.3 },
 	Fin = { id = "rbxasset://sounds/action_falling.mp3", volumen = 0.7, subtitulo = "Fin de la partida" },
 	UI = { id = "rbxasset://sounds/switch3.wav", volumen = 0.35 },

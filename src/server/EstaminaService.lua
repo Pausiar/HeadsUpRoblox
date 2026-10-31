@@ -20,6 +20,7 @@ local estados = {} -- [player] = { valor, esprintando, bloqueado, enviado }
 local remotoEstado
 local permitirSprint
 local playerState
+local renacer -- asignado en Iniciar() con pcall; nil = drenaje sin renacimiento
 
 local function humano(player)
 	local char = player.Character
@@ -66,7 +67,10 @@ local function simular(player, st, dt)
 
 	if st.esprintando and not st.bloqueado and st.valor > 0 then
 		local cansancio = math.clamp(tonumber(player:GetAttribute("Cansancio")) or 1, Ajustes.CansancioMinimo, 1)
-		st.valor -= Ajustes.Drenaje * cansancio * dt
+		-- Renacimiento (L5b): «aguanta un poco más la velocidad» — cada renacer
+		-- baja el drenaje un 5 % (máx. −25 %): el sprint lleno dura ~33 % más.
+		local aguante = renacer and renacer.Aguante(player) or 0
+		st.valor -= Ajustes.Drenaje * (1 - math.clamp(aguante, 0, 0.25)) * cansancio * dt
 		if st.valor <= 0 then
 			st.valor = 0
 			st.bloqueado = true
@@ -111,6 +115,13 @@ function EstaminaService.Iniciar()
 	playerState = require(script.Parent.PlayerStateService)
 	remotoEstado = Remotes.Crear(Remotes.Nombres.EstaminaEstado)
 	permitirSprint = RateLimiter.nuevo(0.02) -- solo frena spam; la intención es idempotente
+
+	local okRen, resRen = pcall(require, script.Parent.RenacimientoService)
+	if okRen then
+		renacer = resRen
+	else
+		warn("[Estamina] sin RenacimientoService: drenaje sin aguante")
+	end
 
 	local remotoSprint = Remotes.Crear(Remotes.Nombres.Sprint)
 	remotoSprint.OnServerEvent:Connect(function(player, valor)

@@ -27,10 +27,8 @@ local RateLimiter = require(ReplicatedStorage.Shared.Util.RateLimiter)
 
 local Ajustes = Config.Etapa0.Cargar
 local CLON = "ElDoble" -- MonsterService.NOMBRE_CLON (no exportado; sincronizado a mano)
-local DETRAS = 2 -- studs detrás del portador (plan §4.4)
-local ALEJAMIENTO_RAPTO = 25 -- studs: salto brusco del objetivo = rapto/teleport externo
-local RADIO_RESCATE = 20 -- studs al clon con "Liberar" activo: no cargar a esa víctima
-local RITMO_PROMPTS = 0.25 -- s entre barridas de creación/limpieza del prompt "Cargar"
+-- Constantes migradas a Config (deuda del lote L5 cerrada): Detras, AlejamientoRapto,
+-- RadioRescate y RitmoPrompts viven ahora en Config.Etapa0.Cargar.
 
 local CargarService = {}
 local iniciado = false
@@ -79,7 +77,7 @@ local function estaEnRescate(objetivo)
 	if not (raizClon and raizObj) then
 		return false
 	end
-	return (raizClon.Position - raizObj.Position).Magnitude <= RADIO_RESCATE
+	return (raizClon.Position - raizObj.Position).Magnitude <= Ajustes.RadioRescateDoble
 end
 
 ------------------------------------------------------------------ Fin porte --
@@ -229,12 +227,12 @@ local function latido()
 		end
 		-- Rapto/teleport externo: el Doble hace PivotTo de la víctima a la
 		-- madriguera; se comprueba ANTES del snap para no deshacer el rapto.
-		if (raizO.Position - raizP.Position).Magnitude > ALEJAMIENTO_RAPTO then
+		if (raizO.Position - raizP.Position).Magnitude > Ajustes.AlejamientoRapto then
 			acabar(portador, "objetivo alejado de golpe (rapto o teleport)")
 			continue
 		end
 
-		local detras = raizP.CFrame * CFrame.new(0, 0, DETRAS)
+		local detras = raizP.CFrame * CFrame.new(0, 0, Ajustes.Detras)
 		local nueva = CFrame.new(detras.X, raizO.Position.Y, detras.Z) * raizO.CFrame.Rotation
 		objetivo.Character:PivotTo(nueva)
 
@@ -352,7 +350,7 @@ function CargarService.Iniciar()
 	RunService.Heartbeat:Connect(latido)
 	task.spawn(function()
 		while true do
-			task.wait(RITMO_PROMPTS)
+			task.wait(Ajustes.RitmoPrompts)
 			mantenerPrompts()
 		end
 	end)

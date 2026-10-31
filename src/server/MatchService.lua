@@ -121,6 +121,29 @@ local function guardarMejorRapida(player, segundos)
 		estadisticas = {}
 		datos.estadisticas = estadisticas
 	end
+	-- Deuda L4 cerrada: estadisticas.partidas y estadisticas.metas (esquema v2 §3)
+	local function sumarPartida(player)
+		local datos = dataService.Obtener(player)
+		local estadisticas = datos.estadisticas
+		if type(estadisticas) ~= "table" then
+			estadisticas = {}
+			datos.estadisticas = estadisticas
+		end
+		estadisticas.partidas = (tonumber(estadisticas.partidas) or 0) + 1
+		dataService.Guardar(player, "estadisticas", estadisticas)
+	end
+
+	local function sumarMeta(player)
+		local datos = dataService.Obtener(player)
+		local estadisticas = datos.estadisticas
+		if type(estadisticas) ~= "table" then
+			estadisticas = {}
+			datos.estadisticas = estadisticas
+		end
+		estadisticas.metas = (tonumber(estadisticas.metas) or 0) + 1
+		dataService.Guardar(player, "estadisticas", estadisticas)
+	end
+
 	local mejor = tonumber(estadisticas.mejorRapida) or 0
 	if mejor <= 0 or segundos < mejor then
 		estadisticas.mejorRapida = segundos
@@ -483,6 +506,8 @@ function MatchService.Iniciar()
 		end
 		publicarRecord(player, false)
 		guardarMejorRapida(player, tiempo)
+		sumarPartida(player)
+		sumarMeta(player)
 		local stats = {
 			distancia = largoTramo,
 			tiempo = tiempo,
@@ -619,6 +644,7 @@ function MatchService.Iniciar()
 									dataService.Guardar(player, "record", recordSesion[player])
 								end
 								publicarRecord(player, false)
+								sumarPartida(player)
 								local stats = {
 									distancia = dist,
 									tiempo = math.floor(os.clock() - inicio),

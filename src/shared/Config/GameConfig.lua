@@ -39,6 +39,10 @@ Config.Etapa0 = {
 		PortadoresMax = 1, -- plan §4.4: 1 portador (2 permitidos más adelante)
 		RadioCarga = 8, -- distancia máxima para iniciar la carga
 		Enfriamiento = 1, -- s entre acciones de cargar/soltar
+		Detras = 2, -- studs detrás del portador donde viaja el cargado
+		AlejamientoRapto = 25, -- salto brusco de distancia = rapto/teleport externo: cancela
+		RadioRescateDoble = 20, -- con el prompt "Liberar" del Doble activo, no se carga a esa víctima
+		RitmoPrompts = 0.25, -- s entre barridas de creación/limpieza del prompt "Cargar"
 	},
 
 	-- Fase 11 · L5 · B10: empujón amigo (plan §4.4: impulso suave, sin derribo)

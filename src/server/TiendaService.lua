@@ -2,8 +2,8 @@
 -- valida el payload contra TiendaConfig, cobra con PinasService y persiste en
 -- DataService (cosméticos en "comprados", stock en "bebidas" y niveles en "mejoras").
 -- Los cosméticos se aplican al momento (sombrero → AccesoriosService, camiseta →
--- CustomizationService); bebidas y mejoras solo publican atributos del Player que
--- leen la UI y Estamina. Los Robux/ProcessReceipt viven en MonetizacionService:
+-- CustomizationService, mochila/estela → CosmeticosService en C30); bebidas y
+-- mejoras solo publican atributos del Player que leen la UI y Estamina. Los Robux/ProcessReceipt viven en MonetizacionService:
 -- aquí no se compra nada con dinero real. PolicyService se consulta por
 -- cumplimiento (§7.4): el catálogo no tiene compras aleatorias de pago.
 local Players = game:GetService("Players")
@@ -34,6 +34,7 @@ local telemetriaService
 local playerState
 local monetizacion
 local estaminaService
+local cosmeticos -- C30: se asigna en Iniciar (require pcall, patrón bengala)
 local restringidosAleatorios = {} -- [player] = true si PolicyService restringe aleatorios (§7.4)
 local cargados = {} -- [player] = true cuando DataService.AlCargar ya corrió
 
@@ -267,6 +268,33 @@ local function procesarCompra(player, payload)
 		return
 	end
 
+	-- Cosmético procedural (C30): poseídos en datos.cosmeticos.poseidos, no en
+	-- "comprados". Poseído → equipar gratis (EquiparCosmetico); si no → cobrar,
+	-- poseer y aplicar en vivo. CosmeticosService publica el estado Cosmeticos.
+	if item.tipo == "cosmetico" then
+		if not cosmeticos then
+			remotoResultado:FireClient(player, { ok = false, clave = "item_no_disponible", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		local cos = cosmeticos.DatosDe(player)
+		local idCosmetico = item.cosmetico or item.id
+		if table.find(cos.poseidos, idCosmetico) then
+			cosmeticos.Equipar(player, idCosmetico) -- gratis: ya es suyo
+			remotoResultado:FireClient(player, { ok = true, clave = "equipado", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		if not pinasService.Gastar(player, item.precio) then
+			remotoResultado:FireClient(player, { ok = false, clave = "pinas_insuficientes", pinas = pinasService.GetPinas(player) })
+			return
+		end
+		table.insert(cos.poseidos, idCosmetico)
+		dataService.Guardar(player, "cosmeticos", cos) -- la tabla viva de la caché
+		cosmeticos.Equipar(player, idCosmetico) -- aplica en vivo y publica Cosmeticos
+		remotoResultado:FireClient(player, { ok = true, clave = item.nombreClave or item.nombre, pinas = pinasService.GetPinas(player) })
+		registrarCompra(player, item, item.precio)
+		return
+	end
+
 	-- Ya propietario: re-equipar gratis (nunca se cobra dos veces).
 	if table.find(listaComprados(player), payload.id) then
 		aplicarItem(player, item)
@@ -300,6 +328,17 @@ function TiendaService.Iniciar()
 	estaminaService = require(script.Parent.EstaminaService)
 	bengalaService = require(script.Parent.BengalaService)
 	bengalaConfig = require(ReplicatedStorage.Shared.Config.BengalaConfig)
+
+	-- C30: CosmeticosService con require pcall (patrón bengala/Pinas: si faltara,
+	-- la tienda sigue funcionando sin cosméticos). Arranca aquí porque Main no lo
+	-- conoce y necesita DataService ya iniciado.
+	local okCosmeticos, servicioCosmeticos = pcall(require, script.Parent.CosmeticosService)
+	if okCosmeticos and servicioCosmeticos then
+		cosmeticos = servicioCosmeticos
+		servicioCosmeticos.Iniciar()
+	else
+		warn("[Tienda] sin CosmeticosService: los cosméticos no estarán disponibles")
+	end
 
 	permitirCompra = RateLimiter.nuevo(1)
 	remotoComprar = Remotes.Crear(Remotes.Nombres.Comprar)

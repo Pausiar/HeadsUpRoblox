@@ -17,6 +17,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
 local TiendaConfig = require(ReplicatedStorage.Shared.Config.TiendaConfig)
+local CosmeticosConfig = require(ReplicatedStorage.Shared.Config.CosmeticosConfig) -- C30
 local MonetizacionConfig = require(ReplicatedStorage.Shared.Config.MonetizacionConfig)
 local TelemetriaConfig = require(ReplicatedStorage.Shared.Config.TelemetriaConfig)
 local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
@@ -45,6 +46,8 @@ local remotePaseEstado = Remotes.Esperar(Remotes.Nombres.PaseEstado)
 local remoteReclamarPase = Remotes.Esperar(Remotes.Nombres.ReclamarPase)
 local remoteModoPuro = Remotes.Esperar(Remotes.Nombres.ModoPuro)
 local remoteTelemetria = Remotes.Esperar(Remotes.Nombres.TelemetriaUI)
+local remoteCosmeticos = Remotes.Esperar(Remotes.Nombres.Cosmeticos) -- C30
+local remoteEquiparCosmetico = Remotes.Esperar(Remotes.Nombres.EquiparCosmetico) -- C30
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "TiendaUI"
@@ -210,14 +213,25 @@ local estadoPases = {
 }
 local registrosRobux = {}
 local refrescarEstadoRobux -- se define tras crear las etiquetas de la pestaña ROBUX
+-- C30: pestaña y página de cosméticos; se crean y asignan en su sección (más
+-- abajo), antes de la primera llamada a seleccionar.
+local pestanaCosmeticos
+local paginaCosmeticos
 
 local function seleccionar(cual)
 	local pinas = cual == "pinas"
+	local cosm = cual == "cosmeticos"
 	paginaPinas.Visible = pinas
-	paginaRobux.Visible = not pinas
+	paginaRobux.Visible = not pinas and not cosm
+	if paginaCosmeticos then
+		paginaCosmeticos.Visible = cosm
+	end
 	pintarPestana(pestanaPinas, pinas)
-	pintarPestana(pestanaRobux, not pinas)
-	if not pinas and refrescarEstadoRobux then
+	pintarPestana(pestanaRobux, not pinas and not cosm)
+	if pestanaCosmeticos then
+		pintarPestana(pestanaCosmeticos, cosm)
+	end
+	if not pinas and not cosm and refrescarEstadoRobux then
 		refrescarEstadoRobux()
 	end
 end
@@ -570,16 +584,185 @@ local function crearTarjetaPinas(item, columna, fila)
 	end
 end
 
-for i, item in ipairs(TiendaConfig.Catalogo) do
+-- C30: los cosméticos tienen su propia pestaña; aquí no se pintan para no
+-- duplicar tarjetas con estados distintos.
+local catalogoPinas = {}
+for _, item in ipairs(TiendaConfig.Catalogo) do
+	if item.tipo ~= "cosmetico" then
+		table.insert(catalogoPinas, item)
+	end
+end
+for i, item in ipairs(catalogoPinas) do
 	crearTarjetaPinas(item, (i - 1) % 2 + 1, math.floor((i - 1) / 2) + 1)
 end
-local filasPinas = math.ceil(#TiendaConfig.Catalogo / 2)
+local filasPinas = math.ceil(#catalogoPinas / 2)
 scrollPinas.CanvasSize = UDim2.fromOffset(0, filasPinas * PASO_Y - (PASO_Y - ALTO_TARJETA))
 -- Los atributos del servidor pueden llegar después de crear las tarjetas (carga
 -- del DataStore) y cambian al beber/comprar: el panel se repinta con ellos.
 player:GetAttributeChangedSignal("Bebidas"):Connect(refrescarTarjetas)
 player:GetAttributeChangedSignal("MonedasMult"):Connect(refrescarTarjetas)
 player:GetAttributeChangedSignal("Cansancio"):Connect(refrescarTarjetas)
+
+-- ===== PESTAÑA COSMÉTICOS (C30) =====
+-- Piezas procedurales de CosmeticosConfig: la COMPRA pasa por el flujo único
+-- (Comprar/CompraResult con los ids espejo de TiendaConfig) y el EQUIPAR/QUITAR
+-- va por EquiparCosmetico con el estado que publica el remote Cosmeticos.
+-- Atajos «COSMÉTICOS»/«QUITAR» en literals: Localization.Strings no tiene claves
+-- de esta pestaña y este lote no lo toca (los nombres de pieza usan item.nombre).
+pestanaCosmeticos = crearPestana("COSMÉTICOS", 292)
+pestanaCosmeticos.TextSize = 16 -- 10 glifos no caben a 19 en 130 px
+
+paginaCosmeticos = Instance.new("Frame")
+paginaCosmeticos.Name = "PaginaCosmeticos"
+paginaCosmeticos.Position = UDim2.fromOffset(16, 100)
+paginaCosmeticos.Size = UDim2.fromOffset(468, 338)
+paginaCosmeticos.BackgroundTransparency = 1
+paginaCosmeticos.Visible = false
+paginaCosmeticos.Parent = panel
+
+local scrollCosmeticos = Instance.new("ScrollingFrame")
+scrollCosmeticos.Name = "CatalogoCosmeticos"
+scrollCosmeticos.Size = UDim2.fromOffset(468, 338)
+scrollCosmeticos.BackgroundTransparency = 1
+scrollCosmeticos.BorderSizePixel = 0
+scrollCosmeticos.ScrollBarThickness = 5
+scrollCosmeticos.ScrollBarImageColor3 = CREMA
+scrollCosmeticos.ScrollingDirection = Enum.ScrollingDirection.Y
+scrollCosmeticos.CanvasSize = UDim2.fromOffset(0, 0)
+scrollCosmeticos.Parent = paginaCosmeticos
+
+local estadoCosmeticos = { poseidos = {}, equipados = {} }
+local registrosCosmeticos = {}
+
+-- Arcoíris simple: secuencia fija de la paleta (la usan la muestra y el Trail).
+local SECUENCIA_ARCOIRIS = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(224, 69, 58)),
+	ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 201, 60)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(76, 140, 74)),
+	ColorSequenceKeypoint.new(0.75, Color3.fromRGB(63, 127, 191)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 100, 200)),
+})
+
+local function refrescarTarjetaCosmetico(registro)
+	local item = registro.item
+	local poseido = table.find(estadoCosmeticos.poseidos, item.id) ~= nil
+	local equipado = estadoCosmeticos.equipados[item.tipo] == item.id
+	if equipado then
+		registro.boton.Text = "QUITAR"
+		registro.boton.BackgroundColor3 = MADERA_OSCURA
+		registro.habilitado = true
+		registro.precio.Text = ""
+	elseif poseido then
+		registro.boton.Text = L("equipar")
+		registro.boton.BackgroundColor3 = VERDE
+		registro.habilitado = true
+		registro.precio.Text = ""
+	else
+		local asequible = pinasActuales >= item.precio
+		registro.boton.Text = L("comprar")
+		registro.boton.BackgroundColor3 = asequible and VERDE or MADERA_OSCURA
+		registro.precio.Text = ("%d %s"):format(item.precio, L(TiendaConfig.MonedaClave))
+		registro.habilitado = asequible
+	end
+	registro.boton.TextTransparency = registro.habilitado and 0 or 0.35
+	registro.boton.AutoButtonColor = registro.habilitado
+end
+
+local function refrescarTarjetasCosmeticos()
+	for _, registro in ipairs(registrosCosmeticos) do
+		refrescarTarjetaCosmetico(registro)
+	end
+end
+
+local function crearTarjetaCosmetico(item, columna, fila)
+	local tarjeta = Instance.new("Frame")
+	tarjeta.Name = "Cosmetico_" .. item.id
+	tarjeta.Size = UDim2.fromOffset(ANCHO_TARJETA, ALTO_TARJETA)
+	tarjeta.Position = UDim2.fromOffset((columna - 1) * PASO_X, (fila - 1) * PASO_Y)
+	tarjeta.BackgroundColor3 = MARRON_TARJETA
+	tarjeta.BorderSizePixel = 0
+	tarjeta.Parent = scrollCosmeticos
+	redondear(tarjeta, 10)
+
+	local nombre = Instance.new("TextLabel")
+	nombre.Size = UDim2.new(1, -48, 0, 22)
+	nombre.Position = UDim2.fromOffset(10, 5)
+	nombre.BackgroundTransparency = 1
+	nombre.Font = Enum.Font.GothamBold
+	nombre.TextSize = 17
+	nombre.Text = nombreItem(item)
+	nombre.TextColor3 = CREMA
+	nombre.TextXAlignment = Enum.TextXAlignment.Left
+	nombre.TextTruncate = Enum.TextTruncate.AtEnd
+	nombre.Parent = tarjeta
+
+	-- Muestra del color 18x18 arriba a la derecha (mismo patrón que las camisetas).
+	local muestra = Instance.new("Frame")
+	muestra.Size = UDim2.fromOffset(18, 18)
+	muestra.Position = UDim2.new(1, -28, 0, 8)
+	muestra.BackgroundColor3 = item.color
+		and Color3.fromRGB(item.color[1], item.color[2], item.color[3]) or CREMA
+	muestra.BorderSizePixel = 0
+	muestra.Parent = tarjeta
+	redondear(muestra, 6)
+	if item.arcoiris then
+		local gradiente = Instance.new("UIGradient")
+		gradiente.Color = SECUENCIA_ARCOIRIS
+		gradiente.Parent = muestra
+	end
+
+	local precio = Instance.new("TextLabel")
+	precio.Size = UDim2.fromOffset(108, 18)
+	precio.Position = UDim2.fromOffset(10, 45) -- centrado con el botón (29..73)
+	precio.BackgroundTransparency = 1
+	precio.Font = Enum.Font.GothamBold
+	precio.TextSize = 16
+	precio.TextColor3 = AMARILLO
+	precio.TextXAlignment = Enum.TextXAlignment.Left
+	precio.Parent = tarjeta
+
+	local boton = Instance.new("TextButton")
+	boton.Size = UDim2.fromOffset(100, 44) -- objetivo táctil de la revisión apple-design
+	boton.Position = UDim2.new(1, -108, 0, 29)
+	boton.BackgroundColor3 = VERDE
+	boton.Font = Enum.Font.GothamBlack
+	boton.TextSize = 15
+	boton.Text = L("comprar")
+	boton.TextColor3 = CREMA
+	boton.Parent = tarjeta
+	redondear(boton, 8)
+
+	local registro = { item = item, boton = boton, precio = precio, habilitado = false }
+	table.insert(registrosCosmeticos, registro)
+	boton.Activated:Connect(function()
+		if registro.habilitado == false then
+			return
+		end
+		if table.find(estadoCosmeticos.poseidos, item.id) then
+			-- Equipar/quitar van por EquiparCosmetico: no compran nada.
+			local equipado = estadoCosmeticos.equipados[item.tipo] == item.id
+			remoteEquiparCosmetico:FireServer({ id = equipado and CosmeticosConfig.Quitar[item.tipo] or item.id })
+			return
+		end
+		abrirConfirmacion(registro) -- compra por el flujo único (Comprar/CompraResult)
+	end)
+	refrescarTarjetaCosmetico(registro)
+end
+
+for i, item in ipairs(CosmeticosConfig.Catalogo) do
+	crearTarjetaCosmetico(item, (i - 1) % 2 + 1, math.floor((i - 1) / 2) + 1)
+end
+local filasCosmeticos = math.ceil(#CosmeticosConfig.Catalogo / 2)
+scrollCosmeticos.CanvasSize = UDim2.fromOffset(0, filasCosmeticos * PASO_Y - (PASO_Y - ALTO_TARJETA))
+
+remoteCosmeticos.OnClientEvent:Connect(function(datos)
+	if type(datos) ~= "table" then
+		return
+	end
+	estadoCosmeticos.poseidos = type(datos.poseidos) == "table" and datos.poseidos or {}
+	estadoCosmeticos.equipados = type(datos.equipados) == "table" and datos.equipados or {}
+	refrescarTarjetasCosmeticos()
+end)
 
 -- ===== PESTAÑA ROBUX =====
 -- Barra fija: stock de reanimaciones, tiempo restante de Piñas x2 y toggle de Modo Puro.
@@ -805,6 +988,13 @@ pestanaRobux.Activated:Connect(function()
 		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaRobux)
 	end
 end)
+pestanaCosmeticos.Activated:Connect(function()
+	local eraCosm = paginaCosmeticos.Visible
+	seleccionar("cosmeticos")
+	if not eraCosm then
+		anunciarEvento(TelemetriaConfig.Eventos.TiendaPestanaPinas) -- misma economía de Piñas
+	end
+end)
 seleccionar("pinas")
 
 -- Apertura (E46): vale el botón del menú y el ProximityPrompt del campamento;
@@ -869,6 +1059,7 @@ remotePinas.OnClientEvent:Connect(function(datos)
 		dialogoSaldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
 	end
 	refrescarTarjetas() -- el saldo decide qué COMPRAR sigue habilitado
+	refrescarTarjetasCosmeticos() -- C30: el saldo también habilita COMPRAR cosméticos
 end)
 
 remoteResultado.OnClientEvent:Connect(function(datos)
@@ -960,10 +1151,83 @@ Settings.AlCambiar.Event:Connect(function(clave, valor)
 	volver.Text = L("volver"):upper()
 	saldo.Text = L("pinas") .. ": " .. ("%d"):format(pinasActuales)
 	refrescarTarjetas()
+	refrescarTarjetasCosmeticos() -- C30: EQUIPAR/COMPRAR se repintan en el idioma activo
 	for _, registro in pairs(registrosRobux) do
 		actualizarBotonRobux(registro)
 	end
 	refrescarEstadoRobux()
 end)
+
+-- ===== Estelas procedurales (C30, solo cliente) =====
+-- El servidor solo publica el atributo "Estela" del personaje (CosmeticosService);
+-- cada cliente recrea aquí el Trail de TODOS los personajes: estado replicado
+-- barato (un string), sin instancia de Trail por jugador y sin basura al morir.
+-- shortcut: vive en TiendaUI porque este lote solo toca este archivo de cliente,
+-- mover a un script propio de cliente si se extrae la lógica de estelas.
+local function construirTrail(char, id)
+	local raiz = char and char:FindFirstChild("HumanoidRootPart")
+	if not raiz then
+		return
+	end
+	local anterior = raiz:FindFirstChild("EstelaTrail")
+	if anterior then
+		anterior:Destroy()
+	end
+	if not id then
+		return
+	end
+	local item = CosmeticosConfig.PorId(id)
+	if not item or item.tipo ~= "estela" then
+		return
+	end
+	local punto0 = Instance.new("Attachment")
+	punto0.Name = "EstelaPunto0"
+	punto0.Position = Vector3.new(0, 1, 0)
+	punto0.Parent = raiz
+	local punto1 = Instance.new("Attachment")
+	punto1.Name = "EstelaPunto1"
+	punto1.Position = Vector3.new(0, -1, 0)
+	punto1.Parent = raiz
+	local trail = Instance.new("Trail")
+	trail.Name = "EstelaTrail"
+	trail.Attachment0 = punto0
+	trail.Attachment1 = punto1
+	trail.Lifetime = 0.4
+	trail.MinLength = 0.05
+	trail.LightEmission = 0.7
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	local colorBase = Color3.fromRGB(item.color[1], item.color[2], item.color[3])
+	trail.Color = item.arcoiris and SECUENCIA_ARCOIRIS or ColorSequence.new(colorBase,
+		item.color2 and Color3.fromRGB(item.color2[1], item.color2[2], item.color2[3]) or colorBase)
+	trail.Parent = raiz
+end
+
+local function aplicarEstelaLocal(char)
+	if not char then
+		return
+	end
+	construirTrail(char, char:GetAttribute("Estela"))
+end
+
+local function conectarEstelas(player)
+	local function vigilar(char)
+		-- El signal no pasa argumentos: la closure fija el personaje.
+		char:GetAttributeChangedSignal("Estela"):Connect(function()
+			aplicarEstelaLocal(char)
+		end)
+		aplicarEstelaLocal(char) -- el atributo pudo replicar antes de este punto
+	end
+	player.CharacterAdded:Connect(vigilar)
+	if player.Character then
+		vigilar(player.Character)
+	end
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	conectarEstelas(p)
+end
+Players.PlayerAdded:Connect(conectarEstelas)
 
 print("[TiendaUI] activa")

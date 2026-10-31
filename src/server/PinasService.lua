@@ -202,4 +202,18 @@ function PinasService.Gastar(player, cantidad)
 	return true
 end
 
+-- Abono (fase 11 · L8): misiones y racha acumulan recompensas pendientes y
+-- las acreditan aquí. Publica el total actualizado. Devuelve el nuevo total.
+function PinasService.Sumar(player, cantidad)
+	if type(cantidad) ~= "number" or cantidad <= 0 then
+		return pinas[player] or 0
+	end
+	pinas[player] = (pinas[player] or 0) + math.floor(cantidad)
+	if dataService then
+		dataService.Guardar(player, "pinas", pinas[player])
+	end
+	remotoPinas:FireClient(player, { pinas = pinas[player], ganadas = math.floor(cantidad) })
+	return pinas[player]
+end
+
 return PinasService

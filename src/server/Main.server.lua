@@ -28,6 +28,8 @@ local TiendaService = require(Server.TiendaService)
 local MonsterService = require(Server.MonsterService)
 local ChatMimicService = require(Server.ChatMimicService)
 local ChatRapidoService = require(Server.ChatRapidoService)
+local MisionesService = require(Server.MisionesService)
+local RachaService = require(Server.RachaService)
 local MonetizacionService = require(Server.MonetizacionService)
 local TelemetriaService = require(Server.TelemetriaService)
 local CierreService = require(Server.CierreService)
@@ -46,6 +48,8 @@ EstaminaService.Iniciar() -- después de PlayerStateService: consulta si el juga
 CargarService.Iniciar() -- L5 · B9: después de PlayerStateService y EstaminaService
 EmpujonService.Iniciar() -- L5 · B10: después de PlayerStateService (consulta caído) y CargarService (porte)
 MatchService.Iniciar()
+MisionesService.Iniciar() -- L8 · C26: escucha señales de partida y reanimación
+RachaService.Iniciar() -- L8 · C27: engancha AlCargar (racha diaria)
 LobbyService.Iniciar() -- después de MatchService: engancha AlEmpezar/AlTerminarPartida
 AmigosRankingService.Iniciar() -- después de MatchService: escucha AlTerminar
 MedallasRutaService.Iniciar() -- L5b: después de MatchService: escucha AlTerminar (medallas de ruta)

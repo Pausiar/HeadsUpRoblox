@@ -82,6 +82,19 @@ Remotes.Nombres = {
 	RenacimientoEstado = "RenacimientoEstado", -- server -> client: { renacimientos, metas, faltan, multPuntos, aguante }
 	MedallaRutaEquipar = "MedallaRutaEquipar", -- client -> server: { id } del tier a flexear (limitado)
 	MedallaRutaEstado = "MedallaRutaEstado", -- server -> client: { rutas, tier, equipada }
+
+	-- Fase 11 · L8 (§3.1 ajustes + C26/C27/C31/C32)
+	GuardarAjustes = "GuardarAjustes", -- client -> server: tabla de ajustes validada (§3.1)
+	AjustesCargados = "AjustesCargados", -- server -> client: tabla de ajustes tras cargar el perfil
+	Misiones = "Misiones", -- server -> client: { dia, misiones = { id, progreso, meta, reclamada } }
+	ReclamarMision = "ReclamarMision", -- client -> server: { id } (limitado)
+	MisionesResult = "MisionesResult", -- server -> client: { ok, clave, params?, pinas }
+	Racha = "Racha", -- server -> client: { dias, recompensa }
+	Progresion = "Progresion", -- server -> client: { nivel, xp, xpSiguiente, subio }
+	Cosmeticos = "Cosmeticos", -- server -> client: { poseidos, equipados }
+	EquiparCosmetico = "EquiparCosmetico", -- client -> server: { id } (limitado)
+	RankingGlobal = "RankingGlobal", -- client -> server: pedir el top (limitado)
+	RankingGlobalDatos = "RankingGlobalDatos", -- server -> client: array de { nombre, nivel, valor }
 }
 
 function Remotes.Crear(nombre)

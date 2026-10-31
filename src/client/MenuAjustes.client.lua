@@ -21,6 +21,54 @@ local player = Players.LocalPlayer
 -- (un Esperar sin timeout colgaría el menú).
 local remotoEmpujar = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.Empujar, 10)
 
+-- §3.1: los crea DataService (servidor). Con timeout como Empujar: si el servicio
+-- aún no arrancó, el menú funciona en local y la persistencia se omite.
+local remotoGuardarAjustes = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.GuardarAjustes, 10)
+local remotoAjustesCargados = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.AjustesCargados, 10)
+
+-- Persistencia de ajustes (§3.1): cualquier cambio en Settings programa un envío
+-- de la tabla completa de Valores con retardo de 0,3 s (patrón CustomizationUI:
+-- un arrastre entero acaba en UN FireServer al soltar; los toggles y el idioma
+-- quedan cubiertos sin tocar cada control).
+local ENFRIAMIENTO_ENVIO = 0.3
+local envioPendiente = false
+local aplicandoRemoto = false -- suprime el eco mientras se aplican AjustesCargados
+
+local function enviarAjustesYa()
+	envioPendiente = false
+	if remotoGuardarAjustes then
+		remotoGuardarAjustes:FireServer(Settings.Valores) -- el servidor sanea contra su lista blanca
+	end
+end
+
+local function enviarAjustes()
+	if aplicandoRemoto or envioPendiente then
+		return
+	end
+	envioPendiente = true
+	task.delay(ENFRIAMIENTO_ENVIO, enviarAjustesYa)
+end
+
+-- AjustesCargados: ajustes saneados por el servidor al cargar el perfil (§3.1).
+-- Conectado ANTES de construir la UI (anti-carrera, patrón CustomizationUI); si
+-- llega antes de crear los controles, estos leen el valor ya aplicado al crearse.
+if remotoAjustesCargados then
+	remotoAjustesCargados.OnClientEvent:Connect(function(ajustes)
+		if type(ajustes) ~= "table" then
+			return
+		end
+		aplicandoRemoto = true
+		for clave, valor in pairs(ajustes) do
+			Settings.Cambiar(clave, valor) -- false en claves desconocidas: no rompe
+		end
+		aplicandoRemoto = false
+	end)
+end
+
+Settings.AlCambiar.Event:Connect(function()
+	enviarAjustes()
+end)
+
 -- Paleta del ADN
 local MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21
 local CREMA = Color3.fromRGB(245, 235, 216) -- #F5EBD8
@@ -54,7 +102,7 @@ pad.PaddingRight = UDim.new(0, insetInf.X)
 pad.PaddingBottom = UDim.new(0, insetInf.Y)
 pad.Parent = contenedor
 
--- Panel nominal 460x532: 4 sliders y 3 toggles con
+-- Panel nominal 460x600: 5 sliders y 3 toggles con
 -- objetivos de 44 px. En pantallas cortas se escala el conjunto y, si aun así no
 -- cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza en
 -- vertical para que VOLVER siga al alcance. El scroll es solo Y para no robar
@@ -76,7 +124,7 @@ local panel = Instance.new("Frame")
 panel.Name = "Panel"
 panel.AnchorPoint = Vector2.new(0, 0)
 panel.Position = UDim2.fromOffset(0, 0)
-panel.Size = UDim2.fromOffset(460, 532)
+panel.Size = UDim2.fromOffset(460, 600)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = marco
@@ -92,9 +140,9 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 500, alto / 590), 0.9, 1)
+	escala.Scale = math.clamp(math.min(ancho / 500, alto / 658), 0.9, 1)
 	local anchoPanel = 460 * escala.Scale
-	local altoPanel = 532 * escala.Scale
+	local altoPanel = 600 * escala.Scale
 	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
 	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
 	marco.ScrollingEnabled = altoPanel > alto
@@ -149,6 +197,7 @@ local refrescosTexto = {}
 -- Etiquetas aún sin clave en Strings.lua (integración §3.1 las migrará): fallback es/en local.
 local LITERALES = {
 	modo_amistoso = { es = "Modo amistoso", en = "Friendly mode" },
+	escala_interfaz = { es = "Escala de interfaz", en = "UI scale" },
 }
 
 local function textoFila(clave)
@@ -175,8 +224,9 @@ local function etiquetaFila(y, clave)
 end
 
 -- Slider real: pista 300x8 + knob circular arrastrable. El knob vive dentro de un botón
--- invisible de 44x44: área de agarre mínima táctil, mayor que el knob.
-local function crearSlider(yFila, claveTexto, clave, minimo, maximo, colorKnob)
+-- invisible de 44x44: área de agarre mínima táctil, mayor que el knob. `paso` (opcional)
+-- cuantiza el valor (D37: 5 en 5); nil mantiene el comportamiento entero de siempre.
+local function crearSlider(yFila, claveTexto, clave, minimo, maximo, colorKnob, paso)
 	etiquetaFila(yFila, claveTexto)
 
 	local pista = Instance.new("Frame")
@@ -223,7 +273,11 @@ local function crearSlider(yFila, claveTexto, clave, minimo, maximo, colorKnob)
 	local function valorDe(xPantalla)
 		local alpha = (xPantalla - pista.AbsolutePosition.X) / math.max(pista.AbsoluteSize.X, 1)
 		alpha = math.clamp(alpha, 0, 1)
-		return math.floor(minimo + alpha * (maximo - minimo) + 0.5)
+		local v = minimo + alpha * (maximo - minimo)
+		if paso then
+			v = minimo + math.floor((v - minimo) / paso + 0.5) * paso
+		end
+		return math.floor(v + 0.5)
 	end
 
 	local arrastrando = false
@@ -298,11 +352,14 @@ crearSlider(52, "sensibilidad", "sensibilidad", 10, 100, VERDE)
 crearSlider(114, "tamano_texto", "escalaTexto", 80, 140, AMARILLO)
 crearSlider(176, "volumen_musica", "volumenMusica", 0, 100, AMARILLO)
 crearSlider(238, "volumen_efectos", "volumenEfectos", 0, 100, AMARILLO)
+-- D37: escala global de UI 80-120 % en pasos de 5, knob CREMA para diferenciarlo.
+-- La aplicación del UIScale por ScreenGui la hace Accesibilidad.client.lua leyendo escalaUI.
+crearSlider(306, "escala_interfaz", "escalaUI", 80, 120, CREMA, 5)
 
-crearToggle(306, "reducir_efectos", "reducirEfectos")
-crearToggle(354, "subtitulos", "subtitulos")
+crearToggle(374, "reducir_efectos", "reducirEfectos")
+crearToggle(422, "subtitulos", "subtitulos")
 -- B10: el toggle también avisa al servidor (su copia de Settings no ve este VM).
-crearToggle(402, "modo_amistoso", "modoAmistoso", function(nuevo)
+crearToggle(470, "modo_amistoso", "modoAmistoso", function(nuevo)
 	if remotoEmpujar then
 		remotoEmpujar:FireServer({ accion = "amistoso", valor = nuevo })
 	end
@@ -310,7 +367,7 @@ end)
 
 local volver = Instance.new("TextButton")
 volver.Size = UDim2.fromOffset(240, 52)
-volver.Position = UDim2.new(0, 110, 0, 458)
+	volver.Position = UDim2.new(0, 110, 0, 526)
 volver.BackgroundColor3 = VERDE
 volver.Font = Enum.Font.GothamBlack
 volver.TextSize = 22

@@ -11,11 +11,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Settings = require(ReplicatedStorage.Shared.Settings)
+
+-- Lista blanca de §3.1 para GuardarAjustes: las claves de Settings.Valores y el
+-- tipo de su default (foto fija al cargar). El servidor no decide valores, solo
+-- valida que la clave exista y el valor sea del tipo esperado antes de guardar.
+local TIPO_AJUSTES = {}
+for clave, valor in pairs(Settings.Valores) do
+	TIPO_AJUSTES[clave] = type(valor)
+end
 
 local TIENDA_V2 = "HUMM_Jugador_v2"
 local TIENDA_V1 = "HUMM_Jugador_v1" -- solo se lee para migrar perfiles antiguos
 local ESQUEMA = 2
 local INTERVALO_AUTO = 60 -- segundos entre tandas de autoguardado
+local ENFRIAMIENTO_AJUSTES = 0.2 -- s entre GuardarAjustes aceptados (el cliente coalesce a 0,3)
 local MAX_REINTENTOS = 3 -- reintentos tras el primer intento (backoff 1-2-4 s)
 local SUFIJO_RESPALDO = "_respaldo_v1"
 
@@ -32,6 +42,7 @@ local sucios = {} -- [player] = true si hay cambios sin guardar
 local camposSucios = {} -- [player][campo] = true desde el último guardado
 local sinPersistir = {} -- [player] = true si una lectura falló: no se pisa lo guardado
 local cargando = {} -- [player] = true mientras corre una carga (evita duplicarla)
+local ultimoAjuste = {} -- [player] = os.clock() del último GuardarAjustes aceptado
 
 local function claveDe(player)
 	return "u_" .. player.UserId
@@ -50,7 +61,7 @@ local function perfilNuevo()
 		cosmeticos = { poseidos = {}, equipados = {} },
 		bienvenidaComprada = false,
 		ultimaPartida = {},
-		ajustes = {}, -- §3.1 (D37/D41); GuardarAjustes llega en L9
+		ajustes = {}, -- §3.1 (D37/D41): GuardarAjustes la sanea contra la lista blanca y marca sucia
 	}
 end
 
@@ -239,6 +250,7 @@ local function cargarJugador(player)
 		camposSucios[player] = nil
 		sinPersistir[player] = nil
 		cargando[player] = nil
+		ultimoAjuste[player] = nil
 		return
 	end
 
@@ -251,6 +263,7 @@ local function cargarJugador(player)
 	end
 	DataService.AlCargar:Fire(player, cache)
 	Remotes.Crear(Remotes.Nombres.TusDatos):FireClient(player, cache)
+	Remotes.Crear(Remotes.Nombres.AjustesCargados):FireClient(player, cache.ajustes or {}) -- §3.1
 end
 
 -- Guardado de una tanda: campos concretos si se conocen, perfil completo si no.
@@ -321,6 +334,33 @@ function DataService.Iniciar()
 		end
 	end)
 
+	-- §3.1: GuardarAjustes (cliente -> servidor, limitado). Valida el payload y
+	-- sanea cada clave contra TIPO_AJUSTES (números finitos, cadenas acotadas);
+	-- el servidor no decide valores. Si no queda nada válido no toca la caché:
+	-- así un payload vacío no pisa los ajustes ya cargados del perfil.
+	Remotes.Crear(Remotes.Nombres.GuardarAjustes).OnServerEvent:Connect(function(player, ajustes)
+		if type(ajustes) ~= "table" then
+			return
+		end
+		local ahora = os.clock()
+		if ultimoAjuste[player] and ahora - ultimoAjuste[player] < ENFRIAMIENTO_AJUSTES then
+			return
+		end
+		local saneada = {}
+		for clave, valor in pairs(ajustes) do
+			local tipo = TIPO_AJUSTES[clave]
+			if type(valor) == tipo
+				and (tipo ~= "number" or (valor == valor and valor ~= math.huge and valor ~= -math.huge))
+				and (tipo ~= "string" or #valor <= 32) then
+				saneada[clave] = valor
+			end
+		end
+		if next(saneada) then
+			ultimoAjuste[player] = ahora
+			DataService.Guardar(player, "ajustes", saneada) -- cache.ajustes = saneada + marca sucia
+		end
+	end)
+
 	-- Guardado al salir: perfil completo con la caché actual.
 	Players.PlayerRemoving:Connect(function(player)
 		local cache = caches[player]
@@ -330,6 +370,7 @@ function DataService.Iniciar()
 		camposSucios[player] = nil
 		sinPersistir[player] = nil
 		cargando[player] = nil
+		ultimoAjuste[player] = nil
 		if cache and not bloqueado and tiendaV2 and not sinApiStudio then
 			task.spawn(guardarYa, claveDe(player), cache, player.Name, nil)
 		end

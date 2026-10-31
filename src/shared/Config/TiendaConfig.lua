@@ -21,6 +21,18 @@ TiendaConfig.Catalogo = {
 	{ id = "camiseta_amarilla", nombre = "Camiseta amarilla", nombreClave = "item_camiseta_amarilla", tipo = "camiseta", precio = 20, color = { 255, 201, 60 } },
 	{ id = "camiseta_roja",     nombre = "Camiseta roja",     nombreClave = "item_camiseta_roja",     tipo = "camiseta", precio = 20, color = { 224, 69, 58 } },
 	{ id = "camiseta_azul",     nombre = "Camiseta azul",     nombreClave = "item_camiseta_azul",     tipo = "camiseta", precio = 20, color = { 63, 127, 191 } },
+	-- Cosméticos procedurales (C30): la CONSTRUCCIÓN vive en CosmeticosConfig
+	-- (mochila/estela + color); aquí solo la compra por el flujo único de
+	-- procesarCompra (rama tipo "cosmetico"). `cosmetico = id` apunta a la pieza
+	-- real; equipar es gratis para quien ya la posee (va por EquiparCosmetico).
+	{ id = "mochila_verde",   nombre = "Mochila verde",   tipo = "cosmetico", cosmetico = "mochila_verde",   precio = 40 },
+	{ id = "mochila_roja",    nombre = "Mochila roja",    tipo = "cosmetico", cosmetico = "mochila_roja",    precio = 40 },
+	{ id = "mochila_azul",    nombre = "Mochila azul",    tipo = "cosmetico", cosmetico = "mochila_azul",    precio = 40 },
+	{ id = "estela_fuego",    nombre = "Estela de fuego", tipo = "cosmetico", cosmetico = "estela_fuego",    precio = 60 },
+	{ id = "estela_hielo",    nombre = "Estela de hielo", tipo = "cosmetico", cosmetico = "estela_hielo",    precio = 60 },
+	{ id = "estela_verde",    nombre = "Estela verde",    tipo = "cosmetico", cosmetico = "estela_verde",    precio = 60 },
+	{ id = "estela_amarilla", nombre = "Estela amarilla", tipo = "cosmetico", cosmetico = "estela_amarilla", precio = 60 },
+	{ id = "estela_arcoiris", nombre = "Estela arcoíris", tipo = "cosmetico", cosmetico = "estela_arcoiris", precio = 100 },
 	-- Consumibles: stock persistido; se gastan al beber (Estamina repone el 25 %).
 	{ id = "bebida_energetica", nombre = "Bebida energética", nombreClave = "item_bebida_energetica", tipo = "bebida", precio = 20, maximo = 5, descripcion = "Recupera 1/4 de resistencia al beberla (tecla Q)", descripcionClave = "descripcion_bebida" },
 	-- Consumible de un uso (B13): stock en DataService ("bengalas"); BengalaService

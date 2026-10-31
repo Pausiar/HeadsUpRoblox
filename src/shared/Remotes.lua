@@ -65,6 +65,11 @@ Remotes.Nombres = {
 	FraseRapida = "FraseRapida", -- client -> server: id de FrasesConfig (limitado)
 	ChatRapido = "ChatRapido", -- server -> client: { nombre, usuario, texto } filtrado por receptor
 	IdiomaCliente = "IdiomaCliente", -- client -> server: "es" | "en" para filtrar/traducir frases por receptor
+
+	-- Fase 11 · L5 (B9/B10)
+	Cargar = "Cargar", -- client -> server: { accion = "cargar"|"soltar", objetivo = userId } (limitado)
+	CargarEstado = "CargarEstado", -- server -> client: { portador, objetivo } estado del porte por jugador
+	Empujar = "Empujar", -- client -> server: { objetivo = userId } impulso validado en servidor (limitado)
 }
 
 function Remotes.Crear(nombre)

@@ -29,6 +29,8 @@ local MonetizacionService = require(Server.MonetizacionService)
 local TelemetriaService = require(Server.TelemetriaService)
 local CierreService = require(Server.CierreService)
 local TutorialService = require(Server.TutorialService)
+local CargarService = require(Server.CargarService)
+local EmpujonService = require(Server.EmpujonService)
 
 DataService.Iniciar() -- primero: los demás servicios enganchan su AlCargar
 TutorialService.Iniciar() -- después de DataService: escucha AlCargar
@@ -36,6 +38,8 @@ StageService.Construir()
 TerrenoService.IniciarStreaming() -- después de Construir: ya existen la ruta y las plazas
 PlayerStateService.Iniciar()
 EstaminaService.Iniciar() -- después de PlayerStateService: consulta si el jugador está caído
+CargarService.Iniciar() -- L5 · B9: después de PlayerStateService y EstaminaService
+EmpujonService.Iniciar() -- L5 · B10: después de PlayerStateService (consulta caído) y CargarService (porte)
 MatchService.Iniciar()
 LobbyService.Iniciar() -- después de MatchService: engancha AlEmpezar/AlTerminarPartida
 AmigosRankingService.Iniciar() -- después de MatchService: escucha AlTerminar

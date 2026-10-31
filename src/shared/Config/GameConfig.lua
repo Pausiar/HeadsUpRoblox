@@ -26,6 +26,27 @@ Config.Etapa0 = {
 	CheckpointCada = 260, -- ruta de ~6000 studs: un poste cada ~15 s de marcha
 	ProteccionInicio = 45, -- studs de ruta sin peligros: spawn y tienda siempre seguros
 	RadioProgreso = 25, -- fuera de este radio del sendero no se gana distancia ni checkpoints
+
+	-- Fase 11 · L5 · B3: refugio a mitad de ruta (plan §4.4/§8: cobijo, tienda y checkpoint)
+	Refugio = {
+		EnCheckpoint = 9, -- el refugio se asienta en este checkpoint de la ruta
+		RadioSinPeligros = 30, -- HazardService no genera peligros a menos de esto del refugio
+	},
+
+	-- Fase 11 · L5 · B9: cargar compañeros caídos (plan §4.4)
+	Cargar = {
+		VelocidadPortador = 10, -- WalkSpeed del portador mientras carga (base 16)
+		PortadoresMax = 1, -- plan §4.4: 1 portador (2 permitidos más adelante)
+		RadioCarga = 8, -- distancia máxima para iniciar la carga
+		Enfriamiento = 1, -- s entre acciones de cargar/soltar
+	},
+
+	-- Fase 11 · L5 · B10: empujón amigo (plan §4.4: impulso suave, sin derribo)
+	Empujon = {
+		Fuerza = 34, -- impulso horizontal aplicado al empujado
+		Alcance = 9, -- distancia máxima para empujar
+		Enfriamiento = 3, -- s entre empujones por jugador (plan §4.4)
+	},
 	-- Fase 9: peligros diegéticos. No hay aviso sonoro ni marca en el suelo:
 	-- el árbol que cae es el aviso (se ve venir) y las piedras salen de su copa.
 	ArbolesQueCaen = {

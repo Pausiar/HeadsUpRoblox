@@ -49,20 +49,6 @@ local function arbolesCerca(pos, radio)
 	return {}
 end
 
--- ArbolesCerca llega ordenado por cercanía; se conserva ese orden.
-local function arbolesLibres(pos, radio)
-	local libres = {}
-	for _, arbol in arbolesCerca(pos, radio) do
-		local modelo = arbol.modelo
-		if modelo and modelo.Parent and arbol.base and arbol.altura
-			and not modelo:GetAttribute("ArbolCayendo")
-			and not modelo:GetAttribute("ArbolTumbado") then
-			table.insert(libres, arbol)
-		end
-	end
-	return libres
-end
-
 local function distanciaSegmentoXZ(p, a, b)
 	local abx, abz = b.X - a.X, b.Z - a.Z
 	local apx, apz = p.X - a.X, p.Z - a.Z
@@ -74,6 +60,61 @@ local function distanciaSegmentoXZ(p, a, b)
 	local dx = p.X - (a.X + abx * t)
 	local dz = p.Z - (a.Z + abz * t)
 	return math.sqrt(dx * dx + dz * dz)
+end
+
+-- Fase 11 · L5/B3: zona sin peligros del refugio (plan fase-11 §L5). StageService
+-- crea la carpeta workspace.Refugio con el atributo Posicion; sin carpeta o sin
+-- atributo no hay efecto, mismo patrón que ProteccionInicio.
+local zonaRefugioAvisada = false
+local function posRefugio()
+	local carpeta = workspace:FindFirstChild("Refugio")
+	local pos = carpeta and carpeta:GetAttribute("Posicion")
+	if typeof(pos) ~= "Vector3" then
+		return nil
+	end
+	if not zonaRefugioAvisada then
+		zonaRefugioAvisada = true
+		print("[Refugio] zona sin peligros activa")
+	end
+	return pos
+end
+
+local function dentroRefugio(pos, refugio)
+	if not refugio then
+		return false
+	end
+	local radio = Config.Etapa0.Refugio.RadioSinPeligros
+	local dx, dz = pos.X - refugio.X, pos.Z - refugio.Z
+	return dx * dx + dz * dz < radio * radio
+end
+
+-- El árbol amenaza el refugio si su base está dentro o si su caída (línea recta
+-- hacia el objetivo) cruza la zona: las piedras brotan de la misma base y el
+-- tronco caído golpea a lo largo de esa línea.
+local function amenazaRefugio(base, objetivo, refugio)
+	if not refugio then
+		return false
+	end
+	if dentroRefugio(base, refugio) then
+		return true
+	end
+	return distanciaSegmentoXZ(refugio, base, objetivo) < Config.Etapa0.Refugio.RadioSinPeligros
+end
+
+-- ArbolesCerca llega ordenado por cercanía; se conserva ese orden.
+local function arbolesLibres(pos, radio)
+	local libres = {}
+	local refugio = posRefugio()
+	for _, arbol in arbolesCerca(pos, radio) do
+		local modelo = arbol.modelo
+		if modelo and modelo.Parent and arbol.base and arbol.altura
+			and not modelo:GetAttribute("ArbolCayendo")
+			and not modelo:GetAttribute("ArbolTumbado")
+			and not amenazaRefugio(arbol.base, pos, refugio) then
+			table.insert(libres, arbol)
+		end
+	end
+	return libres
 end
 
 local function golpearConArbol(base, direccion, altura, cfg)
@@ -271,9 +312,12 @@ end
 
 local function elegirObjetivo(ruta)
 	local objetivos = {}
+	local refugio = posRefugio()
 	for _, player in Players:GetPlayers() do
 		local raiz = participanteVivo(player)
-		if raiz and ruta:Progreso(raiz.Position) >= Config.Etapa0.ProteccionInicio then
+		if raiz
+			and ruta:Progreso(raiz.Position) >= Config.Etapa0.ProteccionInicio
+			and not dentroRefugio(raiz.Position, refugio) then
 			table.insert(objetivos, raiz.Position)
 		end
 	end

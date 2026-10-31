@@ -17,6 +17,7 @@ local reanimado = Instance.new("BindableEvent")
 PlayerStateService.Reanimado = reanimado -- (reanimador, jugador)
 
 local hud
+local cargarService -- B9: require perezoso en Reanimar (CargarService requiere este módulo)
 
 local function quitarPrompt(char)
 	local root = char:FindFirstChild("HumanoidRootPart")
@@ -76,6 +77,12 @@ function PlayerStateService.Reanimar(player, reanimador)
 	if not st or not st.caido or not hum or hum.Health <= 0 then
 		return
 	end
+	-- B9: un caído cargado no se reanima sin más; se cancela el porte primero.
+	-- Require perezoso dentro de la función: rompe el ciclo de requires sin Bindable.
+	if not cargarService then
+		cargarService = require(script.Parent.CargarService)
+	end
+	cargarService.CancelarSiPorta(player)
 	st.caido = false
 	st.causa = nil
 	hum.PlatformStand = false

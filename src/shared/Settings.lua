@@ -5,6 +5,7 @@ local Settings = {}
 Settings.Valores = {
 	sensibilidad = 50, -- % (10-100)
 	reducirEfectos = false, -- accesibilidad §8: menos movimiento/destellos
+	modoAmistoso = false, -- B10: desactiva el empujón; el servidor recibe una copia vía Empujar { accion = "amistoso" } (solo sesión, §3.1 la hará persistente)
 	volumenMusica = 70, -- % (0-100)
 	volumenEfectos = 80, -- % (0-100)
 	subtitulos = true, -- accesibilidad §8: subtítulos de avisos sonoros

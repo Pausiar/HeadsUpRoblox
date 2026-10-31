@@ -140,11 +140,52 @@ end
 -- Reutilizada por la ronda rápida para su propia meta (fase 11 · L4/B6).
 StageService.ConstruirMeta = construirMeta
 
+-- Fase 11 · L5/B3: refugio a mitad de ruta (plan fase-11 §L5). Plaza plana de
+-- piedra y el campamento completo de TiendaCampamento (tienda con prompt
+-- "TiendaInicio" y hoguera incluidas en su constructor) sobre el checkpoint
+-- Refugio.EnCheckpoint. La carpeta workspace.Refugio con el atributo Posicion
+-- marca la zona: HazardService no genera peligros a RadioSinPeligros de ahí.
+local function construirRefugio(punto, tangente)
+	local idx = Config.Etapa0.Refugio.EnCheckpoint
+	local carpeta = Instance.new("Folder")
+	carpeta.Name = "Refugio"
+	carpeta.Parent = workspace
+
+	-- Plaza plana: losa de piedra que cubre el borde del sendero y el puesto.
+	-- El terreno de este tramo llega por streaming después de construir y el
+	-- corredor solo es plano a Ancho/2+2 studs del sendero, así que la losa
+	-- hace de terraza sin tocar TerrenoService (solo lectura para B3).
+	local normal = tangente:Cross(Vector3.yAxis).Unit
+	local base = punto.Y - 0.5
+	local centroPlaza = Vector3.new(punto.X, base, punto.Z) + normal * 8
+	pieza({
+		nombre = "PlazaRefugio",
+		tamano = Vector3.new(24, 1.2, 26),
+		cf = CFrame.lookAt(centroPlaza, centroPlaza + tangente) + Vector3.new(0, -0.55, 0),
+		color = COLOR_ROCA,
+		material = Enum.Material.Slate,
+		padre = carpeta,
+		consulta = false,
+	})
+	carpeta:SetAttribute("Posicion", centroPlaza)
+
+	TiendaCampamento.Construir(carpeta, punto, tangente)
+
+	print(("[Refugio] construido en el checkpoint %d (ruta %d studs)"):format(
+		idx,
+		math.floor(idx * Config.Etapa0.CheckpointCada)
+	))
+end
+
 -- Idempotente: quita la etapa anterior sin tocar el terreno ni la ruta.
 function StageService.Limpiar()
 	local anterior = workspace:FindFirstChild("Etapa0")
 	if anterior then
 		anterior:Destroy()
+	end
+	local refugio = workspace:FindFirstChild("Refugio")
+	if refugio then
+		refugio:Destroy()
 	end
 end
 
@@ -200,6 +241,17 @@ function StageService.Construir(semilla)
 			padre = carpeta,
 		})
 		checkpoints += 1
+		-- B3: el refugio se asienta en este checkpoint (plaza, campamento y zona
+		-- sin peligros). El respawn no necesita nada extra: MatchService guarda
+		-- la posición de ruta de cada checkpoint y reaparece ahí (checkpoint 9
+		-- == punto de ruta a EnCheckpoint * CheckpointCada studs, el mismo que
+		-- recibe construirRefugio).
+		if checkpoints == Config.Etapa0.Refugio.EnCheckpoint then
+			local okRefugio, errRefugio = pcall(construirRefugio, punto, tangente)
+			if not okRefugio then
+				warn("[Refugio] no construido: " .. tostring(errRefugio))
+			end
+		end
 	end
 	StageService.TotalCheckpoints = checkpoints
 

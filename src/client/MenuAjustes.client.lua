@@ -8,12 +8,18 @@ local GuiService = game:GetService("GuiService")
 
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
 local L = Localization.L
 
 local player = Players.LocalPlayer
+
+-- El remote lo crea EmpujonService (servidor). Con timeout: si la integración
+-- aún no arrancó el servicio, el toggle funciona en local y el envío se omite
+-- (un Esperar sin timeout colgaría el menú).
+local remotoEmpujar = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.Empujar, 10)
 
 -- Paleta del ADN
 local MADERA = Color3.fromRGB(92, 58, 33) -- #5C3A21
@@ -48,7 +54,7 @@ pad.PaddingRight = UDim.new(0, insetInf.X)
 pad.PaddingBottom = UDim.new(0, insetInf.Y)
 pad.Parent = contenedor
 
--- Panel nominal 460x480 (bajo el tope de ~520 px): 4 sliders y 2 toggles con
+-- Panel nominal 460x532: 4 sliders y 3 toggles con
 -- objetivos de 44 px. En pantallas cortas se escala el conjunto y, si aun así no
 -- cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza en
 -- vertical para que VOLVER siga al alcance. El scroll es solo Y para no robar
@@ -70,7 +76,7 @@ local panel = Instance.new("Frame")
 panel.Name = "Panel"
 panel.AnchorPoint = Vector2.new(0, 0)
 panel.Position = UDim2.fromOffset(0, 0)
-panel.Size = UDim2.fromOffset(460, 480)
+panel.Size = UDim2.fromOffset(460, 532)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = marco
@@ -86,9 +92,9 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 500, alto / 540), 0.9, 1)
+	escala.Scale = math.clamp(math.min(ancho / 500, alto / 590), 0.9, 1)
 	local anchoPanel = 460 * escala.Scale
-	local altoPanel = 480 * escala.Scale
+	local altoPanel = 532 * escala.Scale
 	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
 	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
 	marco.ScrollingEnabled = altoPanel > alto
@@ -140,6 +146,19 @@ crearSelector("en", 400)
 local etiquetasTraducibles = {}
 local refrescosTexto = {}
 
+-- Etiquetas aún sin clave en Strings.lua (integración §3.1 las migrará): fallback es/en local.
+local LITERALES = {
+	modo_amistoso = { es = "Modo amistoso", en = "Friendly mode" },
+}
+
+local function textoFila(clave)
+	local literal = LITERALES[clave]
+	if literal then
+		return literal[Settings.Obtener("idioma")] or literal.es
+	end
+	return L(clave)
+end
+
 local function etiquetaFila(y, clave)
 	local t = Instance.new("TextLabel")
 	t.Size = UDim2.new(1, -48, 0, 22)
@@ -149,7 +168,7 @@ local function etiquetaFila(y, clave)
 	t.TextSize = 20
 	t.TextXAlignment = Enum.TextXAlignment.Left
 	t.TextColor3 = CREMA
-	t.Text = L(clave)
+	t.Text = textoFila(clave)
 	t.Parent = panel
 	table.insert(etiquetasTraducibles, { objeto = t, clave = clave })
 	return t
@@ -239,8 +258,8 @@ local function crearSlider(yFila, claveTexto, clave, minimo, maximo, colorKnob)
 	refrescar(Settings.Obtener(clave))
 end
 
--- Toggle reutilizado para «Reducir efectos» y «Subtítulos»: 186x44, estado por texto y color.
-local function crearToggle(yFila, claveTexto, clave)
+-- Toggle reutilizado para «Reducir efectos», «Subtítulos» y «Modo amistoso»: 186x44, estado por texto y color.
+local function crearToggle(yFila, claveTexto, clave, alCambiar)
 	etiquetaFila(yFila + 11, claveTexto)
 
 	local toggle = Instance.new("TextButton")
@@ -258,7 +277,11 @@ local function crearToggle(yFila, claveTexto, clave)
 	end
 
 	toggle.Activated:Connect(function()
-		Settings.Cambiar(clave, not Settings.Obtener(clave))
+		local nuevo = not Settings.Obtener(clave)
+		Settings.Cambiar(clave, nuevo)
+		if alCambiar then
+			alCambiar(nuevo)
+		end
 	end)
 	Settings.AlCambiar.Event:Connect(function(claveCambiada, v)
 		if claveCambiada == clave then
@@ -278,10 +301,16 @@ crearSlider(238, "volumen_efectos", "volumenEfectos", 0, 100, AMARILLO)
 
 crearToggle(306, "reducir_efectos", "reducirEfectos")
 crearToggle(354, "subtitulos", "subtitulos")
+-- B10: el toggle también avisa al servidor (su copia de Settings no ve este VM).
+crearToggle(402, "modo_amistoso", "modoAmistoso", function(nuevo)
+	if remotoEmpujar then
+		remotoEmpujar:FireServer({ accion = "amistoso", valor = nuevo })
+	end
+end)
 
 local volver = Instance.new("TextButton")
 volver.Size = UDim2.fromOffset(240, 52)
-volver.Position = UDim2.new(0, 110, 0, 412)
+volver.Position = UDim2.new(0, 110, 0, 458)
 volver.BackgroundColor3 = VERDE
 volver.Font = Enum.Font.GothamBlack
 volver.TextSize = 22
@@ -304,7 +333,7 @@ local function aplicarTextos()
 	titulo.Text = L("ajustes"):upper()
 	volver.Text = L("volver"):upper()
 	for _, par in ipairs(etiquetasTraducibles) do
-		par.objeto.Text = L(par.clave)
+		par.objeto.Text = textoFila(par.clave)
 	end
 	for _, refrescar in ipairs(refrescosTexto) do
 		refrescar()

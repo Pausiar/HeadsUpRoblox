@@ -259,6 +259,7 @@ local function crearPiedra(base, altura, cfg)
 	local diametro = rng:NextNumber(0.9, 1.4)
 	local piedra = Instance.new("Part")
 	piedra.Name = "Piedra"
+	piedra:SetAttribute("Peligro", true) -- D40: el cliente (MenuAjustes) recolorea solo las de verdad, no la decoración
 	piedra.Shape = Enum.PartType.Ball
 	piedra.Size = Vector3.new(diametro, diametro, diametro)
 	piedra.Material = Enum.Material.Slate

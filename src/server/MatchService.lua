@@ -244,6 +244,30 @@ end
 -- Alias del contrato anterior (RankingService llama a ObtenerDistancia)
 MatchService.ObtenerDistancia = MatchService.GetDistancia
 
+-- D38 brújula (plan fase-11 §L9): objetivos estáticos de la ruta para el HUD.
+-- Solo puntos públicos de la carrera; JAMÁS posiciones de El Doble ni de enemigos.
+-- PlayerStateService los adjunta al payload de HudEstado (bucle de 1 Hz).
+function MatchService.ObjetivosBrujula(player)
+	if not rutaActual or player:GetAttribute("EnJuego") ~= true then
+		return nil
+	end
+	local meta = rutaActual:PuntoEnDistancia(rutaActual.Longitud)
+	-- Próximo checkpoint: el primero tras el último alcanzado; sin pendientes = meta.
+	-- La ronda rápida (totalCheckpoints 0) también apunta su C a la meta.
+	local puntoCheckpoint = meta
+	local alcanzado = checkpoints[player] and checkpoints[player].indice or 0
+	if totalCheckpoints > 0 and alcanzado < totalCheckpoints then
+		puntoCheckpoint = rutaActual:PuntoEnDistancia((alcanzado + 1) * Config.Etapa0.CheckpointCada)
+	end
+	-- La tienda de campaña se ancla al inicio de la ruta (StageService/TiendaCampamento)
+	local tienda = rutaActual:PuntoEnDistancia(0)
+	return {
+		checkpoint = { x = math.floor(puntoCheckpoint.X), z = math.floor(puntoCheckpoint.Z) },
+		meta = { x = math.floor(meta.X), z = math.floor(meta.Z) },
+		tienda = { x = math.floor(tienda.X), z = math.floor(tienda.Z) },
+	}
+end
+
 -- Mejor distancia alcanzada por cualquier participante en la partida actual.
 local function mejorDelEquipo()
 	local mejor = 0

@@ -18,6 +18,7 @@ PlayerStateService.Reanimado = reanimado -- (reanimador, jugador)
 
 local hud
 local cargarService -- B9: require perezoso en Reanimar (CargarService requiere este módulo)
+local matchService -- D38: require perezoso (Main carga este módulo antes que MatchService); objetivos de la brújula
 
 local function quitarPrompt(char)
 	local root = char:FindFirstChild("HumanoidRootPart")
@@ -128,9 +129,16 @@ function PlayerStateService.Iniciar()
 
 	-- Cuenta atrás del caído + HUD (1 Hz, suficiente para el slice)
 	task.spawn(function()
+		-- D38: MatchService calcula los objetivos de la brújula; require perezoso
+		-- para no cerrar ciclo (MatchService requiere este módulo dentro de Iniciar).
+		local okMatch, match = pcall(require, script.Parent.MatchService)
+		if okMatch then
+			matchService = match
+		end
 		while true do
 			task.wait(1)
 			for player, st in estados do
+				local objetivos = matchService and matchService.ObjetivosBrujula(player) or nil
 				local char = player.Character
 				if st.caido then
 					if os.clock() > st.deadline then
@@ -144,9 +152,10 @@ function PlayerStateService.Iniciar()
 						estado = "CAÍDO",
 						restante = math.max(0, math.floor(st.deadline - os.clock())),
 						causa = st.causa,
+						objetivos = objetivos,
 					})
 				else
-					hud:FireClient(player, { estado = "Sano" })
+					hud:FireClient(player, { estado = "Sano", objetivos = objetivos })
 				end
 			end
 		end

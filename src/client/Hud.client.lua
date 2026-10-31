@@ -60,6 +60,10 @@ local detalle = etiqueta(92, 22, Color3.fromRGB(245, 235, 216))
 local AMARILLO = Color3.fromRGB(255, 201, 60)
 local CREMA = Color3.fromRGB(245, 235, 216)
 local ROJO = Color3.fromRGB(255, 111, 97) -- #FF6F61, mismo token que el estado CAÍDO
+local NARANJA = Color3.fromRGB(255, 165, 0) -- #FFA500, D40: alternativa al rojo con daltónico
+local function colorPeligro()
+	return Settings.Obtener("daltónico") == true and NARANJA or ROJO
+end
 
 distancia.Text = L("distancia") .. ": 0 m"
 tiempo.Text = L("tiempo") .. ": 00:00"
@@ -85,7 +89,7 @@ local function refrescarDetalle(progreso)
 	progreso = math.floor(tonumber(progreso) or 0)
 	if causaActual then
 		detalle.Text = Localization.Causa(causaActual) or L("caido")
-		detalle.TextColor3 = ROJO
+		detalle.TextColor3 = colorPeligro() -- D40: naranja con daltónico
 		return
 	end
 	if os.clock() < avisoRecordHasta then
@@ -121,7 +125,7 @@ Remotes.Esperar(Remotes.Nombres.HudEstado).OnClientEvent:Connect(function(datos)
 	if datos.estado == "CAÍDO" then
 		deadlineLocal = os.clock() + (datos.restante or 0)
 		causaActual = datos.causa
-		estado.TextColor3 = Color3.fromRGB(255, 111, 97) -- #FF6F61, contraste ≥ 4.5:1 (revisión apple-design)
+		estado.TextColor3 = colorPeligro() -- D40: naranja con daltónico, contraste ≥ 4.5:1
 		refrescarEstado()
 	else
 		deadlineLocal = nil
@@ -157,12 +161,15 @@ RunService.Heartbeat:Connect(function()
 end)
 
 Settings.AlCambiar.Event:Connect(function(clave, valor)
-	if clave ~= "idioma" then
-		return
+	if clave == "daltónico" and deadlineLocal then
+		-- D40: mientras sigue caído, recolorear al vuelo lo que ya está en pantalla.
+		estado.TextColor3 = colorPeligro()
+		detalle.TextColor3 = colorPeligro()
+	elseif clave == "idioma" then
+		Localization.Establecer(valor)
+		refrescarEstado()
+		refrescarDetalle(player:GetAttribute("Distancia"))
 	end
-	Localization.Establecer(valor)
-	refrescarEstado()
-	refrescarDetalle(player:GetAttribute("Distancia"))
 end)
 
 print("[Hud] activo")

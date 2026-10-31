@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = {}
 
 Remotes.Nombres = {
-	HudEstado = "HudEstado", -- server -> client: { estado, restante }
+	HudEstado = "HudEstado", -- server -> client: { estado, restante, causa?, objetivos? (D38: { checkpoint, meta, tienda } = { x, z }) }
 	FinPartida = "FinPartida", -- server -> client: { distancia, tiempo, checkpoint, puntos, record, nuevoRecord, reanimaciones, mejorEquipo, victoria? }
 	Reintentar = "Reintentar", -- client -> server: reiniciar partida (limitado)
 	Puntos = "Puntos", -- server -> client: { puntos, motivo }

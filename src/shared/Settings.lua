@@ -11,7 +11,7 @@ Settings.Valores = {
 	subtitulos = true, -- accesibilidad §8: subtítulos de avisos sonoros
 	escalaTexto = 100, -- % (80-140), escala global de GUI para texto legible
 	escalaUI = 100, -- % (80-120): D37, escala de interfaz por ScreenGui (§3.1 la persiste)
-	daltónico = false, -- D40: paleta alternativa para peligros y HUD
+	["daltónico"] = false, -- D40: paleta alternativa para peligros y HUD (clave string: los identificadores Luau no admiten tildes)
 	reducirMovimiento = false, -- D42: sin balanceo, transiciones ni clima animado
 	idioma = "es", -- "es" | "en" (plan §8: localización desde el primer texto)
 }

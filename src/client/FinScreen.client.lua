@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
 local Localization = require(ReplicatedStorage.Shared.Localization.Strings)
+local ProgresionConfig = require(ReplicatedStorage.Shared.Config.ProgresionConfig) -- C32: default de XP
 local MenuCamara = require(script.Parent:WaitForChild("MenuCamara"))
 
 Localization.Establecer(Settings.Obtener("idioma"))
@@ -42,6 +43,8 @@ local reintentar = Remotes.Esperar(Remotes.Nombres.Reintentar)
 -- L5b: el total de renacimientos no viaja en FinPartida; llega por remote aparte.
 -- Con timeout para no colgar esta pantalla si el servicio aún no arrancó (patrón de MenuAjustes).
 local renacimientoEstado = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.RenacimientoEstado, 10)
+-- C32: XP y nivel; con timeout para no colgar esta pantalla si el servicio aún no arrancó.
+local progresionRemoto = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild(Remotes.Nombres.Progresion, 10)
 
 local player = Players.LocalPlayer
 
@@ -73,7 +76,7 @@ local panel = Instance.new("Frame")
 panel.Name = "PanelFin"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = POS_FINAL
-panel.Size = UDim2.fromOffset(420, 496) -- derrota: 9 filas + causa + botón
+panel.Size = UDim2.fromOffset(420, 524) -- derrota: 10 filas + causa + botón
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = velo
@@ -85,8 +88,8 @@ esquina.Parent = panel
 -- F1 (revisión apple-design, P1 móvil): panel escalable. El UISizeConstraint acota
 -- el tamaño y el UIScale encoge el conjunto (panel + hijos) en pantallas estrechas.
 local restriccionPanel = Instance.new("UISizeConstraint")
-restriccionPanel.MaxSize = Vector2.new(420, 496)
-restriccionPanel.MinSize = Vector2.new(340, 496)
+restriccionPanel.MaxSize = Vector2.new(420, 524)
+restriccionPanel.MinSize = Vector2.new(340, 524)
 restriccionPanel.Parent = panel
 
 local escalaPanel = Instance.new("UIScale")
@@ -94,8 +97,8 @@ escalaPanel.Parent = panel
 
 -- Player no tiene ViewportSize (doc Roblox gana): la GUI es la fuente del viewport
 -- (IgnoreGuiInset=true ⇒ AbsoluteSize = viewport completo). La altura también manda:
--- la victoria mide 592 px y en un móvil de 338 px necesita ~0,55 para que los
--- botones sigan en pantalla (A06: 592 × 0,55 = 326), de ahí el suelo 0,5.
+-- la victoria mide 620 px y en un móvil de 338 px necesita ~0,55 para que los
+-- botones sigan en pantalla (A06: 620 × 0,55 = 341), de ahí el suelo 0,5.
 local function ajustarEscala()
 	local alto = panel.Size.Y.Offset
 	escalaPanel.Scale = math.clamp(math.min(gui.AbsoluteSize.X / 500, gui.AbsoluteSize.Y / (alto + 24)), 0.5, 1)
@@ -148,6 +151,7 @@ local textoPinas = etiqueta(264, 26)
 local textoReanimaciones = etiqueta(296, 26)
 local textoEquipo = etiqueta(328, 26)
 local textoRenacimientos = etiqueta(360, 26) -- L5b: fila extra; la posición final la fija aplicarVariante
+local textoNivel = etiqueta(392, 26) -- C32: fila de nivel; la posición final la fija aplicarVariante
 
 -- B7: causa de la caída, solo en derrota (la victoria no tiene causa y no crece).
 local textoCausa = etiqueta(360, 26)
@@ -165,6 +169,7 @@ local etiquetas = {
 	textoReanimaciones,
 	textoEquipo,
 	textoRenacimientos,
+	textoNivel,
 }
 
 -- B6: la medalla va inline en la línea de tiempo con RichText (sin fila extra).
@@ -219,15 +224,15 @@ local esquinaSeguir = Instance.new("UICorner")
 esquinaSeguir.CornerRadius = UDim.new(0, 12)
 esquinaSeguir.Parent = botonSeguir
 
--- Dos alturas fijas: derrota 496 (causa + un botón) y victoria 592 (dos botones con 12 px de aire).
-local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328, 360 }
-local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388, 420 }
+-- Dos alturas fijas: derrota 524 (causa + un botón) y victoria 620 (dos botones con 12 px de aire).
+local FILAS_DERROTA = { 104, 136, 168, 200, 232, 264, 296, 328, 360, 392 }
+local FILAS_VICTORIA = { 164, 196, 228, 260, 292, 324, 356, 388, 420, 452 }
 
 local function aplicarVariante(victoria)
 	if victoria then
-		panel.Size = UDim2.fromOffset(420, 592)
-		restriccionPanel.MaxSize = Vector2.new(420, 592)
-		restriccionPanel.MinSize = Vector2.new(340, 592)
+		panel.Size = UDim2.fromOffset(420, 620)
+		restriccionPanel.MaxSize = Vector2.new(420, 620)
+		restriccionPanel.MinSize = Vector2.new(340, 620)
 		titulo.Position = UDim2.new(0, 10, 0, 8)
 		titulo.Size = UDim2.new(1, -20, 0, 114) -- holgura para dos líneas de 40 px
 		titulo.TextWrapped = true
@@ -237,15 +242,15 @@ local function aplicarVariante(victoria)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_VICTORIA[i])
 		end
-		boton.Position = UDim2.new(0.5, 0, 0, 454)
-		botonSeguir.Position = UDim2.new(0.5, 0, 0, 522)
+		boton.Position = UDim2.new(0.5, 0, 0, 482)
+		botonSeguir.Position = UDim2.new(0.5, 0, 0, 550)
 		botonSeguir.Text = L("seguir")
 		botonSeguir.Visible = true
 		textoCausa.Visible = false
 	else
-		panel.Size = UDim2.fromOffset(420, 496)
-		restriccionPanel.MaxSize = Vector2.new(420, 496)
-		restriccionPanel.MinSize = Vector2.new(340, 496)
+		panel.Size = UDim2.fromOffset(420, 524)
+		restriccionPanel.MaxSize = Vector2.new(420, 524)
+		restriccionPanel.MinSize = Vector2.new(340, 524)
 		titulo.Position = UDim2.new(0, 10, 0, 16)
 		titulo.Size = UDim2.new(1, -20, 0, 48)
 		titulo.TextWrapped = false
@@ -255,9 +260,9 @@ local function aplicarVariante(victoria)
 		for i, t in ipairs(etiquetas) do
 			t.Position = UDim2.new(0, 20, 0, FILAS_DERROTA[i])
 		end
-		textoCausa.Position = UDim2.new(0, 20, 0, 392)
+		textoCausa.Position = UDim2.new(0, 20, 0, 420)
 		textoCausa.Visible = true
-		boton.Position = UDim2.new(0.5, 0, 0, 426)
+		boton.Position = UDim2.new(0.5, 0, 0, 454)
 		botonSeguir.Visible = false
 	end
 	ajustarEscala()
@@ -267,6 +272,9 @@ local enEnfriamiento = false
 local ultimosDatos = nil
 local pinasPartida = 0 -- Piñas ganadas en la partida en curso (Pinas remote)
 local renacimientosActuales = 0 -- L5b: total de renacimientos, cacheado de RenacimientoEstado
+local nivelActual = 1 -- C32: cacheado del remote Progresion
+local xpActual = 0 -- XP total acumulada (misma escala que xpSiguienteActual)
+local xpSiguienteActual = ProgresionConfig.UmbralDe(2) -- umbral del nivel 2 como default
 
 local function pintarDatos(datos)
 	local distancia = math.max(0, math.floor(tonumber(datos and datos.distancia) or 0))
@@ -295,6 +303,8 @@ local function pintarDatos(datos)
 	textoReanimaciones.Text = L("reanimaciones") .. ": " .. ("%d"):format(reanimaciones)
 	textoEquipo.Text = L("mejor_equipo") .. ": " .. ("%d m"):format(mejorEquipo)
 	textoRenacimientos.Text = "Renacimientos: " .. ("%d"):format(renacimientosActuales) -- clave `renacimientos` pendiente en Strings
+	textoNivel.Text = "Nivel: " .. ("%d"):format(nivelActual)
+		.. " (XP: " .. ("%d"):format(xpActual) .. "/" .. ("%d"):format(xpSiguienteActual) .. ")" -- clave `nivel` pendiente en Strings
 	textoCausa.Text = L("causa") .. ": " .. (Localization.Causa(causa) or "—")
 	textoSemilla.Text = semilla > 0 and (L("semilla") .. " " .. ("%d"):format(semilla)) or ""
 	insignia.Visible = nuevoRecord
@@ -369,6 +379,24 @@ if renacimientoEstado then
 			return
 		end
 		renacimientosActuales = math.max(0, math.floor(tonumber(datos.renacimientos) or 0))
+		if gui.Enabled and ultimosDatos then
+			pintarDatos(ultimosDatos)
+		end
+	end)
+end
+
+-- C32: el nivel se cachea del remote Progresion; la XP por distancia llega justo
+-- después de FinPartida, así que si el panel ya está visible se repinta al vuelo.
+-- `subio` resalta la fila en amarillo durante el nivel conseguido en esta partida.
+if progresionRemoto then
+	progresionRemoto.OnClientEvent:Connect(function(datos)
+		if type(datos) ~= "table" then
+			return
+		end
+		nivelActual = math.max(1, math.floor(tonumber(datos.nivel) or 1))
+		xpActual = math.max(0, math.floor(tonumber(datos.xp) or 0))
+		xpSiguienteActual = math.max(0, math.floor(tonumber(datos.xpSiguiente) or 0))
+		textoNivel.TextColor3 = datos.subio == true and AMARILLO or CREMA
 		if gui.Enabled and ultimosDatos then
 			pintarDatos(ultimosDatos)
 		end

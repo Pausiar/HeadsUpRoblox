@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config.ClimaConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Settings = require(ReplicatedStorage.Shared.Settings)
+local Movimiento = require(ReplicatedStorage.Shared.Movimiento)
 
 -- Originales guardados UNA vez, antes del primer tween, para restaurar la
 -- noche exacta que dejó TerrenoService. Idempotente: dos eventos seguidos no
@@ -25,6 +26,10 @@ local function tweenear(objetivo, props, segundos)
 	local anterior = tweens[objetivo]
 	if anterior then
 		anterior:Cancel()
+	end
+	-- D42: con «reducir movimiento» la niebla cambia casi sin animación.
+	if Movimiento.Reducido() then
+		segundos = 0.1
 	end
 	local info = TweenInfo.new(segundos, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	local tween = TweenService:Create(objetivo, info, props)

@@ -102,7 +102,7 @@ pad.PaddingRight = UDim.new(0, insetInf.X)
 pad.PaddingBottom = UDim.new(0, insetInf.Y)
 pad.Parent = contenedor
 
--- Panel nominal 460x600: 5 sliders y 3 toggles con
+-- Panel nominal 460x700: 5 sliders y 5 toggles con
 -- objetivos de 44 px. En pantallas cortas se escala el conjunto y, si aun así no
 -- cabe (móvil apaisado de 338 px de alto), un ScrollingFrame lo desplaza en
 -- vertical para que VOLVER siga al alcance. El scroll es solo Y para no robar
@@ -124,7 +124,7 @@ local panel = Instance.new("Frame")
 panel.Name = "Panel"
 panel.AnchorPoint = Vector2.new(0, 0)
 panel.Position = UDim2.fromOffset(0, 0)
-panel.Size = UDim2.fromOffset(460, 600)
+panel.Size = UDim2.fromOffset(460, 700)
 panel.BackgroundColor3 = MADERA
 panel.BorderSizePixel = 0
 panel.Parent = marco
@@ -140,9 +140,9 @@ local function ajustarEscala()
 	if ancho <= 0 or alto <= 0 then
 		return
 	end
-	escala.Scale = math.clamp(math.min(ancho / 500, alto / 658), 0.9, 1)
+	escala.Scale = math.clamp(math.min(ancho / 500, alto / 758), 0.9, 1)
 	local anchoPanel = 460 * escala.Scale
-	local altoPanel = 600 * escala.Scale
+	local altoPanel = 700 * escala.Scale
 	marco.CanvasSize = UDim2.fromOffset(anchoPanel, altoPanel)
 	marco.Size = UDim2.fromOffset(math.min(ancho, anchoPanel), math.min(alto, altoPanel))
 	marco.ScrollingEnabled = altoPanel > alto
@@ -198,6 +198,8 @@ local refrescosTexto = {}
 local LITERALES = {
 	modo_amistoso = { es = "Modo amistoso", en = "Friendly mode" },
 	escala_interfaz = { es = "Escala de interfaz", en = "UI scale" },
+	modo_daltonico = { es = "Modo daltónico", en = "Colorblind mode" },
+	reducir_movimiento = { es = "Reducir movimiento", en = "Reduce motion" },
 }
 
 local function textoFila(clave)
@@ -364,10 +366,14 @@ crearToggle(470, "modo_amistoso", "modoAmistoso", function(nuevo)
 		remotoEmpujar:FireServer({ accion = "amistoso", valor = nuevo })
 	end
 end)
+-- D40: la paleta la aplica la conexión AlCambiar de más abajo (cubre también AjustesCargados).
+crearToggle(518, "modo_daltonico", "daltónico")
+-- D42: CameraController, ClimaVisual y Movimiento.Tween leen el ajuste en vivo.
+crearToggle(566, "reducir_movimiento", "reducirMovimiento")
 
 local volver = Instance.new("TextButton")
 volver.Size = UDim2.fromOffset(240, 52)
-	volver.Position = UDim2.new(0, 110, 0, 526)
+	volver.Position = UDim2.new(0, 110, 0, 626)
 volver.BackgroundColor3 = VERDE
 volver.Font = Enum.Font.GothamBlack
 volver.TextSize = 22
@@ -385,6 +391,67 @@ volver.Activated:Connect(function()
 		end
 	end
 end)
+
+-- D40 (fase 11 · L9): paleta daltónica por JUGADOR (cambio en cliente: cada uno ve
+-- SUS colores sin tocar el servidor). Árboles de peligro (modelos «Arbol»/«Pino» de
+-- TerrenoService) → naranja #FF8C00; piedras de peligro (Parts «Piedra» con atributo
+-- «Peligro» que pone HazardService) → azul #50A0FF. Las rocas decorativas («Roca») y
+-- las piedras de los postes de RondaRapida (sin atributo) quedan como están. Los
+-- colores base se guardan para restaurar al apagar; DescendantAdded cubre lo que
+-- llega con el streaming. Los avisos del HUD (Hud y AvisosVisuales) leen el ajuste
+-- al pintarse: rojo #FF6F61 → naranja #FFA500.
+local NARANJA_PELIGRO = Color3.fromRGB(255, 140, 0) -- #FF8C00
+local AZUL_PELIGRO = Color3.fromRGB(80, 160, 255) -- #50A0FF
+local coloresBase = {} -- [BasePart] = Color3 original (solo mientras está activo)
+local conexionDaltonico = nil
+
+local function pintarPeligro(parte)
+	if not parte:IsA("BasePart") then
+		return
+	end
+	local destino = nil
+	if parte.Name == "Piedra" and parte:GetAttribute("Peligro") == true then
+		destino = AZUL_PELIGRO
+	elseif parte:FindFirstAncestor("Arbol") or parte:FindFirstAncestor("Pino") then
+		destino = NARANJA_PELIGRO
+	end
+	if destino then
+		if coloresBase[parte] == nil then
+			coloresBase[parte] = parte.Color
+			parte.Destroying:Once(function()
+				coloresBase[parte] = nil
+			end)
+		end
+		parte.Color = destino
+	end
+end
+
+local function aplicarDaltonico(activo)
+	if activo then
+		for _, parte in workspace:GetDescendants() do
+			pintarPeligro(parte)
+		end
+		conexionDaltonico = workspace.DescendantAdded:Connect(pintarPeligro)
+	elseif conexionDaltonico then
+		conexionDaltonico:Disconnect()
+		conexionDaltonico = nil
+		for parte, color in coloresBase do
+			if parte.Parent then -- lo que el streaming destruyó ya no existe
+				parte.Color = color
+			end
+		end
+		table.clear(coloresBase)
+	end
+end
+
+Settings.AlCambiar.Event:Connect(function(clave, valor)
+	if clave == "daltónico" then
+		aplicarDaltonico(valor == true)
+	end
+end)
+if Settings.Obtener("daltónico") == true then -- cubre un AjustesCargados que llegó antes de esta conexión
+	aplicarDaltonico(true)
+end
 
 local function aplicarTextos()
 	titulo.Text = L("ajustes"):upper()

@@ -45,7 +45,7 @@ aviso.TextColor3 = Color3.fromRGB(245, 235, 216)
 aviso.Text = L("v_camara")
 aviso.Parent = gui
 
--- Accesibilidad §8: sin balanceo si se activa "reducirEfectos" (actualización en vivo)
+-- Accesibilidad §8: sin balanceo con "reducirEfectos" o "reducirMovimiento" (D42, lectura en vivo)
 local reducirEfectos = Settings.Obtener("reducirEfectos") == true
 Settings.AlCambiar.Event:Connect(function(clave, valor)
 	if clave == "reducirEfectos" then
@@ -190,7 +190,7 @@ RunService.RenderStepped:Connect(function(dt)
 		return
 	end
 	local base = camara.CFrame
-	if not reducirEfectos then
+	if not (reducirEfectos or Settings.Obtener("reducirMovimiento")) then -- D42
 		local char = player.Character
 		local raiz = char and char:FindFirstChild("HumanoidRootPart")
 		local vel = raiz and raiz.AssemblyLinearVelocity or Vector3.zero

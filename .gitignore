@@ -13,3 +13,7 @@ graphify-out/
 .DS_Store
 Thumbs.db
 desktop.ini
+luau-analyze.exe
+luau.zip
+luau/
+*.zip
